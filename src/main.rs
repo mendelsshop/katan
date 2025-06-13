@@ -7,10 +7,10 @@ fn main() {
     app.add_plugins((DefaultPlugins,));
     app.insert_resource(BoardSize(3));
     app.add_systems(Startup, setup);
-    app.add_systems(Update, update_board);
+    app.add_systems(FixedUpdate, update_board);
+    app.add_systems(FixedUpdate, update_board_piece);
     app.run();
 }
-const X_EXTENT: f32 = 900.;
 
 #[derive(Component)]
 struct Number(u8);
@@ -23,15 +23,46 @@ struct Position {
 
 #[derive(Debug, Component)]
 enum Hexagon {
-    Wood,
+    Wood = 0,
     Brick,
     Sheep,
     Wheat,
     Ore,
     Desert,
     Water,
-    Port(Port),
+    Port,
     Empty,
+}
+impl From<u8> for Hexagon {
+    fn from(value: u8) -> Self {
+        match value {
+            0 => Self::Wood,
+            1 => Self::Brick,
+            2 => Self::Sheep,
+            3 => Self::Wheat,
+            4 => Self::Ore,
+            5 => Self::Desert,
+            6 => Self::Water,
+            7 => Self::Port,
+            8 => Self::Empty,
+            _ => Self::Empty,
+        }
+    }
+}
+impl Hexagon {
+    fn color(&self) -> Color {
+        match self {
+            Hexagon::Wood => Color::srgb_u8(161, 102, 47),
+            Hexagon::Brick => Color::srgb_u8(198, 74, 60),
+            Hexagon::Sheep => Color::srgb_u8(0, 255, 0),
+            Hexagon::Wheat => Color::srgb_u8(255, 191, 0),
+            Hexagon::Ore => Color::srgb_u8(67, 67, 65),
+            Hexagon::Desert => Color::srgba_u8(210, 180, 140, 1),
+            Hexagon::Water => Color::srgb_u8(0, 0, 255),
+            Hexagon::Port => Color::srgb_u8(0, 0, 255),
+            Hexagon::Empty => Color::BLACK.with_alpha(-1.),
+        }
+    }
 }
 
 fn generate_bord(commands: &mut Commands, n: i8) {
@@ -55,7 +86,10 @@ fn generate_bord(commands: &mut Commands, n: i8) {
 enum Port {}
 #[derive(Resource)]
 struct BoardSize(u8);
-
+fn update_board_piece(mut q: Query<(&mut Hexagon, &Position)>) {
+    q.iter_mut()
+        .for_each(|mut foo| *foo.0 = rand::random::<u8>().into());
+}
 fn update_board(
     size: Res<BoardSize>,
     q: Query<(&Hexagon, &Position)>,
@@ -65,14 +99,14 @@ fn update_board(
 ) {
     for q in q {
         let mesh = meshes.add(RegularPolygon::new(25.0, 6));
-        let color = Color::hsl(360. * 3 as f32 / 1 as f32, 0.95, 0.7);
         let x = 3f32
             .sqrt()
-            .mul_add(q.1.q as f32, (3f32.sqrt() / 2. * (q.1.r as f32)));
+            .mul_add(q.1.q as f32, 3f32.sqrt() / 2. * (q.1.r as f32));
         let y = 3. / 2. * (q.1.r as f32);
+
         commands.spawn((
             Mesh2d(mesh),
-            MeshMaterial2d(materials.add(color)),
+            MeshMaterial2d(materials.add(q.0.color())),
             Transform::from_xyz(
                 // Distribute shapes from -X_EXTENT/2 to +X_EXTENT/2.
                 x * 28.0,
@@ -87,24 +121,9 @@ fn update_board(
 }
 fn setup(
     mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<ColorMaterial>>,
+    meshes: ResMut<Assets<Mesh>>,
+    materials: ResMut<Assets<ColorMaterial>>,
 ) {
     commands.spawn(Camera2d);
     generate_bord(&mut commands, 3);
-    // for (i, shape) in shapes.into_iter().enumerate() {
-    //     // Distribute colors evenly across the rainbow.
-    //     let color = Color::hsl(360. * i as f32 / num_shapes as f32, 0.95, 0.7);
-    //
-    //     commands.spawn((
-    //         Mesh2d(shape),
-    //         MeshMaterial2d(materials.add(color)),
-    //         Transform::from_xyz(
-    //             // Distribute shapes from -X_EXTENT/2 to +X_EXTENT/2.
-    //             -X_EXTENT / 2. + i as f32 / (num_shapes - 1) as f32 * X_EXTENT,
-    //             0.0,
-    //             0.0,
-    //         ),
-    //     ));
-    // }
 }
