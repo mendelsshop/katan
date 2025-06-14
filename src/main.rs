@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 
 use itertools::Itertools;
+use rand::seq::SliceRandom;
 fn main() {
     println!("Hello, world!");
     let mut app = App::new();
@@ -21,7 +22,7 @@ struct Position {
     s: i8,
 }
 
-#[derive(Debug, Component)]
+#[derive(Debug, Component, Clone, Copy)]
 enum Hexagon {
     Wood = 0,
     Brick,
@@ -57,7 +58,7 @@ impl Hexagon {
             Hexagon::Sheep => Color::srgb_u8(0, 255, 0),
             Hexagon::Wheat => Color::srgb_u8(255, 191, 0),
             Hexagon::Ore => Color::srgb_u8(67, 67, 65),
-            Hexagon::Desert => Color::srgba_u8(210, 180, 140, 1),
+            Hexagon::Desert => Color::srgb_u8(194, 178, 128),
             Hexagon::Water => Color::srgb_u8(0, 0, 255),
             Hexagon::Port => Color::srgb_u8(0, 0, 255),
             Hexagon::Empty => Color::BLACK.with_alpha(-1.),
@@ -65,30 +66,42 @@ impl Hexagon {
     }
 }
 
-fn generate_bord(commands: &mut Commands, n: i8) {
+fn generate_bord(commands: &mut Commands) {
     // 1 for first layer 6 for second layer 12 for third layer
+    let mut postions = [Hexagon::Wheat; 4]
+        .into_iter()
+        .chain([Hexagon::Sheep; 4].into_iter())
+        .chain([Hexagon::Wood; 4].into_iter())
+        .chain([Hexagon::Desert; 1].into_iter())
+        .chain([Hexagon::Brick; 3].into_iter())
+        .chain([Hexagon::Ore; 3].into_iter())
+        .collect_vec();
+    postions.shuffle(&mut rand::rng());
+    generate_postions(3)
+        .zip(postions.into_iter())
+        .for_each(|i| {
+            commands.spawn(i);
+        });
+}
+
+fn generate_postions(n: i8) -> impl Iterator<Item = Position> {
     (0..3)
         .map(|_| -n + 1..n)
         .multi_cartesian_product()
         .filter(|q| q[0] + q[1] + q[2] == 0)
-        .for_each(|i| {
-            commands.spawn((
-                Hexagon::Desert,
-                Position {
-                    q: i[0],
-                    r: i[1],
-                    s: i[2],
-                },
-            ));
-        });
+        .map(|i| Position {
+            q: i[0],
+            r: i[1],
+            s: i[2],
+        })
 }
 #[derive(Debug)]
 enum Port {}
 #[derive(Resource)]
 struct BoardSize(u8);
 fn update_board_piece(mut q: Query<(&mut Hexagon, &Position)>) {
-    q.iter_mut()
-        .for_each(|mut foo| *foo.0 = rand::random::<u8>().into());
+    // q.iter_mut()
+    //     .for_each(|mut foo| *foo.0 = rand::random::<u8>().into());
 }
 fn update_board(
     size: Res<BoardSize>,
@@ -125,5 +138,5 @@ fn setup(
     materials: ResMut<Assets<ColorMaterial>>,
 ) {
     commands.spawn(Camera2d);
-    generate_bord(&mut commands, 3);
+    generate_bord(&mut commands);
 }
