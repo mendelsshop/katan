@@ -1,3 +1,11 @@
+#![warn(clippy::pedantic, clippy::nursery, clippy::cargo)]
+#![deny(
+    clippy::use_self,
+    rust_2018_idioms,
+    missing_debug_implementations,
+    clippy::missing_panics_doc
+)]
+
 use bevy::prelude::*;
 
 use itertools::Itertools;
@@ -53,35 +61,33 @@ impl From<u8> for Hexagon {
 impl Hexagon {
     fn color(&self) -> Color {
         match self {
-            Hexagon::Wood => Color::srgb_u8(161, 102, 47),
-            Hexagon::Brick => Color::srgb_u8(198, 74, 60),
-            Hexagon::Sheep => Color::srgb_u8(0, 255, 0),
-            Hexagon::Wheat => Color::srgb_u8(255, 191, 0),
-            Hexagon::Ore => Color::srgb_u8(67, 67, 65),
-            Hexagon::Desert => Color::srgb_u8(194, 178, 128),
-            Hexagon::Water => Color::srgb_u8(0, 0, 255),
-            Hexagon::Port => Color::srgb_u8(0, 0, 255),
-            Hexagon::Empty => Color::BLACK.with_alpha(-1.),
+            Self::Wood => Color::srgb_u8(161, 102, 47),
+            Self::Brick => Color::srgb_u8(198, 74, 60),
+            Self::Sheep => Color::srgb_u8(0, 255, 0),
+            Self::Wheat => Color::srgb_u8(255, 191, 0),
+            Self::Ore => Color::srgb_u8(67, 67, 65),
+            Self::Desert => Color::srgb_u8(194, 178, 128),
+            Self::Water => Color::srgb_u8(0, 0, 255),
+            Self::Port => Color::srgb_u8(0, 0, 255),
+            Self::Empty => Color::BLACK.with_alpha(-1.),
         }
     }
 }
 
-fn generate_bord(commands: &mut Commands) {
+fn generate_bord(commands: &mut Commands<'_, '_>) {
     // 1 for first layer 6 for second layer 12 for third layer
     let mut postions = [Hexagon::Wheat; 4]
         .into_iter()
-        .chain([Hexagon::Sheep; 4].into_iter())
-        .chain([Hexagon::Wood; 4].into_iter())
-        .chain([Hexagon::Desert; 1].into_iter())
-        .chain([Hexagon::Brick; 3].into_iter())
-        .chain([Hexagon::Ore; 3].into_iter())
+        .chain([Hexagon::Sheep; 4])
+        .chain([Hexagon::Wood; 4])
+        .chain([Hexagon::Desert; 1])
+        .chain([Hexagon::Brick; 3])
+        .chain([Hexagon::Ore; 3])
         .collect_vec();
     postions.shuffle(&mut rand::rng());
-    generate_postions(3)
-        .zip(postions.into_iter())
-        .for_each(|i| {
-            commands.spawn(i);
-        });
+    generate_postions(3).zip(postions).for_each(|i| {
+        commands.spawn(i);
+    });
 }
 
 fn generate_postions(n: i8) -> impl Iterator<Item = Position> {
@@ -99,23 +105,23 @@ fn generate_postions(n: i8) -> impl Iterator<Item = Position> {
 enum Port {}
 #[derive(Resource)]
 struct BoardSize(u8);
-fn update_board_piece(mut q: Query<(&mut Hexagon, &Position)>) {
+const fn update_board_piece(q: Query<'_, '_, (&mut Hexagon, &Position)>) {
     // q.iter_mut()
     //     .for_each(|mut foo| *foo.0 = rand::random::<u8>().into());
 }
 fn update_board(
-    size: Res<BoardSize>,
-    q: Query<(&Hexagon, &Position)>,
-    mut materials: ResMut<Assets<ColorMaterial>>,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut commands: Commands,
+    size: Res<'_, BoardSize>,
+    q: Query<'_, '_, (&Hexagon, &Position)>,
+    mut materials: ResMut<'_, Assets<ColorMaterial>>,
+    mut meshes: ResMut<'_, Assets<Mesh>>,
+    mut commands: Commands<'_, '_>,
 ) {
     for q in q {
         let mesh = meshes.add(RegularPolygon::new(25.0, 6));
         let x = 3f32
             .sqrt()
-            .mul_add(q.1.q as f32, 3f32.sqrt() / 2. * (q.1.r as f32));
-        let y = 3. / 2. * (q.1.r as f32);
+            .mul_add(f32::from(q.1.q), 3f32.sqrt() / 2. * f32::from(q.1.r));
+        let y = 3. / 2. * f32::from(q.1.r);
 
         commands.spawn((
             Mesh2d(mesh),
@@ -133,9 +139,9 @@ fn update_board(
     }
 }
 fn setup(
-    mut commands: Commands,
-    meshes: ResMut<Assets<Mesh>>,
-    materials: ResMut<Assets<ColorMaterial>>,
+    mut commands: Commands<'_, '_>,
+    meshes: ResMut<'_, Assets<Mesh>>,
+    materials: ResMut<'_, Assets<ColorMaterial>>,
 ) {
     commands.spawn(Camera2d);
     generate_bord(&mut commands);
