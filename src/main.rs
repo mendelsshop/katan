@@ -76,7 +76,62 @@ impl Hexagon {
         }
     }
 }
+#[derive(Debug, Component, Clone, Copy)]
+enum Resource {
+    Wood = 0,
+    Brick,
+    Sheep,
+    Wheat,
+    Ore,
+}
+#[derive(Debug, Component, Clone, Copy)]
+struct Town;
+#[derive(Debug, Component, Clone, Copy)]
+struct City;
+#[derive(Debug, Component, Clone, Copy)]
+struct Road;
+#[derive(Debug, Component, Clone, Copy)]
+enum DevelopmentCard {
+    Knight,
+    Monopoly,
+    YearOfPlenty,
+    RoadBuilding,
+    VictoryPoint,
+}
+fn generate_development_cards(commands: &mut Commands<'_, '_>) {
+    let mut development_cards = [
+        DevelopmentCard::Knight,
+        DevelopmentCard::Knight,
+        DevelopmentCard::Knight,
+        DevelopmentCard::Knight,
+        DevelopmentCard::Knight,
+        DevelopmentCard::Knight,
+        DevelopmentCard::Knight,
+        DevelopmentCard::Knight,
+        DevelopmentCard::Knight,
+        DevelopmentCard::Knight,
+        DevelopmentCard::Knight,
+        DevelopmentCard::Knight,
+        DevelopmentCard::Knight,
+        DevelopmentCard::Knight,
+        DevelopmentCard::VictoryPoint,
+        DevelopmentCard::VictoryPoint,
+        DevelopmentCard::VictoryPoint,
+        DevelopmentCard::VictoryPoint,
+        DevelopmentCard::VictoryPoint,
+        DevelopmentCard::RoadBuilding,
+        DevelopmentCard::RoadBuilding,
+        DevelopmentCard::Monopoly,
+        DevelopmentCard::Monopoly,
+        DevelopmentCard::YearOfPlenty,
+        DevelopmentCard::YearOfPlenty,
+    ];
+    development_cards.shuffle(&mut rand::rng());
 
+    for card in development_cards {
+        commands.spawn(card);
+    }
+}
 fn generate_bord(commands: &mut Commands<'_, '_>) {
     let mut numbers = [
         (Number::Number(2)),
@@ -197,4 +252,5 @@ fn setup(
 ) {
     commands.spawn(Camera2d);
     generate_bord(&mut commands);
+    generate_development_cards(&mut commands);
 }
