@@ -22,7 +22,10 @@ fn main() {
 }
 
 #[derive(Component)]
-struct Number(u8);
+enum Number {
+    Number(u8),
+    None,
+}
 #[derive(Component, Debug)]
 struct Position {
     q: i8,
@@ -75,19 +78,61 @@ impl Hexagon {
 }
 
 fn generate_bord(commands: &mut Commands<'_, '_>) {
-    // 1 for first layer 6 for second layer 12 for third layer
-    let mut postions = [Hexagon::Wheat; 4]
+    let mut numbers = [
+        (Number::Number(2)),
+        (Number::Number(3)),
+        (Number::Number(3)),
+        (Number::Number(4)),
+        (Number::Number(4)),
+        (Number::Number(5)),
+        (Number::Number(5)),
+        (Number::Number(6)),
+        (Number::Number(6)),
+        (Number::Number(8)),
+        (Number::Number(8)),
+        (Number::Number(9)),
+        (Number::Number(9)),
+        (Number::Number(10)),
+        (Number::Number(10)),
+        (Number::Number(11)),
+        (Number::Number(11)),
+        (Number::Number(12)),
+    ];
+    numbers.shuffle(&mut rand::rng());
+    let inhabited_hexagons = [
+        Hexagon::Wheat,
+        Hexagon::Wheat,
+        Hexagon::Wheat,
+        Hexagon::Wheat,
+        Hexagon::Wood,
+        Hexagon::Wood,
+        Hexagon::Wood,
+        Hexagon::Wood,
+        Hexagon::Sheep,
+        Hexagon::Sheep,
+        Hexagon::Sheep,
+        Hexagon::Sheep,
+        Hexagon::Ore,
+        Hexagon::Ore,
+        Hexagon::Ore,
+        Hexagon::Brick,
+        Hexagon::Brick,
+        Hexagon::Brick,
+    ];
+    let mut inhabited = inhabited_hexagons
         .into_iter()
-        .chain([Hexagon::Sheep; 4])
-        .chain([Hexagon::Wood; 4])
-        .chain([Hexagon::Desert; 1])
-        .chain([Hexagon::Brick; 3])
-        .chain([Hexagon::Ore; 3])
+        .zip(numbers)
+        .chain([(Hexagon::Desert, Number::None); 1])
         .collect_vec();
-    postions.shuffle(&mut rand::rng());
-    generate_postions(3).zip(postions).for_each(|i| {
-        commands.spawn(i);
-    });
+
+    // 1 for first layer 6 for second layer 12 for third layer
+
+    inhabited.shuffle(&mut rand::rng());
+    generate_postions(3)
+        .zip(inhabited)
+        .for_each(|(position, (hex, number))| {
+            commands.spawn((hex, position, number));
+        });
 }
 
 fn generate_postions(n: i8) -> impl Iterator<Item = Position> {
@@ -111,13 +156,15 @@ const fn update_board_piece(q: Query<'_, '_, (&mut Hexagon, &Position)>) {
 }
 fn update_board(
     size: Res<'_, BoardSize>,
-    q: Query<'_, '_, (&Hexagon, &Position)>,
+    q: Query<'_, '_, (&Hexagon, &Position, &Number)>,
     mut materials: ResMut<'_, Assets<ColorMaterial>>,
     mut meshes: ResMut<'_, Assets<Mesh>>,
     mut commands: Commands<'_, '_>,
 ) {
+    let text_justification = JustifyText::Center;
     for q in q {
         let mesh = meshes.add(RegularPolygon::new(25.0, 6));
+        let mesh1 = meshes.add(Circle::new(13.0));
         let x = 3f32
             .sqrt()
             .mul_add(f32::from(q.1.q), 3f32.sqrt() / 2. * f32::from(q.1.r));
@@ -126,16 +173,21 @@ fn update_board(
         commands.spawn((
             Mesh2d(mesh),
             MeshMaterial2d(materials.add(q.0.color())),
-            Transform::from_xyz(
-                // Distribute shapes from -X_EXTENT/2 to +X_EXTENT/2.
-                x * 28.0,
-                // -X_EXTENT / 2. + (q.1.0 + size.0 as i8) as f32 / (19 - 1) as f32 * X_EXTENT,
-                y * 28.,
-                // -X_EXTENT / 2. + (q.1.1 + size.0 as i8) as f32 / (19 - 1) as f32 * X_EXTENT,
-                // -X_EXTENT / 2. + ( q.1.2.abs()) as f32 / (3 - 1) as f32 * X_EXTENT,
-                0.0,
-            ),
+            Transform::from_xyz(x * 28.0, y * 28., 0.0),
         ));
+        if let Number::Number(n) = q.2 {
+            let mesh2 = Text2d::new(n.to_string());
+            commands.spawn((
+                Mesh2d(mesh1),
+                MeshMaterial2d(materials.add(Color::BLACK)),
+                Transform::from_xyz(x * 28.0, y * 28., 0.0),
+            ));
+            commands.spawn((
+                mesh2,
+                TextLayout::new_with_justify(text_justification),
+                Transform::from_xyz(x * 28.0, y * 28., 0.0),
+            ));
+        }
     }
 }
 fn setup(
