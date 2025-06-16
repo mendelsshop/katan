@@ -18,12 +18,11 @@ fn main() {
     app.add_plugins((DefaultPlugins,));
     app.insert_resource(BoardSize(3));
     app.add_systems(Startup, setup);
-    app.add_systems(FixedUpdate, update_board);
     app.add_systems(FixedUpdate, update_board_piece);
     app.run();
 }
 
-#[derive(Component, PartialEq, Debug)]
+#[derive(Component, PartialEq, Debug, Clone, Copy)]
 enum Number {
     Number(u8),
     None,
@@ -145,7 +144,7 @@ fn generate_development_cards(commands: &mut Commands<'_, '_>) {
         commands.spawn(card);
     }
 }
-fn generate_bord(commands: &mut Commands<'_, '_>) {
+fn generate_bord(commands: &mut Commands<'_, '_>) -> Vec<(Position, Hexagon, Number)> {
     let mut numbers = [
         (Number::Number(2)),
         (Number::Number(3)),
@@ -198,17 +197,19 @@ fn generate_bord(commands: &mut Commands<'_, '_>) {
     inhabited.shuffle(&mut rand::rng());
     let partition: (Vec<_>, Vec<_>) = generate_postions(3)
         .zip(inhabited)
-        .partition(|(_, (_, n))| Number::Number(8) == *n || Number::Number(6) == *n);
+        .map(|(position, (hex, number))| (position, hex, number))
+        .partition(|(_, _, n)| Number::Number(8) == *n || Number::Number(6) == *n);
     let inhabited = fix_numbers(partition.0, partition.1);
-    for (position, (hex, number)) in inhabited {
-        commands.spawn((hex, position, number));
-    }
+    inhabited.iter().for_each(|hex| {
+        commands.spawn((hex.0, hex.1, hex.2));
+    });
+    inhabited
 }
 
 fn fix_numbers(
-    mut reds: Vec<(Position, (Hexagon, Number))>,
-    mut normal: Vec<(Position, (Hexagon, Number))>,
-) -> Vec<(Position, (Hexagon, Number))> {
+    mut reds: Vec<(Position, Hexagon, Number)>,
+    mut normal: Vec<(Position, Hexagon, Number)>,
+) -> Vec<(Position, Hexagon, Number)> {
     let cube_direction_vectors = [
         Position { q: 1, r: 0, s: -1 },
         Position { q: 1, r: -1, s: 0 },
@@ -219,7 +220,7 @@ fn fix_numbers(
     ];
     let mut used = vec![];
 
-    while let Some(red @ (p, (_, _))) = reds.pop() {
+    while let Some(red @ (p, _, _)) = reds.pop() {
         let touches = |p1| cube_direction_vectors.map(|p1| p + p1).contains(&p1);
         used.push(red);
         let mut new_used;
@@ -230,10 +231,10 @@ fn fix_numbers(
         reds.iter_mut().filter(|p| touches(p.0)).for_each(|red| {
             let new_hexagon = normal.choose_weighted_mut(&mut rand::rng(), |p| {
                 // ignore desert piece (no number)
-                if p.1.1 == Number::None { 0 } else { length }
+                if p.2 == Number::None { 0 } else { length }
             });
             if let Ok(new_hexagon) = new_hexagon {
-                swap(&mut red.1.0, &mut new_hexagon.1.0);
+                swap(&mut red.1, &mut new_hexagon.1);
                 swap(&mut red.0, &mut new_hexagon.0);
             }
         });
@@ -262,12 +263,11 @@ const fn update_board_piece(q: Query<'_, '_, (&mut Hexagon, &Position)>) {
     // q.iter_mut()
     //     .for_each(|mut foo| *foo.0 = rand::random::<u8>().into());
 }
-fn update_board(
-    size: Res<'_, BoardSize>,
-    q: Query<'_, '_, (&Hexagon, &Position, &Number)>,
+fn draw_board(
+    q: impl Iterator<Item = (Position, Hexagon, Number)>,
     mut materials: ResMut<'_, Assets<ColorMaterial>>,
     mut meshes: ResMut<'_, Assets<Mesh>>,
-    mut commands: Commands<'_, '_>,
+    commands: &mut Commands<'_, '_>,
 ) {
     let text_justification = JustifyText::Center;
     for q in q {
@@ -275,14 +275,14 @@ fn update_board(
         let mesh1 = meshes.add(Circle::new(13.0));
         let x = 3f32
             .sqrt()
-            .mul_add(f32::from(q.1.q), 3f32.sqrt() / 2. * f32::from(q.1.r));
-        let y = 3. / 2. * f32::from(q.1.r);
-
+            .mul_add(f32::from(q.0.q), 3f32.sqrt() / 2. * f32::from(q.0.r));
+        let y = 3. / 2. * f32::from(q.0.r);
         commands.spawn((
             Mesh2d(mesh),
-            MeshMaterial2d(materials.add(q.0.color())),
+            MeshMaterial2d(materials.add(q.1.color())),
             Transform::from_xyz(x * 28.0, y * 28., 0.0),
         ));
+
         if let Number::Number(n) = q.2 {
             let mesh2 = Text2d::new(n.to_string());
             commands.spawn((
@@ -304,6 +304,11 @@ fn setup(
     materials: ResMut<'_, Assets<ColorMaterial>>,
 ) {
     commands.spawn(Camera2d);
-    generate_bord(&mut commands);
+    draw_board(
+        generate_bord(&mut commands).into_iter(),
+        materials,
+        meshes,
+        &mut commands,
+    );
     generate_development_cards(&mut commands);
 }
