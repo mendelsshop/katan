@@ -6,10 +6,12 @@
     clippy::missing_panics_doc
 )]
 
+use std::{mem::swap, ops::Add};
+
 use bevy::prelude::*;
 
 use itertools::Itertools;
-use rand::seq::SliceRandom;
+use rand::seq::{IndexedMutRandom, SliceRandom};
 fn main() {
     println!("Hello, world!");
     let mut app = App::new();
@@ -21,16 +23,27 @@ fn main() {
     app.run();
 }
 
-#[derive(Component)]
+#[derive(Component, PartialEq, Debug)]
 enum Number {
     Number(u8),
     None,
 }
-#[derive(Component, Debug)]
+#[derive(Component, Debug, PartialEq, Clone, Copy)]
 struct Position {
     q: i8,
     r: i8,
     s: i8,
+}
+impl Add for Position {
+    type Output = Self;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        Self {
+            q: self.q + rhs.q,
+            r: self.r + rhs.r,
+            s: self.s + rhs.s,
+        }
+    }
 }
 
 #[derive(Debug, Component, Clone, Copy)]
@@ -183,11 +196,51 @@ fn generate_bord(commands: &mut Commands<'_, '_>) {
     // 1 for first layer 6 for second layer 12 for third layer
 
     inhabited.shuffle(&mut rand::rng());
-    generate_postions(3)
+    let partition: (Vec<_>, Vec<_>) = generate_postions(3)
         .zip(inhabited)
-        .for_each(|(position, (hex, number))| {
-            commands.spawn((hex, position, number));
+        .partition(|(_, (_, n))| Number::Number(8) == *n || Number::Number(6) == *n);
+    let inhabited = fix_numbers(partition.0, partition.1);
+    for (position, (hex, number)) in inhabited {
+        commands.spawn((hex, position, number));
+    }
+}
+
+fn fix_numbers(
+    mut reds: Vec<(Position, (Hexagon, Number))>,
+    mut normal: Vec<(Position, (Hexagon, Number))>,
+) -> Vec<(Position, (Hexagon, Number))> {
+    let cube_direction_vectors = [
+        Position { q: 1, r: 0, s: -1 },
+        Position { q: 1, r: -1, s: 0 },
+        Position { q: 0, r: -1, s: 1 },
+        Position { q: -1, r: 0, s: 1 },
+        Position { q: -1, r: 1, s: 0 },
+        Position { q: 0, r: 1, s: -1 },
+    ];
+    let mut used = vec![];
+
+    while let Some(red @ (p, (_, _))) = reds.pop() {
+        let touches = |p1| cube_direction_vectors.map(|p1| p + p1).contains(&p1);
+        used.push(red);
+        let mut new_used;
+        (new_used, normal) = normal.into_iter().partition(|p| touches(p.0));
+        used.append(&mut new_used);
+        // only works if bouard < 100 pieces
+        let length = 100 / used.len();
+        reds.iter_mut().filter(|p| touches(p.0)).for_each(|red| {
+            let new_hexagon = normal.choose_weighted_mut(&mut rand::rng(), |p| {
+                // ignore desert piece (no number)
+                if p.1.1 == Number::None { 0 } else { length }
+            });
+            if let Ok(new_hexagon) = new_hexagon {
+                swap(&mut red.1.0, &mut new_hexagon.1.0);
+                swap(&mut red.0, &mut new_hexagon.0);
+            }
         });
+    }
+
+    used.append(&mut normal);
+    used
 }
 
 fn generate_postions(n: i8) -> impl Iterator<Item = Position> {
