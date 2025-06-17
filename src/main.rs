@@ -202,12 +202,15 @@ fn generate_bord(commands: &mut Commands<'_, '_>) -> Vec<(Position, Hexagon, Num
     // 1 for first layer 6 for second layer 12 for third layer
 
     inhabited.shuffle(&mut rand::rng());
-    let partition: (Vec<_>, Vec<_>) = generate_postions(3)
+    let (inhabited, mut desert): (Vec<_>, Vec<_>) = generate_postions(3)
         .zip(inhabited)
         .map(|(position, (hex, number))| (position, hex, number))
-        .filter(|p| p.2 != Number::None)
+        .partition(|p| p.2 != Number::None);
+    let (reds, normal_number): (Vec<_>, Vec<_>) = inhabited
+        .into_iter()
         .partition(|(_, _, n)| Number::Number(8) == *n || Number::Number(6) == *n);
-    let inhabited = fix_numbers(partition.0, partition.1);
+    let mut inhabited = fix_numbers(reds, normal_number);
+    inhabited.append(&mut desert);
     for hex in &inhabited {
         commands.spawn((hex.0, hex.1, hex.2));
     }
@@ -307,19 +310,17 @@ enum PiecePostion {
     None,
     Position(Position),
 }
-fn generate_pieces(mut commands: &mut Commands<'_, '_>) {
-    [
+fn generate_pieces(commands: &mut Commands<'_, '_>) {
+    for color in [
         CatanColor::Red,
         CatanColor::Blue,
         CatanColor::Green,
         CatanColor::White,
-    ]
-    .into_iter()
-    .for_each(|color| {
+    ] {
         fn add_building<T: Bundle>(
             color: &CatanColor,
             commands: &mut Commands<'_, '_>,
-        ) -> impl FnMut(T) -> () {
+        ) -> impl FnMut(T) {
             |thing| {
                 commands.spawn((
                     thing,
@@ -333,7 +334,7 @@ fn generate_pieces(mut commands: &mut Commands<'_, '_>) {
         fn add_road<T: Bundle>(
             color: &CatanColor,
             commands: &mut Commands<'_, '_>,
-        ) -> impl FnMut(T) -> () {
+        ) -> impl FnMut(T) {
             |thing| {
                 commands.spawn((
                     thing,
@@ -352,7 +353,7 @@ fn generate_pieces(mut commands: &mut Commands<'_, '_>) {
             .for_each(add_building(&color, commands));
 
         [Road; 15].into_iter().for_each(add_road(&color, commands));
-    })
+    }
 }
 fn setup(
     mut commands: Commands<'_, '_>,
