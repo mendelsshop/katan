@@ -89,6 +89,13 @@ impl Hexagon {
     }
 }
 #[derive(Debug, Component, Clone, Copy)]
+enum CatanColor {
+    Red,
+    Green,
+    Blue,
+    White,
+}
+#[derive(Debug, Component, Clone, Copy)]
 enum Resource {
     Wood = 0,
     Brick,
@@ -294,6 +301,58 @@ fn draw_board(
             ));
         }
     }
+}
+#[derive(Component, PartialEq, Debug, Clone, Copy)]
+enum PiecePostion {
+    None,
+    Position(Position),
+}
+fn generate_pieces(mut commands: &mut Commands<'_, '_>) {
+    [
+        CatanColor::Red,
+        CatanColor::Blue,
+        CatanColor::Green,
+        CatanColor::White,
+    ]
+    .into_iter()
+    .for_each(|color| {
+        fn add_building<T: Bundle>(
+            color: &CatanColor,
+            commands: &mut Commands<'_, '_>,
+        ) -> impl FnMut(T) -> () {
+            |thing| {
+                commands.spawn((
+                    thing,
+                    *color,
+                    PiecePostion::None,
+                    PiecePostion::None,
+                    PiecePostion::None,
+                ));
+            }
+        }
+        fn add_road<T: Bundle>(
+            color: &CatanColor,
+            commands: &mut Commands<'_, '_>,
+        ) -> impl FnMut(T) -> () {
+            |thing| {
+                commands.spawn((
+                    thing,
+                    *color,
+                    PiecePostion::None,
+                    PiecePostion::None,
+                    PiecePostion::None,
+                ));
+            }
+        }
+        [Town; 5]
+            .into_iter()
+            .for_each(add_building(&color, commands));
+        [City; 4]
+            .into_iter()
+            .for_each(add_building(&color, commands));
+
+        [Road; 15].into_iter().for_each(add_road(&color, commands));
+    })
 }
 fn setup(
     mut commands: Commands<'_, '_>,
