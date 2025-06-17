@@ -11,7 +11,7 @@ use std::{mem::swap, ops::Add};
 use bevy::prelude::*;
 
 use itertools::Itertools;
-use rand::seq::{IndexedMutRandom, SliceRandom};
+use rand::seq::SliceRandom;
 fn main() {
     println!("Hello, world!");
     let mut app = App::new();
@@ -198,11 +198,12 @@ fn generate_bord(commands: &mut Commands<'_, '_>) -> Vec<(Position, Hexagon, Num
     let partition: (Vec<_>, Vec<_>) = generate_postions(3)
         .zip(inhabited)
         .map(|(position, (hex, number))| (position, hex, number))
+        .filter(|p| p.2 != Number::None)
         .partition(|(_, _, n)| Number::Number(8) == *n || Number::Number(6) == *n);
     let inhabited = fix_numbers(partition.0, partition.1);
-    inhabited.iter().for_each(|hex| {
+    for hex in &inhabited {
         commands.spawn((hex.0, hex.1, hex.2));
-    });
+    }
     inhabited
 }
 
@@ -226,17 +227,13 @@ fn fix_numbers(
         let mut new_used;
         (new_used, normal) = normal.into_iter().partition(|p| touches(p.0));
         used.append(&mut new_used);
-        // only works if bouard < 100 pieces
-        let length = 100 / used.len();
         reds.iter_mut().filter(|p| touches(p.0)).for_each(|red| {
-            let new_hexagon = normal.choose_weighted_mut(&mut rand::rng(), |p| {
-                // ignore desert piece (no number)
-                if p.2 == Number::None { 0 } else { length }
-            });
-            if let Ok(new_hexagon) = new_hexagon {
-                swap(&mut red.1, &mut new_hexagon.1);
-                swap(&mut red.0, &mut new_hexagon.0);
-            }
+            let mut new_hexagon =
+                normal.swap_remove((rand::random::<u8>() % normal.len() as u8) as usize);
+
+            swap(&mut red.1, &mut new_hexagon.1);
+            swap(&mut red.0, &mut new_hexagon.0);
+            used.push(new_hexagon);
         });
     }
 
