@@ -36,6 +36,7 @@ struct Position {
     s: i8,
 }
 
+// maybe do size const generics?
 impl Position {
     pub fn new(q: i8, r: i8, s: i8, size: Option<u8>) -> Option<Self> {
         const fn in_between(x: u8, y: i8) -> bool {
@@ -45,6 +46,27 @@ impl Position {
         (q + r + s == 0
             && size.is_none_or(|x| in_between(x, q) && in_between(x, r) && in_between(x, s)))
         .then_some(Self { q, r, s })
+    }
+    // returns the two neighboring hexes for the two hexes passed in
+    fn neighboring_two(&self, other: &Self, size: Option<u8>) -> (Option<Self>, Option<Self>) {
+        if self.q == other.q {
+            (
+                Self::new(self.q + 1, self.r.min(other.r), self.s.min(other.s), size),
+                Self::new(self.q - 1, self.r.max(other.r), self.s.max(other.s), size),
+            )
+        } else if self.s == other.s {
+            (
+                Self::new(self.s + 1, self.r.min(other.r), self.q.min(other.q), size),
+                Self::new(self.s - 1, self.r.max(other.r), self.q.max(other.q), size),
+            )
+        } else if self.r == other.r {
+            (
+                Self::new(self.r + 1, self.q.min(other.q), self.s.min(other.s), size),
+                Self::new(self.r - 1, self.q.max(other.q), self.s.max(other.s), size),
+            )
+        } else {
+            panic!()
+        }
     }
 }
 impl Add for Position {
@@ -304,30 +326,33 @@ fn get_cursor_world_pos(
     });
 }
 // not for initial game setup where the are no roads yet
+// TODO: maybe we should impose an order on postions for stuff like roads so that comparing them is
+// easeier (i.e. first postion is smallest ....)
 fn place_normal_road(
+    commands: &'_ mut Commands<'_, '_>,
     color_r: Res<'_, CurrentColor>,
     size_r: Res<'_, BoardSize>,
-    road_q: Query<'_, '_, (&Road, &CatanColor, &mut PiecePostion, &mut PiecePostion)>,
+    road_q: Query<'_, '_, (&Road, &CatanColor, &PiecePostion, &PiecePostion)>,
     town_q: Query<
         '_,
         '_,
         (
-            &Town,
-            &CatanColor,
-            &PiecePostion,
-            &PiecePostion,
-            &PiecePostion,
+            &'_ Town,
+            &'_ CatanColor,
+            &'_ PiecePostion,
+            &'_ PiecePostion,
+            &'_ PiecePostion,
         ),
     >,
     city_q: Query<
         '_,
         '_,
         (
-            &City,
-            &CatanColor,
-            &PiecePostion,
-            &PiecePostion,
-            &PiecePostion,
+            &'_ City,
+            &'_ CatanColor,
+            &'_ PiecePostion,
+            &'_ PiecePostion,
+            &'_ PiecePostion,
         ),
     >,
 ) {
@@ -345,6 +370,8 @@ fn place_normal_road(
     }
     let (current_color_roads, other_color_roads): (Vec<_>, Vec<_>) =
         placed_road.into_iter().partition(|r| *r.1 == color_r.0);
+    // we don't check current color roads is empty b/c by iterating over them we are essentially
+    // doing that already
     // roads are between two hexes (if one coordiante is the same
     // if q same then its flat (assuming hex is flat)
     // if r is same then its diagonol like '\'
@@ -352,28 +379,35 @@ fn place_normal_road(
     // if there is a new place to put road down
     // 1) the new hex has to share one coordianate with one hex and another differenet one with the
     //    other hex (more constraint (i.e cannot be 50 square of in another direction)
-    let possibles_roads = current_color_roads
-        .into_iter()
-        .map(
-            |(_, _, p1, p2)| -> (PiecePostion, (PiecePostion, Option<Position>)) {
+    let possibles_roads = current_color_roads.into_iter().flat_map(|(_, _, p1, p2)| {
+        // TODO: this currently does not include roads that go from edge inwards
+        // also includes "unplaces roads (roads that all postions are none)
+        let (p3, p4) = p1
+            .and_then_option(|p1| p2.map_option(|p2| p1.neighboring_two(&p2, Some(size_r.0))))
+            .map_or((PiecePostion::None, PiecePostion::None), |(p1, p2)| {
+                (p1.into(), p2.into())
+            });
+        [
+            (
+                // the other point (used to check for towns/cities)
+                *p1,
+                // the postion of the road
                 (
-                    // the other point (used to check for towns/cities
-                    *p1,
-                    // the postion of the road
-                    (
-                        *p2,
-                        Position::new(todo!(), todo!(), todo!(), Some(size_r.0)),
-                    ),
-                )
-            },
-        )
-        .filter_map(|(p1, (p2, p3))| p3.map(|p3| (p1, (p2, PiecePostion::Position(p3)))));
+                    *p2, p3,
+                    // TODO: roads on edge of board
+                ),
+            ),
+            (*p1, (*p2, p4)),
+            (*p2, (*p1, p3)),
+            (*p2, (*p1, p4)),
+        ]
+    });
+    // .filter_map(|(p1, (p2, p3))| p3.map(|p3| (p1, (p2, PiecePostion::Position(p3)))));
     // 2) make sure that there is no road already there (whether that color or not)
     let possible_roads = possibles_roads.filter(|(_, (p_n1, p_n2))| {
-        other_color_roads.iter().any(|(_, _, p1, p2)| {
-            (p_n1 == p1.as_ref() && p_n2 == p2.as_ref())
-                || (p_n1 == p2.as_ref() && p_n2 == p1.as_ref())
-        })
+        other_color_roads
+            .iter()
+            .any(|(_, _, p1, p2)| (p_n1 == *p1 && p_n2 == *p2) || (p_n1 == *p2 && p_n2 == *p1))
     });
     // 3) make sure there is no differeent color house at the three itersection
     // partition into other color used houses with single partiton
@@ -390,6 +424,7 @@ fn place_normal_road(
                     || road1 == building2 && road2 == building3 && road3 == building1
                     || road1 == building3 && road2 == building1 && road3 == building2
                     || road1 == building3 && road2 == building2 && road3 == building1
+                // TODO: houses on edge of board
             })
     }
     let possible_roads =
@@ -437,6 +472,40 @@ enum PiecePostion {
     None,
     Position(Position),
 }
+impl From<Option<Position>> for PiecePostion {
+    fn from(value: Option<Position>) -> Self {
+        value.map_or(Self::None, Self::Position)
+    }
+}
+impl PiecePostion {
+    fn map(self, f: impl FnOnce(Position) -> Position) -> Self {
+        match self {
+            Self::None => Self::None,
+            Self::Position(position) => Self::Position(f(position)),
+        }
+    }
+
+    fn map_option<T>(self, f: impl FnOnce(Position) -> T) -> Option<T> {
+        match self {
+            Self::None => None,
+            Self::Position(position) => Some(f(position)),
+        }
+    }
+
+    fn and_then(self, f: impl FnOnce(Position) -> Self) -> Self {
+        match self {
+            Self::None => Self::None,
+            Self::Position(position) => f(position),
+        }
+    }
+
+    fn and_then_option<T>(self, f: impl FnOnce(Position) -> Option<T>) -> Option<T> {
+        match self {
+            Self::None => None,
+            Self::Position(position) => f(position),
+        }
+    }
+}
 fn generate_pieces(commands: &mut Commands<'_, '_>) {
     for color in [
         CatanColor::Red,
@@ -463,13 +532,7 @@ fn generate_pieces(commands: &mut Commands<'_, '_>) {
             commands: &mut Commands<'_, '_>,
         ) -> impl FnMut(T) {
             |thing| {
-                commands.spawn((
-                    thing,
-                    *color,
-                    PiecePostion::None,
-                    PiecePostion::None,
-                    PiecePostion::None,
-                ));
+                commands.spawn((thing, *color, PiecePostion::None, PiecePostion::None));
             }
         }
         [Town; 5]
@@ -495,4 +558,5 @@ fn setup(
         &mut commands,
     );
     generate_development_cards(&mut commands);
+    generate_pieces(&mut commands);
 }
