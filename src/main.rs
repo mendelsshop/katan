@@ -18,6 +18,7 @@ fn main() {
     app.add_plugins((DefaultPlugins,));
     app.insert_resource(BoardSize(3));
     app.insert_resource(CurrentColor(CatanColor::White));
+    app.insert_resource(CursorWorldPos(None));
     app.add_systems(Startup, setup);
     app.add_systems(Update, get_cursor_world_pos);
     app.add_systems(FixedUpdate, update_board_piece);
@@ -332,6 +333,7 @@ fn place_normal_road(
     commands: &'_ mut Commands<'_, '_>,
     color_r: Res<'_, CurrentColor>,
     size_r: Res<'_, BoardSize>,
+    road_free_q: Query<'_, '_, (&Road, &CatanColor, &Left)>,
     road_q: Query<'_, '_, (&Road, &CatanColor, &PiecePostion, &PiecePostion)>,
     town_q: Query<
         '_,
@@ -356,20 +358,14 @@ fn place_normal_road(
         ),
     >,
 ) {
-    let (unplaced_road, placed_road): (Vec<_>, Vec<_>) =
-        road_q
-            .into_iter()
-            .partition(|(_, _, piece_postion, piece_postion1)| {
-                **piece_postion == PiecePostion::None && **piece_postion1 == PiecePostion::None
-            });
-    let (unplaced_current_color_roads, _): (Vec<_>, Vec<_>) =
-        unplaced_road.into_iter().partition(|r| *r.1 == color_r.0);
+    let unplaced_roads_correct_color = road_free_q.iter().find(|r| r.1 == &color_r.0);
+
     // nor roads to place
-    if unplaced_current_color_roads.is_empty() {
+    let Some(_) = unplaced_roads_correct_color.filter(|r| r.2.0 > 0) else {
         return;
-    }
+    };
     let (current_color_roads, other_color_roads): (Vec<_>, Vec<_>) =
-        placed_road.into_iter().partition(|r| *r.1 == color_r.0);
+        road_q.into_iter().partition(|r| *r.1 == color_r.0);
     // we don't check current color roads is empty b/c by iterating over them we are essentially
     // doing that already
     // roads are between two hexes (if one coordiante is the same
@@ -430,6 +426,7 @@ fn place_normal_road(
     let possible_roads =
         possible_roads.filter(|r| filter_by_building(r, town_q) && filter_by_building(r, city_q));
     // TODO: show options
+    commands.spawn_batch(possible_roads.map(|p| (Button)).collect_vec());
 }
 
 fn draw_board(
@@ -506,6 +503,8 @@ impl PiecePostion {
         }
     }
 }
+#[derive(Component, PartialEq, Eq)]
+struct Left(pub u8);
 fn generate_pieces(commands: &mut Commands<'_, '_>) {
     for color in [
         CatanColor::Red,
@@ -513,36 +512,9 @@ fn generate_pieces(commands: &mut Commands<'_, '_>) {
         CatanColor::Green,
         CatanColor::White,
     ] {
-        fn add_building<T: Bundle>(
-            color: &CatanColor,
-            commands: &mut Commands<'_, '_>,
-        ) -> impl FnMut(T) {
-            |thing| {
-                commands.spawn((
-                    thing,
-                    *color,
-                    PiecePostion::None,
-                    PiecePostion::None,
-                    PiecePostion::None,
-                ));
-            }
-        }
-        fn add_road<T: Bundle>(
-            color: &CatanColor,
-            commands: &mut Commands<'_, '_>,
-        ) -> impl FnMut(T) {
-            |thing| {
-                commands.spawn((thing, *color, PiecePostion::None, PiecePostion::None));
-            }
-        }
-        [Town; 5]
-            .into_iter()
-            .for_each(add_building(&color, commands));
-        [City; 4]
-            .into_iter()
-            .for_each(add_building(&color, commands));
-
-        [Road; 15].into_iter().for_each(add_road(&color, commands));
+        commands.spawn((Town, color, Left(5)));
+        commands.spawn((City, color, Left(4)));
+        commands.spawn((Road, color, Left(15)));
     }
 }
 fn setup(
