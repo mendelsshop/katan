@@ -8,7 +8,7 @@
 
 use std::{mem::swap, ops::Add};
 
-use bevy::prelude::*;
+use bevy::{prelude::*, window::PrimaryWindow};
 
 use itertools::Itertools;
 use rand::seq::SliceRandom;
@@ -17,7 +17,9 @@ fn main() {
     let mut app = App::new();
     app.add_plugins((DefaultPlugins,));
     app.insert_resource(BoardSize(3));
+    app.insert_resource(CurrentColor(CatanColor::White));
     app.add_systems(Startup, setup);
+    app.add_systems(Update, get_cursor_world_pos);
     app.add_systems(FixedUpdate, update_board_piece);
     app.run();
 }
@@ -32,6 +34,18 @@ struct Position {
     q: i8,
     r: i8,
     s: i8,
+}
+
+impl Position {
+    pub fn new(q: i8, r: i8, s: i8, size: Option<u8>) -> Option<Self> {
+        const fn in_between(x: u8, y: i8) -> bool {
+            let x = (x - 1) as i8;
+            -x >= y && y <= x
+        }
+        (q + r + s == 0
+            && size.is_none_or(|x| in_between(x, q) && in_between(x, r) && in_between(x, s)))
+        .then_some(Self { q, r, s })
+    }
 }
 impl Add for Position {
     type Output = Self;
@@ -88,7 +102,10 @@ impl Hexagon {
         }
     }
 }
-#[derive(Debug, Component, Clone, Copy)]
+#[derive(Debug, Resource, Clone, Copy)]
+// TODO: what about before turn order decided
+struct CurrentColor(CatanColor);
+#[derive(Debug, Component, Clone, Copy, PartialEq)]
 enum CatanColor {
     Red,
     Green,
@@ -270,6 +287,116 @@ const fn update_board_piece(q: Query<'_, '_, (&mut Hexagon, &Position)>) {
     // q.iter_mut()
     //     .for_each(|mut foo| *foo.0 = rand::random::<u8>().into());
 }
+
+#[derive(Resource)]
+struct CursorWorldPos(Option<Vec2>);
+fn get_cursor_world_pos(
+    mut cursor_world_pos: ResMut<'_, CursorWorldPos>,
+    primary_window: Single<'_, &Window, With<PrimaryWindow>>,
+    q_camera: Single<'_, (&Camera, &GlobalTransform)>,
+) {
+    let (main_camera, main_camera_transform) = *q_camera;
+    // Get the cursor position in the world
+    cursor_world_pos.0 = primary_window.cursor_position().and_then(|cursor_pos| {
+        main_camera
+            .viewport_to_world_2d(main_camera_transform, cursor_pos)
+            .ok()
+    });
+}
+// not for initial game setup where the are no roads yet
+fn place_normal_road(
+    color_r: Res<'_, CurrentColor>,
+    size_r: Res<'_, BoardSize>,
+    road_q: Query<'_, '_, (&Road, &CatanColor, &mut PiecePostion, &mut PiecePostion)>,
+    town_q: Query<
+        '_,
+        '_,
+        (
+            &Town,
+            &CatanColor,
+            &PiecePostion,
+            &PiecePostion,
+            &PiecePostion,
+        ),
+    >,
+    city_q: Query<
+        '_,
+        '_,
+        (
+            &City,
+            &CatanColor,
+            &PiecePostion,
+            &PiecePostion,
+            &PiecePostion,
+        ),
+    >,
+) {
+    let (unplaced_road, placed_road): (Vec<_>, Vec<_>) =
+        road_q
+            .into_iter()
+            .partition(|(_, _, piece_postion, piece_postion1)| {
+                **piece_postion == PiecePostion::None && **piece_postion1 == PiecePostion::None
+            });
+    let (unplaced_current_color_roads, _): (Vec<_>, Vec<_>) =
+        unplaced_road.into_iter().partition(|r| *r.1 == color_r.0);
+    // nor roads to place
+    if unplaced_current_color_roads.is_empty() {
+        return;
+    }
+    let (current_color_roads, other_color_roads): (Vec<_>, Vec<_>) =
+        placed_road.into_iter().partition(|r| *r.1 == color_r.0);
+    // roads are between two hexes (if one coordiante is the same
+    // if q same then its flat (assuming hex is flat)
+    // if r is same then its diagonol like '\'
+    // if s is same then its diagonol like '/'
+    // if there is a new place to put road down
+    // 1) the new hex has to share one coordianate with one hex and another differenet one with the
+    //    other hex (more constraint (i.e cannot be 50 square of in another direction)
+    let possibles_roads = current_color_roads
+        .into_iter()
+        .map(
+            |(_, _, p1, p2)| -> (PiecePostion, (PiecePostion, Option<Position>)) {
+                (
+                    // the other point (used to check for towns/cities
+                    *p1,
+                    // the postion of the road
+                    (
+                        *p2,
+                        Position::new(todo!(), todo!(), todo!(), Some(size_r.0)),
+                    ),
+                )
+            },
+        )
+        .filter_map(|(p1, (p2, p3))| p3.map(|p3| (p1, (p2, PiecePostion::Position(p3)))));
+    // 2) make sure that there is no road already there (whether that color or not)
+    let possible_roads = possibles_roads.filter(|(_, (p_n1, p_n2))| {
+        other_color_roads.iter().any(|(_, _, p1, p2)| {
+            (p_n1 == p1.as_ref() && p_n2 == p2.as_ref())
+                || (p_n1 == p2.as_ref() && p_n2 == p1.as_ref())
+        })
+    });
+    // 3) make sure there is no differeent color house at the three itersection
+    // partition into other color used houses with single partiton
+    fn filter_by_building<B: Component>(
+        (road1, (road2, road3)): &(PiecePostion, (PiecePostion, PiecePostion)),
+        building_q: Query<'_, '_, (&B, &CatanColor, &PiecePostion, &PiecePostion, &PiecePostion)>,
+    ) -> bool {
+        !building_q
+            .iter()
+            .any(|(_, _, building1, building2, building3)| {
+                road1 == building1 && road2 == building2 && road3 == building3
+                    || road1 == building1 && road2 == building3 && road3 == building2
+                    || road1 == building2 && road2 == building1 && road3 == building3
+                    || road1 == building2 && road2 == building3 && road3 == building1
+                    || road1 == building3 && road2 == building1 && road3 == building2
+                    || road1 == building3 && road2 == building2 && road3 == building1
+            })
+    }
+    let possible_roads =
+        possible_roads.filter(|r| filter_by_building(r, town_q) && filter_by_building(r, city_q));
+    // TODO: show options
+}
+
 fn draw_board(
     q: impl Iterator<Item = (Position, Hexagon, Number)>,
     mut materials: ResMut<'_, Assets<ColorMaterial>>,
