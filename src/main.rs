@@ -39,17 +39,23 @@ struct Position {
 
 // maybe do size const generics?
 impl Position {
+    // TODO: maybe this should be a result as their are two possiblities for failure
+    // 1) it doesn't add uo to 0
+    // 2) its out of the board
     pub fn new(q: i8, r: i8, s: i8, size: Option<u8>) -> Option<Self> {
-        const fn in_between(x: u8, y: i8) -> bool {
-            let x = (x - 1) as i8;
-            -x >= y && y <= x
+        const fn in_between(bound: u8, point: i8) -> bool {
+            let bound = (bound - 1) as i8;
+            -bound <= point && point <= bound
         }
         (q + r + s == 0
-            && size.is_none_or(|x| in_between(x, q) && in_between(x, r) && in_between(x, s)))
+            && size.is_none_or(|size| {
+                in_between(size, q) && in_between(size, r) && in_between(size, s)
+            }))
         .then_some(Self { q, r, s })
     }
     // returns the two neighboring hexes for the two hexes passed in
     fn neighboring_two(&self, other: &Self, size: Option<u8>) -> (Option<Self>, Option<Self>) {
+        // maybe just do permutations of two other point that add up to 0
         if self.q == other.q {
             (
                 Self::new(self.q + 1, self.r.min(other.r), self.s.min(other.s), size),
@@ -330,33 +336,13 @@ fn get_cursor_world_pos(
 // TODO: maybe we should impose an order on postions for stuff like roads so that comparing them is
 // easeier (i.e. first postion is smallest ....)
 fn place_normal_road(
-    commands: &'_ mut Commands<'_, '_>,
+    mut commands: Commands<'_, '_>,
     color_r: Res<'_, CurrentColor>,
     size_r: Res<'_, BoardSize>,
     road_free_q: Query<'_, '_, (&Road, &CatanColor, &Left)>,
-    road_q: Query<'_, '_, (&Road, &CatanColor, &PiecePostion, &PiecePostion)>,
-    town_q: Query<
-        '_,
-        '_,
-        (
-            &'_ Town,
-            &'_ CatanColor,
-            &'_ PiecePostion,
-            &'_ PiecePostion,
-            &'_ PiecePostion,
-        ),
-    >,
-    city_q: Query<
-        '_,
-        '_,
-        (
-            &'_ City,
-            &'_ CatanColor,
-            &'_ PiecePostion,
-            &'_ PiecePostion,
-            &'_ PiecePostion,
-        ),
-    >,
+    road_q: Query<'_, '_, (&Road, &CatanColor, &RoadPostion)>,
+    town_q: Query<'_, '_, (&'_ Town, &'_ CatanColor, &'_ BuildingPosition)>,
+    city_q: Query<'_, '_, (&'_ City, &'_ CatanColor, &'_ BuildingPosition)>,
 ) {
     let unplaced_roads_correct_color = road_free_q.iter().find(|r| r.1 == &color_r.0);
 
@@ -364,8 +350,10 @@ fn place_normal_road(
     let Some(_) = unplaced_roads_correct_color.filter(|r| r.2.0 > 0) else {
         return;
     };
+
     let (current_color_roads, other_color_roads): (Vec<_>, Vec<_>) =
         road_q.into_iter().partition(|r| *r.1 == color_r.0);
+
     // we don't check current color roads is empty b/c by iterating over them we are essentially
     // doing that already
     // roads are between two hexes (if one coordiante is the same
@@ -375,53 +363,52 @@ fn place_normal_road(
     // if there is a new place to put road down
     // 1) the new hex has to share one coordianate with one hex and another differenet one with the
     //    other hex (more constraint (i.e cannot be 50 square of in another direction)
-    let possibles_roads = current_color_roads.into_iter().flat_map(|(_, _, p1, p2)| {
-        // TODO: this currently does not include roads that go from edge inwards
-        // also includes "unplaces roads (roads that all postions are none)
-        let (p3, p4) = p1
-            .and_then_option(|p1| p2.map_option(|p2| p1.neighboring_two(&p2, Some(size_r.0))))
-            .map_or((PiecePostion::None, PiecePostion::None), |(p1, p2)| {
-                (p1.into(), p2.into())
-            });
-        [
-            (
-                // the other point (used to check for towns/cities)
-                *p1,
-                // the postion of the road
-                (
-                    *p2, p3,
-                    // TODO: roads on edge of board
-                ),
-            ),
-            (*p1, (*p2, p4)),
-            (*p2, (*p1, p3)),
-            (*p2, (*p1, p4)),
-        ]
+    let possibles_roads = current_color_roads.into_iter().flat_map(|(_, _, road)| {
+        match road {
+            RoadPostion::Edge(_) => todo!(),
+            RoadPostion::Both(p1, p2) => {
+                // TODO: this currently does not include roads that go from edge inwards
+                // also includes "unplaces roads (roads that all postions are none)
+                let (p3, p4) = p1.neighboring_two(p2, Some(size_r.0));
+                let make_road_pos = |p, option_p1: Option<_>| {
+                    option_p1.map_or(RoadPostion::Edge(p), |p1| RoadPostion::Both(p, p1))
+                };
+                [
+                    (
+                        // the other point (used to check for towns/cities)
+                        Some(*p1),
+                        // the postion of the road
+                        make_road_pos(*p2, p3), // TODO: roads on edge of board
+                    ),
+                    (Some(*p1), make_road_pos(*p2, p4)),
+                    (Some(*p2), make_road_pos(*p1, p3)),
+                    (Some(*p2), make_road_pos(*p1, p4)),
+                ]
+            }
+        }
     });
-    // .filter_map(|(p1, (p2, p3))| p3.map(|p3| (p1, (p2, PiecePostion::Position(p3)))));
+
     // 2) make sure that there is no road already there (whether that color or not)
-    let possible_roads = possibles_roads.filter(|(_, (p_n1, p_n2))| {
-        other_color_roads
-            .iter()
-            .any(|(_, _, p1, p2)| (p_n1 == *p1 && p_n2 == *p2) || (p_n1 == *p2 && p_n2 == *p1))
-    });
+    let possible_roads =
+        possibles_roads.filter(|(_, r)| !other_color_roads.iter().any(|(_, _, r1)| r == *r1));
+
     // 3) make sure there is no differeent color house at the three itersection
     // partition into other color used houses with single partiton
     fn filter_by_building<B: Component>(
-        (road1, (road2, road3)): &(PiecePostion, (PiecePostion, PiecePostion)),
-        building_q: Query<'_, '_, (&B, &CatanColor, &PiecePostion, &PiecePostion, &PiecePostion)>,
+        (road1, road2): &(Option<Position>, RoadPostion),
+        building_q: Query<'_, '_, (&B, &CatanColor, &BuildingPosition)>,
     ) -> bool {
-        !building_q
-            .iter()
-            .any(|(_, _, building1, building2, building3)| {
-                road1 == building1 && road2 == building2 && road3 == building3
-                    || road1 == building1 && road2 == building3 && road3 == building2
-                    || road1 == building2 && road2 == building1 && road3 == building3
-                    || road1 == building2 && road2 == building3 && road3 == building1
-                    || road1 == building3 && road2 == building1 && road3 == building2
-                    || road1 == building3 && road2 == building2 && road3 == building1
-                // TODO: houses on edge of board
-            })
+        let road_intersection = match road2 {
+            RoadPostion::Both(position, position1) => road1.map_or(
+                BuildingPosition::DoubleEdge(*position, *position1),
+                |position2| BuildingPosition::All(*position, *position1, position2),
+            ),
+            RoadPostion::Edge(position) => road1
+                .map_or(BuildingPosition::Edge(*position), |position1| {
+                    BuildingPosition::DoubleEdge(*position, position1)
+                }),
+        };
+        !building_q.iter().any(|(_, _, bp)| &road_intersection == bp)
     }
     let possible_roads =
         possible_roads.filter(|r| filter_by_building(r, town_q) && filter_by_building(r, city_q));
@@ -505,6 +492,59 @@ impl PiecePostion {
 }
 #[derive(Component, PartialEq, Eq)]
 struct Left(pub u8);
+#[derive(Component, Clone, Copy, Debug)]
+// If we had whether it was an edge or not as individual struct we could interersting stuff with
+// quries at the type level (maybe have base road postion type for quires that use both)
+enum RoadPostion {
+    // maybe we could enforce more stuff i.e. they will share one coordinate
+    // and the others will be +1 or -1 respectively
+    Both(Position, Position),
+    Edge(Position), // TODO: which edge it is on
+                    // itf its a corner edge 4 possibilites, otherwise 2
+}
+
+impl PartialEq for RoadPostion {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::Both(l0, l1), Self::Both(r0, r1)) => {
+                (l0 == r0 && l1 == r1) || (l0 == r1 && l1 == r0)
+            }
+            (Self::Edge(l0), Self::Edge(r0)) => l0 == r0,
+            _ => false,
+        }
+    }
+}
+
+// TODO: town city "enherit" from building make some quries easier
+#[derive(Component, PartialEq)]
+struct Building;
+#[derive(Component)]
+enum BuildingPosition {
+    All(Position, Position, Position),
+    DoubleEdge(Position, Position), // TODO: maybe which edge it is on (could maybe determined by
+    // coordinates in this case
+    Edge(Position), // TODO: which edge it is on
+}
+
+impl PartialEq for BuildingPosition {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::All(l0, l1, l2), Self::All(r0, r1, r2)) => {
+                l0 == r0 && l1 == r1 && l2 == r2
+                    || l0 == r0 && l1 == r2 && l2 == r1
+                    || l0 == r1 && l1 == r0 && l2 == r2
+                    || l0 == r1 && l1 == r2 && l2 == r0
+                    || l0 == r2 && l1 == r0 && l2 == r1
+                    || l0 == r2 && l1 == r1 && l2 == r0
+            }
+            (Self::DoubleEdge(l0, l1), Self::DoubleEdge(r0, r1)) => {
+                (l0 == r0 && l1 == r1) || (l0 == r1 && l1 == r0)
+            }
+            (Self::Edge(l0), Self::Edge(r0)) => l0 == r0,
+            _ => false,
+        }
+    }
+}
 fn generate_pieces(commands: &mut Commands<'_, '_>) {
     for color in [
         CatanColor::Red,
