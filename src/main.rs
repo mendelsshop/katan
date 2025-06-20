@@ -16,15 +16,28 @@ fn main() {
     println!("Hello, world!");
     let mut app = App::new();
     app.add_plugins((DefaultPlugins,));
+    app.init_state::<GameState>();
     app.insert_resource(BoardSize(3));
     app.insert_resource(CurrentColor(CatanColor::White));
     app.insert_resource(CursorWorldPos(None));
     app.add_systems(Startup, setup);
     app.add_systems(Update, get_cursor_world_pos);
     app.add_systems(FixedUpdate, update_board_piece);
+    app.add_systems(OnEnter(GameState::PlaceRoad), (place_normal_road,));
+    app.add_systems(
+        Update,
+        place_normal_road_interaction.run_if(in_state(GameState::PlaceRoad)),
+    );
     app.run();
 }
 
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default, States)]
+enum GameState {
+    #[default]
+    Nothing,
+    Start,
+    PlaceRoad,
+}
 #[derive(Component, PartialEq, Debug, Clone, Copy)]
 enum Number {
     Number(u8),
@@ -366,11 +379,57 @@ fn get_cursor_world_pos(
             .ok()
     });
 }
+
+const NORMAL_BUTTON: Color = Color::srgb(0.15, 0.15, 0.15);
+const HOVERED_BUTTON: Color = Color::srgb(0.25, 0.25, 0.25);
+const PRESSED_BUTTON: Color = Color::srgb(0.35, 0.75, 0.35);
+fn place_normal_road_interaction(
+    // mut input_focus: ResMut<'_, InputFocus>,
+    mut interaction_query: Query<
+        '_,
+        '_,
+        (
+            &RoadPostion,
+            &Interaction,
+            &mut BackgroundColor,
+            &mut Button,
+            // &Children,
+        ),
+        Changed<Interaction>,
+    >,
+) {
+    for (entity, interaction, mut color, mut button) in &mut interaction_query {
+        match *interaction {
+            Interaction::Pressed => {
+                // input_focus.set(entity);
+                // **text = "Press".to_string();
+                *color = PRESSED_BUTTON.into();
+                // *border_color = BorderColor::all(RED.into());
+
+                // The accessibility system's only update the button's state when the `Button` component is marked as changed.
+                button.set_changed();
+            }
+            Interaction::Hovered => {
+                // input_focus.set(entity);
+                // **text = "Hover".to_string();
+                *color = HOVERED_BUTTON.into();
+                // *border_color = BorderColor::all(Color::WHITE);
+                button.set_changed();
+            }
+            Interaction::None => {
+                // input_focus.clear();
+                // **text = "Button".to_string();
+                *color = NORMAL_BUTTON.into();
+                // *border_color = BorderColor::all(Color::BLACK);
+            }
+        }
+    }
+}
 // not for initial game setup where the are no roads yet
 // TODO: maybe we should impose an order on postions for stuff like roads so that comparing them is
 // easeier (i.e. first postion is smallest ....)
 fn place_normal_road(
-    mut materials: ResMut<'_, Assets<ColorMaterial>>,
+    materials: ResMut<'_, Assets<ColorMaterial>>,
     mut meshes: ResMut<'_, Assets<Mesh>>,
     mut commands: Commands<'_, '_>,
     color_r: Res<'_, CurrentColor>,
@@ -379,6 +438,9 @@ fn place_normal_road(
     road_q: Query<'_, '_, (&Road, &CatanColor, &RoadPostion)>,
     town_q: Query<'_, '_, (&'_ Town, &'_ CatanColor, &'_ BuildingPosition)>,
     city_q: Query<'_, '_, (&'_ City, &'_ CatanColor, &'_ BuildingPosition)>,
+
+    cursor_world_pos: ResMut<'_, CursorWorldPos>,
+    q_camera: Single<'_, (&Camera, &GlobalTransform)>,
 ) {
     let unplaced_roads_correct_color = road_free_q.iter().find(|r| r.1 == &color_r.0);
 
@@ -402,6 +464,7 @@ fn place_normal_road(
     let possibles_roads = current_color_roads.into_iter().flat_map(|(_, _, road)| {
         match road {
             RoadPostion::Edge(_) => todo!(),
+            RoadPostion::Corner(_) => todo!(),
             RoadPostion::Both(p1, p2, q) => {
                 // TODO: this currently does not include roads that go from edge inwards
                 // also includes "unplaces roads (roads that all postions are none)
@@ -443,6 +506,10 @@ fn place_normal_road(
                 .map_or(BuildingPosition::Edge(*position), |position1| {
                     BuildingPosition::DoubleEdge(*position, position1)
                 }),
+            RoadPostion::Corner(position) => road1
+                .map_or(BuildingPosition::Corner(*position), |position1| {
+                    BuildingPosition::DoubleEdge(*position, position1)
+                }),
         };
         !building_q.iter().any(|(_, _, bp)| &road_intersection == bp)
     }
@@ -457,12 +524,31 @@ fn place_normal_road(
         .map(|(x, y, p)| {
             let mesh = meshes.add(Circle::new(4.0));
             (
-                Button,
-                p,
+                Node {
+                    width: Val::Percent(100.0),
+                    height: Val::Percent(100.0),
+                    align_items: AlignItems::Center,
+                    justify_content: JustifyContent::Center,
+                    ..default()
+                },
                 children![(
-                    Mesh2d(mesh),
-                    MeshMaterial2d(materials.add(Color::Srgba(bevy::color::palettes::css::AQUA)),),
-                    Transform::from_xyz(x * 28.0, y * 28.0, 0.),
+                    Button,
+                    Node {
+                        position_type: PositionType::Relative,
+                        width: Val::Px(15.0),
+                        height: Val::Px(15.0),
+                        // border: UiRect::all(Val::Px(2.0)),
+                        // horizontally center child text
+                        // justify_content: JustifyContent::Center,
+                        // vertically center child text
+                        // align_items: AlignItems::Center,
+                        left: Val::Px(x * 28.),
+                        top: Val::Px(y * 28.),
+                        ..default()
+                    },
+                    p,
+                    BorderRadius::MAX,
+                    BackgroundColor(NORMAL_BUTTON),
                 )],
             )
         })
@@ -556,7 +642,7 @@ enum RoadPostion {
     /// Dont use this constructor use `Self::new`
     Both(Position, Position, Coordinate),
     Edge(Position), // TODO: which edge it is on
-                    // itf its a corner edge 4 possibilites, otherwise 2
+    Corner(Position),
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -627,7 +713,8 @@ impl RoadPostion {
                 };
                 midpoint.hex_to_pixel()
             }
-            Self::Edge(position) => todo!(),
+            Self::Edge(position) => (0., 0.),
+            Self::Corner(position) => todo!(),
         }
     }
 }
@@ -635,15 +722,26 @@ impl RoadPostion {
 impl PartialEq for RoadPostion {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
-            (Self::Both(l0, l1, _), Self::Both(r0, r1, _)) => {
-                (l0 == r0 && l1 == r1) || (l0 == r1 && l1 == r0)
+            (Self::Both(l0, l1, l2), Self::Both(r0, r1, r2)) => {
+                ((l0 == r0 && l1 == r1) || (l0 == r1 && l1 == r0)) && l2 == r2
             }
             (Self::Edge(l0), Self::Edge(r0)) => l0 == r0,
+            (Self::Corner(l0), Self::Corner(r0)) => l0 == r0,
             _ => false,
         }
     }
 }
-
+#[derive(Component, Clone, Copy, Debug, PartialEq)]
+enum TwoWayDirection {
+    Left,
+    Right,
+}
+#[derive(Component, Clone, Copy, Debug, PartialEq)]
+enum ThreeWayDirection {
+    Left,
+    Middle,
+    Right,
+}
 // TODO: town city "enherit" from building make some quries easier
 #[derive(Component, PartialEq)]
 struct Building;
@@ -651,8 +749,8 @@ struct Building;
 enum BuildingPosition {
     All(Position, Position, Position),
     DoubleEdge(Position, Position), // TODO: maybe which edge it is on (could maybe determined by
-    // coordinates in this case
-    Edge(Position), // TODO: which edge it is on
+    Edge(Position),                 // TODO: which edge it is on
+    Corner(Position),
 }
 
 impl PartialEq for BuildingPosition {
@@ -670,6 +768,7 @@ impl PartialEq for BuildingPosition {
                 (l0 == r0 && l1 == r1) || (l0 == r1 && l1 == r0)
             }
             (Self::Edge(l0), Self::Edge(r0)) => l0 == r0,
+            (Self::Corner(l0), Self::Corner(r0)) => l0 == r0,
             _ => false,
         }
     }
@@ -691,11 +790,14 @@ fn generate_pieces(commands: &mut Commands<'_, '_>) {
         RoadPostion::new(
             Position { q: 0, r: 0, s: 0 },
             Position { q: 0, r: -1, s: 1 },
+            // Position { q: 2, r: -1, s: -1 },
+            // Position { q: 2, r: 0, s: -2 },
         )
         .unwrap(),
     ));
 }
 fn setup(
+    mut next_state: ResMut<'_, NextState<GameState>>,
     mut commands: Commands<'_, '_>,
     meshes: ResMut<'_, Assets<Mesh>>,
     materials: ResMut<'_, Assets<ColorMaterial>>,
@@ -709,4 +811,5 @@ fn setup(
     );
     generate_development_cards(&mut commands);
     generate_pieces(&mut commands);
+    next_state.set(GameState::PlaceRoad);
 }
