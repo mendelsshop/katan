@@ -36,7 +36,28 @@ struct Position {
     r: i8,
     s: i8,
 }
-
+#[derive(Debug, PartialEq, Clone, Copy)]
+struct FPosition {
+    q: f32,
+    r: f32,
+    s: f32,
+}
+impl From<Position> for FPosition {
+    fn from(Position { q, r, s }: Position) -> Self {
+        Self {
+            q: f32::from(q),
+            r: f32::from(r),
+            s: f32::from(s),
+        }
+    }
+}
+impl FPosition {
+    fn hex_to_pixel(self) -> (f32, f32) {
+        let x = 3f32.sqrt().mul_add(self.q, 3f32.sqrt() / 2. * self.r);
+        let y = 3. / 2. * self.r;
+        (x, y)
+    }
+}
 // maybe do size const generics?
 impl Position {
     const fn get_shared_coordinate(&self, other: &Self) -> Option<Coordinate> {
@@ -51,13 +72,6 @@ impl Position {
         }
     }
 
-    fn hex_to_pixel(self) -> (f32, f32) {
-        let x = 3f32
-            .sqrt()
-            .mul_add(f32::from(self.q), 3f32.sqrt() / 2. * f32::from(self.r));
-        let y = 3. / 2. * f32::from(self.r);
-        (x, y)
-    }
     // TODO: maybe this should be a result as their are two possiblities for failure
     // 1) it doesn't add uo to 0
     // 2) its out of the board
@@ -435,22 +449,26 @@ fn place_normal_road(
     let possible_roads =
         possible_roads.filter(|r| filter_by_building(r, town_q) && filter_by_building(r, city_q));
     // TODO: show options
-    commands.spawn_batch(
-        possible_roads
-            .map(|p| {
-                let mesh = meshes.add(Circle::new(13.0));
-
-                let (x, y) = p.1.positon_to_pixel_coordinates();
-
-                (
-                    Button,
+    possible_roads
+        .filter_map(|p| {
+            let (x, y) = p.1.positon_to_pixel_coordinates();
+            (x != 0. || y != 0.).then_some((x, y, p.1))
+        })
+        .map(|(x, y, p)| {
+            let mesh = meshes.add(Circle::new(4.0));
+            (
+                Button,
+                p,
+                children![(
                     Mesh2d(mesh),
-                    MeshMaterial2d(materials.add(Color::Srgba(bevy::color::palettes::basic::BLUE))),
-                    Transform::from_xyz(x, y, 0.),
-                )
-            })
-            .collect_vec(),
-    );
+                    MeshMaterial2d(materials.add(Color::Srgba(bevy::color::palettes::css::AQUA)),),
+                    Transform::from_xyz(x * 28.0, y * 28.0, 0.),
+                )],
+            )
+        })
+        .for_each(|b| {
+            commands.spawn(b);
+        });
 }
 
 fn draw_board(
@@ -555,7 +573,24 @@ impl RoadPostion {
     }
     fn positon_to_pixel_coordinates(&self) -> (f32, f32) {
         match self {
-            Self::Both(position, position1, Coordinate::Q) => (0., 0.),
+            Self::Both(
+                Position { q, r, s },
+                Position {
+                    q: q1,
+                    r: r1,
+                    s: s1,
+                },
+                Coordinate::Q,
+            ) => {
+                // ideas is that the midpoint will be here the road is between two hexes
+                // doesn't seem to be working
+                let midpoint = FPosition {
+                    q: f32::from(*q),
+                    r: f32::from(r + r1) / 2.,
+                    s: f32::from(s + s1) / 2.,
+                };
+                midpoint.hex_to_pixel()
+            }
             Self::Both(
                 Position { q, r, s },
                 Position {
@@ -567,14 +602,31 @@ impl RoadPostion {
             ) => {
                 // ideas is that the midpoint will be here the road is between two hexes
                 // doesn't seem to be working
-                let midpoint = Position {
-                    r: *r,
-                    q: (q + q1) / 2,
-                    s: (s + s) / 2,
+                let midpoint = FPosition {
+                    r: f32::from(*r),
+                    q: f32::from(q + q1) / 2.,
+                    s: f32::from(s + s1) / 2.,
                 };
                 midpoint.hex_to_pixel()
             }
-            Self::Both(position, position1, Coordinate::S) => (0., 0.),
+            Self::Both(
+                Position { q, r, s },
+                Position {
+                    q: q1,
+                    r: r1,
+                    s: s1,
+                },
+                Coordinate::S,
+            ) => {
+                // ideas is that the midpoint will be here the road is between two hexes
+                // doesn't seem to be working
+                let midpoint = FPosition {
+                    s: f32::from(*s),
+                    r: f32::from(r + r1) / 2.,
+                    q: f32::from(q + q1) / 2.,
+                };
+                midpoint.hex_to_pixel()
+            }
             Self::Edge(position) => todo!(),
         }
     }
