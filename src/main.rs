@@ -39,6 +39,25 @@ struct Position {
 
 // maybe do size const generics?
 impl Position {
+    const fn get_shared_coordinate(&self, other: &Self) -> Option<Coordinate> {
+        if self.q == other.q {
+            Some(Coordinate::Q)
+        } else if self.r == other.r {
+            Some(Coordinate::R)
+        } else if self.s == other.s {
+            Some(Coordinate::S)
+        } else {
+            None
+        }
+    }
+
+    fn hex_to_pixel(self) -> (f32, f32) {
+        let x = 3f32
+            .sqrt()
+            .mul_add(f32::from(self.q), 3f32.sqrt() / 2. * f32::from(self.r));
+        let y = 3. / 2. * f32::from(self.r);
+        (x, y)
+    }
     // TODO: maybe this should be a result as their are two possiblities for failure
     // 1) it doesn't add uo to 0
     // 2) its out of the board
@@ -89,6 +108,7 @@ impl Add for Position {
 }
 
 #[derive(Debug, Component, Clone, Copy)]
+// our hexagons are pointy
 enum Hexagon {
     Wood = 0,
     Brick,
@@ -336,6 +356,8 @@ fn get_cursor_world_pos(
 // TODO: maybe we should impose an order on postions for stuff like roads so that comparing them is
 // easeier (i.e. first postion is smallest ....)
 fn place_normal_road(
+    mut materials: ResMut<'_, Assets<ColorMaterial>>,
+    mut meshes: ResMut<'_, Assets<Mesh>>,
     mut commands: Commands<'_, '_>,
     color_r: Res<'_, CurrentColor>,
     size_r: Res<'_, BoardSize>,
@@ -366,12 +388,12 @@ fn place_normal_road(
     let possibles_roads = current_color_roads.into_iter().flat_map(|(_, _, road)| {
         match road {
             RoadPostion::Edge(_) => todo!(),
-            RoadPostion::Both(p1, p2) => {
+            RoadPostion::Both(p1, p2, q) => {
                 // TODO: this currently does not include roads that go from edge inwards
                 // also includes "unplaces roads (roads that all postions are none)
                 let (p3, p4) = p1.neighboring_two(p2, Some(size_r.0));
                 let make_road_pos = |p, option_p1: Option<_>| {
-                    option_p1.map_or(RoadPostion::Edge(p), |p1| RoadPostion::Both(p, p1))
+                    option_p1.map_or(RoadPostion::Edge(p), |p1| RoadPostion::new(p, p1).unwrap())
                 };
                 [
                     (
@@ -399,7 +421,7 @@ fn place_normal_road(
         building_q: Query<'_, '_, (&B, &CatanColor, &BuildingPosition)>,
     ) -> bool {
         let road_intersection = match road2 {
-            RoadPostion::Both(position, position1) => road1.map_or(
+            RoadPostion::Both(position, position1, coordinate) => road1.map_or(
                 BuildingPosition::DoubleEdge(*position, *position1),
                 |position2| BuildingPosition::All(*position, *position1, position2),
             ),
@@ -413,7 +435,22 @@ fn place_normal_road(
     let possible_roads =
         possible_roads.filter(|r| filter_by_building(r, town_q) && filter_by_building(r, city_q));
     // TODO: show options
-    commands.spawn_batch(possible_roads.map(|p| (Button)).collect_vec());
+    commands.spawn_batch(
+        possible_roads
+            .map(|p| {
+                let mesh = meshes.add(Circle::new(13.0));
+
+                let (x, y) = p.1.positon_to_pixel_coordinates();
+
+                (
+                    Button,
+                    Mesh2d(mesh),
+                    MeshMaterial2d(materials.add(Color::Srgba(bevy::color::palettes::basic::BLUE))),
+                    Transform::from_xyz(x, y, 0.),
+                )
+            })
+            .collect_vec(),
+    );
 }
 
 fn draw_board(
@@ -498,15 +535,55 @@ struct Left(pub u8);
 enum RoadPostion {
     // maybe we could enforce more stuff i.e. they will share one coordinate
     // and the others will be +1 or -1 respectively
-    Both(Position, Position),
+    /// Dont use this constructor use `Self::new`
+    Both(Position, Position, Coordinate),
     Edge(Position), // TODO: which edge it is on
                     // itf its a corner edge 4 possibilites, otherwise 2
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Coordinate {
+    Q,
+    R,
+    S,
+}
+impl RoadPostion {
+    // for creating none edge roads
+    fn new(p1: Position, p2: Position) -> Option<Self> {
+        let c = p1.get_shared_coordinate(&p2);
+        c.map(|c| Self::Both(p1, p2, c))
+    }
+    fn positon_to_pixel_coordinates(&self) -> (f32, f32) {
+        match self {
+            Self::Both(position, position1, Coordinate::Q) => (0., 0.),
+            Self::Both(
+                Position { q, r, s },
+                Position {
+                    q: q1,
+                    r: r1,
+                    s: s1,
+                },
+                Coordinate::R,
+            ) => {
+                // ideas is that the midpoint will be here the road is between two hexes
+                // doesn't seem to be working
+                let midpoint = Position {
+                    r: *r,
+                    q: (q + q1) / 2,
+                    s: (s + s) / 2,
+                };
+                midpoint.hex_to_pixel()
+            }
+            Self::Both(position, position1, Coordinate::S) => (0., 0.),
+            Self::Edge(position) => todo!(),
+        }
+    }
 }
 
 impl PartialEq for RoadPostion {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
-            (Self::Both(l0, l1), Self::Both(r0, r1)) => {
+            (Self::Both(l0, l1, _), Self::Both(r0, r1, _)) => {
                 (l0 == r0 && l1 == r1) || (l0 == r1 && l1 == r0)
             }
             (Self::Edge(l0), Self::Edge(r0)) => l0 == r0,
@@ -556,6 +633,15 @@ fn generate_pieces(commands: &mut Commands<'_, '_>) {
         commands.spawn((City, color, Left(4)));
         commands.spawn((Road, color, Left(15)));
     }
+    commands.spawn((
+        Road,
+        CatanColor::White,
+        RoadPostion::new(
+            Position { q: 0, r: 0, s: 0 },
+            Position { q: 0, r: -1, s: 1 },
+        )
+        .unwrap(),
+    ));
 }
 fn setup(
     mut commands: Commands<'_, '_>,
