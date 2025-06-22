@@ -24,6 +24,7 @@ fn main() {
     app.add_systems(Update, get_cursor_world_pos);
     app.add_systems(FixedUpdate, update_board_piece);
     app.add_systems(OnEnter(GameState::PlaceRoad), (place_normal_road,));
+    app.add_systems(OnExit(GameState::PlaceRoad), (cleanup_road_place,));
     app.add_systems(
         Update,
         place_normal_road_interaction.run_if(in_state(GameState::PlaceRoad)),
@@ -383,8 +384,21 @@ fn get_cursor_world_pos(
 const NORMAL_BUTTON: Color = Color::srgb(0.15, 0.15, 0.15);
 const HOVERED_BUTTON: Color = Color::srgb(0.25, 0.25, 0.25);
 const PRESSED_BUTTON: Color = Color::srgb(0.35, 0.75, 0.35);
+fn cleanup_road_place(
+    mut commands: Commands<'_, '_>,
+    mut interaction_query: Query<'_, '_, Entity, (With<RoadPostion>, With<Button>)>,
+) {
+    for entity in &mut interaction_query {
+        commands.entity(entity).despawn();
+    }
+}
 fn place_normal_road_interaction(
-    // mut input_focus: ResMut<'_, InputFocus>,
+    mut game_state: ResMut<'_, NextState<GameState>>,
+    color_r: Res<'_, CurrentColor>,
+    materials: ResMut<'_, Assets<ColorMaterial>>,
+    meshes: ResMut<'_, Assets<Mesh>>,
+    mut commands: Commands<'_, '_>,
+    mut road_free_q: Query<'_, '_, (&Road, &CatanColor, &mut Left)>,
     mut interaction_query: Query<
         '_,
         '_,
@@ -393,7 +407,6 @@ fn place_normal_road_interaction(
             &Interaction,
             &mut BackgroundColor,
             &mut Button,
-            // &Children,
         ),
         Changed<Interaction>,
     >,
@@ -407,6 +420,16 @@ fn place_normal_road_interaction(
                 // *border_color = BorderColor::all(RED.into());
 
                 // The accessibility system's only update the button's state when the `Button` component is marked as changed.
+                button.set_changed();
+
+                commands.spawn((Road, color_r.0, *entity));
+                let roads_left = road_free_q.iter_mut().find(|x| x.1 == &color_r.0);
+                if let Some((_, _, mut left)) = roads_left {
+                    *left = Left(left.0 - 1);
+                }
+
+                // TODO: proper state switch
+                game_state.set(GameState::Nothing);
                 button.set_changed();
             }
             Interaction::Hovered => {
@@ -429,8 +452,6 @@ fn place_normal_road_interaction(
 // TODO: maybe we should impose an order on postions for stuff like roads so that comparing them is
 // easeier (i.e. first postion is smallest ....)
 fn place_normal_road(
-    materials: ResMut<'_, Assets<ColorMaterial>>,
-    mut meshes: ResMut<'_, Assets<Mesh>>,
     mut commands: Commands<'_, '_>,
     color_r: Res<'_, CurrentColor>,
     size_r: Res<'_, BoardSize>,
@@ -522,7 +543,6 @@ fn place_normal_road(
             (x != 0. || y != 0.).then_some((x, y, p.1))
         })
         .map(|(x, y, p)| {
-            let mesh = meshes.add(Circle::new(4.0));
             (
                 Node {
                     width: Val::Percent(100.0),
