@@ -24,6 +24,12 @@ fn main() {
     app.add_systems(Update, get_cursor_world_pos);
     app.add_systems(FixedUpdate, update_board_piece);
     app.add_systems(OnEnter(GameState::PlaceRoad), (place_normal_road,));
+    app.add_systems(OnEnter(GameState::Turn), (show_turn_ui,));
+
+    app.add_systems(
+        Update,
+        turn_ui_road_interaction.run_if(in_state(GameState::Turn)),
+    );
     app.add_systems(OnExit(GameState::PlaceRoad), (cleanup_road_place,));
     app.add_systems(
         Update,
@@ -38,6 +44,7 @@ enum GameState {
     Nothing,
     Start,
     PlaceRoad,
+    Turn,
 }
 #[derive(Component, PartialEq, Debug, Clone, Copy)]
 enum Number {
@@ -384,6 +391,81 @@ fn get_cursor_world_pos(
 const NORMAL_BUTTON: Color = Color::srgb(0.15, 0.15, 0.15);
 const HOVERED_BUTTON: Color = Color::srgb(0.25, 0.25, 0.25);
 const PRESSED_BUTTON: Color = Color::srgb(0.35, 0.75, 0.35);
+
+#[derive(Component, PartialEq, Debug, Clone, Copy)]
+// button in game to start road placement ui
+struct RoadButton;
+fn turn_ui_road_interaction(
+    mut game_state: ResMut<'_, NextState<GameState>>,
+    mut interaction_query: Query<
+        '_,
+        '_,
+        (&RoadButton, &Interaction, &mut BackgroundColor, &mut Button),
+        Changed<Interaction>,
+    >,
+) {
+    for (entity, interaction, mut color, mut button) in &mut interaction_query {
+        match *interaction {
+            Interaction::Pressed => {
+                // input_focus.set(entity);
+                // **text = "Press".to_string();
+                *color = PRESSED_BUTTON.into();
+                // *border_color = BorderColor::all(RED.into());
+
+                // The accessibility system's only update the button's state when the `Button` component is marked as changed.
+                button.set_changed();
+
+                // TODO: proper state switch
+                game_state.set(GameState::PlaceRoad);
+                button.set_changed();
+            }
+            Interaction::Hovered => {
+                // input_focus.set(entity);
+                // **text = "Hover".to_string();
+                *color = HOVERED_BUTTON.into();
+                // *border_color = BorderColor::all(Color::WHITE);
+                button.set_changed();
+            }
+            Interaction::None => {
+                // input_focus.clear();
+                // **text = "Button".to_string();
+                *color = NORMAL_BUTTON.into();
+                // *border_color = BorderColor::all(Color::BLACK);
+            }
+        }
+    }
+}
+fn show_turn_ui(mut commands: Commands<'_, '_>) {
+    // TODO: have button with picture of road
+    commands.spawn((
+        Node {
+            width: Val::Percent(100.0),
+            height: Val::Percent(100.0),
+            align_items: AlignItems::End,
+            justify_content: JustifyContent::End,
+            ..default()
+        },
+        children![(
+            Button,
+            Node {
+                position_type: PositionType::Relative,
+                width: Val::Px(25.0),
+                height: Val::Px(25.0),
+                // border: UiRect::all(Val::Px(2.0)),
+                // horizontally center child text
+                // justify_content: JustifyContent::Center,
+                // vertically center child text
+                // align_items: AlignItems::Center,
+                // left: Val::Px(x * 28.),
+                // top: Val::Px(y * 28.),
+                ..default()
+            },
+            RoadButton,
+            BorderRadius::MAX,
+            BackgroundColor(NORMAL_BUTTON),
+        )],
+    ));
+}
 fn cleanup_road_place(
     mut commands: Commands<'_, '_>,
     mut interaction_query: Query<'_, '_, Entity, (With<RoadPostion>, With<Button>)>,
@@ -429,7 +511,7 @@ fn place_normal_road_interaction(
                 }
 
                 // TODO: proper state switch
-                game_state.set(GameState::Nothing);
+                game_state.set(GameState::Turn);
                 button.set_changed();
             }
             Interaction::Hovered => {
@@ -491,7 +573,10 @@ fn place_normal_road(
                 // also includes "unplaces roads (roads that all postions are none)
                 let (p3, p4) = p1.neighboring_two(p2, Some(size_r.0));
                 let make_road_pos = |p, option_p1: Option<_>| {
-                    option_p1.map_or(RoadPostion::Edge(p), |p1| RoadPostion::new(p, p1).unwrap())
+                    option_p1.map_or(RoadPostion::Edge(p), |p1| {
+                        println!("{p:?}-{p1:?} = {:?}", RoadPostion::new(p, p1));
+                        RoadPostion::new(p, p1).unwrap()
+                    })
                 };
                 [
                     (
@@ -831,5 +916,5 @@ fn setup(
     );
     generate_development_cards(&mut commands);
     generate_pieces(&mut commands);
-    next_state.set(GameState::PlaceRoad);
+    next_state.set(GameState::Turn);
 }
