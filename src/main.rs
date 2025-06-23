@@ -395,21 +395,29 @@ const PRESSED_BUTTON: Color = Color::srgb(0.35, 0.75, 0.35);
 #[derive(Component, PartialEq, Debug, Clone, Copy)]
 // button in game to start road placement ui
 struct RoadButton;
+#[derive(Component, PartialEq, Debug, Clone, Copy)]
+// button in gam/ to start town placement ui
+struct TownButton;
 fn turn_ui_road_interaction(
     mut game_state: ResMut<'_, NextState<GameState>>,
     mut interaction_query: Query<
         '_,
         '_,
-        (&RoadButton, &Interaction, &mut BackgroundColor, &mut Button),
+        (
+            &RoadButton,
+            &Interaction,
+            // &mut BackgroundColor,
+            &mut Button,
+        ),
         Changed<Interaction>,
     >,
 ) {
-    for (entity, interaction, mut color, mut button) in &mut interaction_query {
+    for (entity, interaction, mut button) in &mut interaction_query {
         match *interaction {
             Interaction::Pressed => {
                 // input_focus.set(entity);
                 // **text = "Press".to_string();
-                *color = PRESSED_BUTTON.into();
+                // *color = PRESSED_BUTTON.into();
                 // *border_color = BorderColor::all(RED.into());
 
                 // The accessibility system's only update the button's state when the `Button` component is marked as changed.
@@ -422,48 +430,57 @@ fn turn_ui_road_interaction(
             Interaction::Hovered => {
                 // input_focus.set(entity);
                 // **text = "Hover".to_string();
-                *color = HOVERED_BUTTON.into();
+                // *color = HOVERED_BUTTON.into();
                 // *border_color = BorderColor::all(Color::WHITE);
                 button.set_changed();
             }
             Interaction::None => {
                 // input_focus.clear();
                 // **text = "Button".to_string();
-                *color = NORMAL_BUTTON.into();
+                // *color = NORMAL_BUTTON.into();
                 // *border_color = BorderColor::all(Color::BLACK);
             }
         }
     }
 }
-fn show_turn_ui(mut commands: Commands<'_, '_>) {
+fn show_turn_ui(mut commands: Commands<'_, '_>, asset_server: Res<'_, AssetServer>) {
     // TODO: have button with picture of road
+    let road_icon = asset_server.load("road.png");
+    let town_icon: Handle<Image> = asset_server.load("house.png");
     commands.spawn((
         Node {
             width: Val::Percent(100.0),
             height: Val::Percent(100.0),
             align_items: AlignItems::End,
-            justify_content: JustifyContent::End,
+            justify_content: JustifyContent::Center,
             ..default()
         },
-        children![(
-            Button,
-            Node {
-                position_type: PositionType::Relative,
-                width: Val::Px(25.0),
-                height: Val::Px(25.0),
-                // border: UiRect::all(Val::Px(2.0)),
-                // horizontally center child text
-                // justify_content: JustifyContent::Center,
-                // vertically center child text
-                // align_items: AlignItems::Center,
-                // left: Val::Px(x * 28.),
-                // top: Val::Px(y * 28.),
-                ..default()
-            },
-            RoadButton,
-            BorderRadius::MAX,
-            BackgroundColor(NORMAL_BUTTON),
-        )],
+        children![
+            (
+                Node {
+                    width: Val::Px(15.0),
+                    height: Val::Px(5.0),
+                    ..default()
+                },
+                Button,
+                ImageNode::new(road_icon),
+                RoadButton,
+                // NodeImageMode
+                // BackgroundColor(NORMAL_BUTTON),
+            ),
+            (
+                Node {
+                left: Val::Px(15.),
+                    width: Val::Px(15.0),
+                    height: Val::Px(15.0),
+                    ..default()
+                },
+                Button,
+                ImageNode::new(town_icon),
+                TownButton,
+                // BackgroundColor(NORMAL_BUTTON),
+            )
+        ],
     ));
 }
 fn cleanup_road_place(
@@ -597,8 +614,8 @@ fn place_normal_road(
     let possible_roads =
         possibles_roads.filter(|(_, r)| !other_color_roads.iter().any(|(_, _, r1)| r == *r1));
 
-    // 3) make sure there is no differeent color house at the three itersection
-    // partition into other color used houses with single partiton
+    // 3) make sure there is no differeent color town at the three itersection
+    // partition into other color used towns with single partiton
     fn filter_by_building<B: Component>(
         (road1, road2): &(Option<Position>, RoadPostion),
         building_q: Query<'_, '_, (&B, &CatanColor, &BuildingPosition)>,
