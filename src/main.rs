@@ -312,6 +312,7 @@ fn generate_bord(commands: &mut Commands<'_, '_>) -> Vec<(Position, Hexagon, Num
         .partition(|(_, _, n)| Number::Number(8) == *n || Number::Number(6) == *n);
     let mut inhabited = fix_numbers(reds, normal_number);
     inhabited.append(&mut desert);
+    inhabited.extend(generate_postions_ring(3).map(|p| (p, Hexagon::Empty, Number::None)));
     for hex in &inhabited {
         commands.spawn((hex.0, hex.1, hex.2));
     }
@@ -352,6 +353,12 @@ fn fix_numbers(
     used
 }
 
+fn generate_postions_ring(n: i8) -> impl Iterator<Item = Position> {
+    let has_big_coordinate: _ = move |i: i8| i == -n || i == n;
+    generate_postions(n + 1).filter(move |q| {
+        has_big_coordinate(q.q) || has_big_coordinate(q.r) || has_big_coordinate(q.s)
+    })
+}
 fn generate_postions(n: i8) -> impl Iterator<Item = Position> {
     (0..3)
         .map(|_| -n + 1..n)
@@ -470,7 +477,7 @@ fn show_turn_ui(mut commands: Commands<'_, '_>, asset_server: Res<'_, AssetServe
             ),
             (
                 Node {
-                left: Val::Px(15.),
+                    left: Val::Px(15.),
                     width: Val::Px(15.0),
                     height: Val::Px(15.0),
                     ..default()
