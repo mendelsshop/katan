@@ -98,7 +98,7 @@ impl Position {
     // 2) its out of the board
     pub fn new(q: i8, r: i8, s: i8, size: Option<u8>) -> Option<Self> {
         const fn in_between(bound: u8, point: i8) -> bool {
-            let bound = (bound - 1) as i8;
+            let bound = (bound) as i8;
             -bound <= point && point <= bound
         }
         (q + r + s == 0
@@ -590,29 +590,32 @@ fn place_normal_road(
     //    other hex (more constraint (i.e cannot be 50 square of in another direction)
     let possibles_roads = current_color_roads.into_iter().flat_map(|(_, _, road)| {
         match road {
-            RoadPostion::Edge(_) => todo!(),
-            RoadPostion::Corner(_) => todo!(),
             RoadPostion::Both(p1, p2, q) => {
                 // TODO: this currently does not include roads that go from edge inwards
                 // also includes "unplaces roads (roads that all postions are none)
+
+                // neighboring two seems to be a bit flawed, and maybe should be road postion
                 let (p3, p4) = p1.neighboring_two(p2, Some(size_r.0));
-                let make_road_pos = |p, option_p1: Option<_>| {
-                    option_p1.map_or(RoadPostion::Edge(p), |p1| {
+                let make_road_pos = |p, option_p1: Option<_>, p1| {
+                    option_p1.and_then(|p1| {
                         println!("{p:?}-{p1:?} = {:?}", RoadPostion::new(p, p1));
-                        RoadPostion::new(p, p1).unwrap()
+                        RoadPostion::new(p, p1).map(|r| (p1, r))
                     })
                 };
                 [
                     (
                         // the other point (used to check for towns/cities)
-                        Some(*p1),
+
                         // the postion of the road
-                        make_road_pos(*p2, p3), // TODO: roads on edge of board
+                        make_road_pos(*p2, p3, p1)
+                        // TODO: roads on edge of board
                     ),
-                    (Some(*p1), make_road_pos(*p2, p4)),
-                    (Some(*p2), make_road_pos(*p1, p3)),
-                    (Some(*p2), make_road_pos(*p1, p4)),
+                    (make_road_pos(*p2, p4, p1)),
+                    (make_road_pos(*p1, p3, p2)),
+                    (make_road_pos(*p1, p4, p2)),
                 ]
+                .into_iter()
+                .flatten()
             }
         }
     });
@@ -624,22 +627,13 @@ fn place_normal_road(
     // 3) make sure there is no differeent color town at the three itersection
     // partition into other color used towns with single partiton
     fn filter_by_building<B: Component>(
-        (road1, road2): &(Option<Position>, RoadPostion),
+        (road1, road2): &(Position, RoadPostion),
         building_q: Query<'_, '_, (&B, &CatanColor, &BuildingPosition)>,
     ) -> bool {
         let road_intersection = match road2 {
-            RoadPostion::Both(position, position1, coordinate) => road1.map_or(
-                BuildingPosition::DoubleEdge(*position, *position1),
-                |position2| BuildingPosition::All(*position, *position1, position2),
-            ),
-            RoadPostion::Edge(position) => road1
-                .map_or(BuildingPosition::Edge(*position), |position1| {
-                    BuildingPosition::DoubleEdge(*position, position1)
-                }),
-            RoadPostion::Corner(position) => road1
-                .map_or(BuildingPosition::Corner(*position), |position1| {
-                    BuildingPosition::DoubleEdge(*position, position1)
-                }),
+            RoadPostion::Both(position, position1, _) => {
+                BuildingPosition::All(*road1, *position, *position1)
+            }
         };
         !building_q.iter().any(|(_, _, bp)| &road_intersection == bp)
     }
@@ -770,8 +764,6 @@ enum RoadPostion {
     // and the others will be +1 or -1 respectively
     /// Dont use this constructor use `Self::new`
     Both(Position, Position, Coordinate),
-    Edge(Position), // TODO: which edge it is on
-    Corner(Position),
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -842,8 +834,6 @@ impl RoadPostion {
                 };
                 midpoint.hex_to_pixel()
             }
-            Self::Edge(position) => (0., 0.),
-            Self::Corner(position) => todo!(),
         }
     }
 }
@@ -854,8 +844,6 @@ impl PartialEq for RoadPostion {
             (Self::Both(l0, l1, l2), Self::Both(r0, r1, r2)) => {
                 ((l0 == r0 && l1 == r1) || (l0 == r1 && l1 == r0)) && l2 == r2
             }
-            (Self::Edge(l0), Self::Edge(r0)) => l0 == r0,
-            (Self::Corner(l0), Self::Corner(r0)) => l0 == r0,
             _ => false,
         }
     }
@@ -877,9 +865,6 @@ struct Building;
 #[derive(Component)]
 enum BuildingPosition {
     All(Position, Position, Position),
-    DoubleEdge(Position, Position), // TODO: maybe which edge it is on (could maybe determined by
-    Edge(Position),                 // TODO: which edge it is on
-    Corner(Position),
 }
 
 impl PartialEq for BuildingPosition {
@@ -893,11 +878,6 @@ impl PartialEq for BuildingPosition {
                     || l0 == r2 && l1 == r0 && l2 == r1
                     || l0 == r2 && l1 == r1 && l2 == r0
             }
-            (Self::DoubleEdge(l0, l1), Self::DoubleEdge(r0, r1)) => {
-                (l0 == r0 && l1 == r1) || (l0 == r1 && l1 == r0)
-            }
-            (Self::Edge(l0), Self::Edge(r0)) => l0 == r0,
-            (Self::Corner(l0), Self::Corner(r0)) => l0 == r0,
             _ => false,
         }
     }
