@@ -8,7 +8,7 @@
 
 use std::{mem::swap, ops::Add};
 
-use bevy::{prelude::*, window::PrimaryWindow};
+use bevy::{ecs::query::QueryData, prelude::*, window::PrimaryWindow};
 
 use itertools::Itertools;
 use rand::seq::SliceRandom;
@@ -108,27 +108,6 @@ impl Position {
         .then_some(Self { q, r, s })
     }
     // returns the two neighboring hexes for the two hexes passed in
-    fn neighboring_two(&self, other: &Self, size: Option<u8>) -> (Option<Self>, Option<Self>) {
-        // maybe just do permutations of two other point that add up to 0
-        if self.q == other.q {
-            (
-                Self::new(self.q + 1, self.r.min(other.r), self.s.min(other.s), size),
-                Self::new(self.q - 1, self.r.max(other.r), self.s.max(other.s), size),
-            )
-        } else if self.s == other.s {
-            (
-                Self::new(self.s + 1, self.r.min(other.r), self.q.min(other.q), size),
-                Self::new(self.s - 1, self.r.max(other.r), self.q.max(other.q), size),
-            )
-        } else if self.r == other.r {
-            (
-                Self::new(self.r + 1, self.q.min(other.q), self.s.min(other.s), size),
-                Self::new(self.r - 1, self.q.max(other.q), self.s.max(other.s), size),
-            )
-        } else {
-            panic!()
-        }
-    }
 }
 impl Add for Position {
     type Output = Self;
@@ -465,8 +444,8 @@ fn show_turn_ui(mut commands: Commands<'_, '_>, asset_server: Res<'_, AssetServe
         children![
             (
                 Node {
-                    width: Val::Px(15.0),
-                    height: Val::Px(5.0),
+                    width: Val::Px(25.0),
+                    height: Val::Px(10.0),
                     ..default()
                 },
                 Button,
@@ -478,8 +457,8 @@ fn show_turn_ui(mut commands: Commands<'_, '_>, asset_server: Res<'_, AssetServe
             (
                 Node {
                     left: Val::Px(15.),
-                    width: Val::Px(15.0),
-                    height: Val::Px(15.0),
+                    width: Val::Px(25.0),
+                    height: Val::Px(25.0),
                     ..default()
                 },
                 Button,
@@ -562,7 +541,7 @@ fn place_normal_road(
     color_r: Res<'_, CurrentColor>,
     size_r: Res<'_, BoardSize>,
     road_free_q: Query<'_, '_, (&Road, &CatanColor, &Left)>,
-    road_q: Query<'_, '_, (&Road, &CatanColor, &RoadPostion)>,
+    road_q: Query<'_, '_, RoadQuery>,
     town_q: Query<'_, '_, (&'_ Town, &'_ CatanColor, &'_ BuildingPosition)>,
     city_q: Query<'_, '_, (&'_ City, &'_ CatanColor, &'_ BuildingPosition)>,
 
@@ -576,7 +555,7 @@ fn place_normal_road(
         return;
     };
 
-    let (current_color_roads, other_color_roads): (Vec<_>, Vec<_>) =
+    let (current_color_roads, _): (Vec<_>, Vec<_>) =
         road_q.into_iter().partition(|r| *r.1 == color_r.0);
 
     // we don't check current color roads is empty b/c by iterating over them we are essentially
@@ -588,41 +567,43 @@ fn place_normal_road(
     // if there is a new place to put road down
     // 1) the new hex has to share one coordianate with one hex and another differenet one with the
     //    other hex (more constraint (i.e cannot be 50 square of in another direction)
-    let possibles_roads = current_color_roads.into_iter().flat_map(|(_, _, road)| {
-        match road {
-            RoadPostion::Both(p1, p2, q) => {
-                // TODO: this currently does not include roads that go from edge inwards
-                // also includes "unplaces roads (roads that all postions are none)
+    let possibles_roads = current_color_roads
+        .into_iter()
+        .flat_map(|RoadQueryItem(_, _, road)| {
+            match road {
+                RoadPostion::Both(p1, p2, q) => {
+                    // TODO: this currently does not include roads that go from edge inwards
+                    // also includes "unplaces roads (roads that all postions are none)
 
-                // neighboring two seems to be a bit flawed, and maybe should be road postion
-                let (p3, p4) = p1.neighboring_two(p2, Some(size_r.0));
-                let make_road_pos = |p, option_p1: Option<_>, p1| {
-                    option_p1.and_then(|p1| {
-                        println!("{p:?}-{p1:?} = {:?}", RoadPostion::new(p, p1));
-                        RoadPostion::new(p, p1).map(|r| (p1, r))
-                    })
-                };
-                [
-                    (
-                        // the other point (used to check for towns/cities)
+                    // neighboring two seems to be a bit flawed, and maybe should be road postion
+                    let (p3, p4) = road.neighboring_two(Some(size_r.0));
+                    let make_road_pos = |p, option_p1: Option<_>, p1| {
+                        option_p1.and_then(|p1| {
+                            println!("{p:?}-{p1:?} = {:?}", RoadPostion::new(p, p1));
+                            RoadPostion::new(p, p1).map(|r| (p1, r))
+                        })
+                    };
+                    [
+                        (
+                            // the other point (used to check for towns/cities)
 
-                        // the postion of the road
-                        make_road_pos(*p2, p3, p1)
-                        // TODO: roads on edge of board
-                    ),
-                    (make_road_pos(*p2, p4, p1)),
-                    (make_road_pos(*p1, p3, p2)),
-                    (make_road_pos(*p1, p4, p2)),
-                ]
-                .into_iter()
-                .flatten()
+                            // the postion of the road
+                            make_road_pos(*p2, p3, p1)
+                            // TODO: roads on edge of board
+                        ),
+                        (make_road_pos(*p2, p4, p1)),
+                        (make_road_pos(*p1, p3, p2)),
+                        (make_road_pos(*p1, p4, p2)),
+                    ]
+                    .into_iter()
+                    .flatten()
+                }
             }
-        }
-    });
+        });
 
     // 2) make sure that there is no road already there (whether that color or not)
     let possible_roads =
-        possibles_roads.filter(|(_, r)| !other_color_roads.iter().any(|(_, _, r1)| r == *r1));
+        possibles_roads.filter(|(_, r)| !road_q.iter().any(|RoadQueryItem(_, _, r1)| r == r1));
 
     // 3) make sure there is no differeent color town at the three itersection
     // partition into other color used towns with single partiton
@@ -778,6 +759,27 @@ impl RoadPostion {
         let c = p1.get_shared_coordinate(&p2);
         c.map(|c| Self::Both(p1, p2, c))
     }
+    fn neighboring_two(&self, size: Option<u8>) -> (Option<Position>, Option<Position>) {
+        match self {
+            Self::Both(p1, p2, coordinate) => {
+                // maybe just do permutations of two other point that add up to 0
+                match coordinate {
+                    Coordinate::Q => (
+                        Position::new(p1.q + 1, p1.r.min(p2.r), p1.s.min(p2.s), size),
+                        Position::new(p1.q - 1, p1.r.max(p2.r), p1.s.max(p2.s), size),
+                    ),
+                    Coordinate::R => (
+                        Position::new(p1.s + 1, p1.r.min(p2.r), p1.q.min(p2.q), size),
+                        Position::new(p1.s - 1, p1.r.max(p2.r), p1.q.max(p2.q), size),
+                    ),
+                    Coordinate::S => (
+                        Position::new(p1.r + 1, p1.q.min(p2.q), p1.s.min(p2.s), size),
+                        Position::new(p1.r - 1, p1.q.max(p2.q), p1.s.max(p2.s), size),
+                    ),
+                }
+            }
+        }
+    }
     fn positon_to_pixel_coordinates(&self) -> (f32, f32) {
         match self {
             Self::Both(
@@ -905,6 +907,8 @@ fn generate_pieces(commands: &mut Commands<'_, '_>) {
         .unwrap(),
     ));
 }
+#[derive(QueryData, Debug)]
+pub struct RoadQuery(&'static Road, &'static CatanColor, &'static RoadPostion);
 fn setup(
     mut next_state: ResMut<'_, NextState<GameState>>,
     mut commands: Commands<'_, '_>,
