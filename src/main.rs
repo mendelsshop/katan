@@ -81,6 +81,12 @@ impl FPosition {
 }
 // maybe do size const generics?
 impl Position {
+    fn all_points_are(&self, mut f: impl FnMut(i8) -> bool) -> bool {
+        f(self.q) && f(self.r) && f(self.s)
+    }
+    fn any_points_is(&self, mut f: impl FnMut(i8) -> bool) -> bool {
+        f(self.q) || f(self.r) || f(self.s)
+    }
     const fn get_shared_coordinate(&self, other: &Self) -> Option<Coordinate> {
         if self.q == other.q {
             Some(Coordinate::Q)
@@ -579,8 +585,11 @@ fn place_normal_road(
                     let (p3, p4) = road.neighboring_two(Some(size_r.0));
                     let make_road_pos = |p, option_p1: Option<_>, p1| {
                         option_p1.and_then(|p1| {
-                            println!("{p:?}-{p1:?} = {:?}", RoadPostion::new(p, p1));
-                            RoadPostion::new(p, p1).map(|r| (p1, r))
+                            println!(
+                                "non filtered roads {p:?}-{p1:?} = {:?}",
+                                RoadPostion::new(p, p1, Some(size_r.0))
+                            );
+                            RoadPostion::new(p, p1, Some(size_r.0)).map(|r| (p1, r))
                         })
                     };
                     [
@@ -755,8 +764,12 @@ enum Coordinate {
 }
 impl RoadPostion {
     // for creating none edge roads
-    fn new(p1: Position, p2: Position) -> Option<Self> {
-        let c = p1.get_shared_coordinate(&p2);
+    fn new(p1: Position, p2: Position, size: Option<u8>) -> Option<Self> {
+        let not_off_board = size.is_none_or(|size| {
+            p1.all_points_are(|p| -(size as i8) < p && p < size as i8)
+                || p2.all_points_are(|p| -(size as i8) < p && p < size as i8)
+        });
+        let c = p1.get_shared_coordinate(&p2).filter(|_| not_off_board);
         c.map(|c| Self::Both(p1, p2, c))
     }
     fn neighboring_two(&self, size: Option<u8>) -> (Option<Position>, Option<Position>) {
@@ -769,12 +782,12 @@ impl RoadPostion {
                         Position::new(p1.q - 1, p1.r.max(p2.r), p1.s.max(p2.s), size),
                     ),
                     Coordinate::R => (
-                        Position::new(p1.q.min(p2.q), p1.r.min(p2.r), p1.s + 1, size),
-                        Position::new(p1.q.max(p2.q), p1.r.max(p2.r), p1.s - 1, size),
-                    ),
-                    Coordinate::S => (
                         Position::new(p1.q.min(p2.q), p1.r + 1, p1.s.min(p2.s), size),
                         Position::new(p1.q.max(p2.q), p1.r - 1, p1.s.max(p2.s), size),
+                    ),
+                    Coordinate::S => (
+                        Position::new(p1.q.min(p2.q), p1.r.min(p2.r), p1.s + 1, size),
+                        Position::new(p1.q.max(p2.q), p1.r.max(p2.r), p1.s - 1, size),
                     ),
                 }
             }
@@ -903,6 +916,7 @@ fn generate_pieces(commands: &mut Commands<'_, '_>) {
             Position { q: 0, r: -1, s: 1 },
             // Position { q: 2, r: -1, s: -1 },
             // Position { q: 2, r: 0, s: -2 },
+            Some(3),
         )
         .unwrap(),
     ));
