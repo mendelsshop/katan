@@ -769,12 +769,12 @@ impl RoadPostion {
                         Position::new(p1.q - 1, p1.r.max(p2.r), p1.s.max(p2.s), size),
                     ),
                     Coordinate::R => (
-                        Position::new(p1.s + 1, p1.r.min(p2.r), p1.q.min(p2.q), size),
-                        Position::new(p1.s - 1, p1.r.max(p2.r), p1.q.max(p2.q), size),
+                        Position::new(p1.q.min(p2.q), p1.r.min(p2.r), p1.s + 1, size),
+                        Position::new(p1.q.max(p2.q), p1.r.max(p2.r), p1.s - 1, size),
                     ),
                     Coordinate::S => (
-                        Position::new(p1.r + 1, p1.q.min(p2.q), p1.s.min(p2.s), size),
-                        Position::new(p1.r - 1, p1.q.max(p2.q), p1.s.max(p2.s), size),
+                        Position::new(p1.q.min(p2.q), p1.r + 1, p1.s.min(p2.s), size),
+                        Position::new(p1.q.max(p2.q), p1.r - 1, p1.s.max(p2.s), size),
                     ),
                 }
             }
