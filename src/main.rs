@@ -190,8 +190,10 @@ enum Resource {
     Ore,
 }
 #[derive(Debug, Component, Clone, Copy)]
+#[require(Building)]
 struct Town;
 #[derive(Debug, Component, Clone, Copy)]
+#[require(Building)]
 struct City;
 #[derive(Debug, Component, Clone, Copy)]
 struct Road;
@@ -548,8 +550,7 @@ fn place_normal_road(
     size_r: Res<'_, BoardSize>,
     road_free_q: Query<'_, '_, (&Road, &CatanColor, &Left)>,
     road_q: Query<'_, '_, RoadQuery>,
-    town_q: Query<'_, '_, (&'_ Town, &'_ CatanColor, &'_ BuildingPosition)>,
-    city_q: Query<'_, '_, (&'_ City, &'_ CatanColor, &'_ BuildingPosition)>,
+    building_q: Query<'_, '_, (&'_ Building, &'_ BuildingPosition)>,
 
     cursor_world_pos: ResMut<'_, CursorWorldPos>,
     q_camera: Single<'_, (&Camera, &GlobalTransform)>,
@@ -618,17 +619,16 @@ fn place_normal_road(
     // partition into other color used towns with single partiton
     fn filter_by_building<B: Component>(
         (road1, road2): &(Position, RoadPostion),
-        building_q: Query<'_, '_, (&B, &CatanColor, &BuildingPosition)>,
+        building_q: Query<'_, '_, (&B, &BuildingPosition)>,
     ) -> bool {
         let road_intersection = match road2 {
             RoadPostion::Both(position, position1, _) => {
                 BuildingPosition::All(*road1, *position, *position1)
             }
         };
-        !building_q.iter().any(|(_, _, bp)| &road_intersection == bp)
+        !building_q.iter().any(|(_, bp)| &road_intersection == bp)
     }
-    let possible_roads =
-        possible_roads.filter(|r| filter_by_building(r, town_q) && filter_by_building(r, city_q));
+    let possible_roads = possible_roads.filter(|r| filter_by_building(r, building_q));
     // TODO: show options
     possible_roads
         .filter_map(|p| {
@@ -670,6 +670,116 @@ fn place_normal_road(
         });
 }
 
+// same logic for town and city
+fn place_normal_town(
+    mut commands: Commands<'_, '_>,
+    color_r: Res<'_, CurrentColor>,
+    size_r: Res<'_, BoardSize>,
+    road_free_q: Query<'_, '_, (&Town, &CatanColor, &Left)>,
+    road_q: Query<'_, '_, RoadQuery>,
+    building_q: Query<'_, '_, (&'_ Building, &'_ CatanColor, &'_ BuildingPosition)>,
+
+    cursor_world_pos: ResMut<'_, CursorWorldPos>,
+    q_camera: Single<'_, (&Camera, &GlobalTransform)>,
+) {
+    let unplaced_roads_correct_color = road_free_q.iter().find(|r| r.1 == &color_r.0);
+
+    // nor roads to place
+    let Some(_) = unplaced_roads_correct_color.filter(|r| r.2.0 > 0) else {
+        return;
+    };
+
+    let (current_color_roads, _): (Vec<_>, Vec<_>) =
+        road_q.into_iter().partition(|r| *r.1 == color_r.0);
+
+    let possibles_towns = current_color_roads
+        .into_iter()
+        .flat_map(|RoadQueryItem(_, _, road)| {
+            println!("original road {road:?}");
+            match road {
+                RoadPostion::Both(p1, p2, q) => {
+                    // TODO: this currently does not include roads that go from edge inwards
+                    // also includes "unplaces roads (roads that all postions are none)
+
+                    // neighboring two seems to be a bit flawed, and maybe should be road postion
+                    let (p3, p4) = road.neighboring_two(Some(size_r.0));
+                    println!("p3 {p3:?} p4 {p4:?}");
+                    let make_town_pos = |p, option_p1: Option<_>, p2| {
+                        option_p1.and_then(|p1| BuildingPosition::new(p, p1, p2, Some(size_r.0)))
+                    };
+                    [
+                        (
+                            // the other point (used to check for towns/cities)
+
+                            // the postion of the road
+                            make_town_pos(*p2, p3, *p1)
+                            // TODO: roads on edge of board
+                        ),
+                        (make_town_pos(*p2, p4, *p1)),
+                        (make_town_pos(*p1, p3, *p2)),
+                        (make_town_pos(*p1, p4, *p2)),
+                    ]
+                    .into_iter()
+                    .flatten()
+                }
+            }
+        });
+
+    println!("filtering out neighboring roads");
+
+    fn filter_by_building<B: Component>(
+        position: &BuildingPosition,
+        building_q: Query<'_, '_, (&B, &CatanColor, &BuildingPosition)>,
+    ) -> bool {
+        todo!()
+        // let road_intersection = match road2 {
+        //     RoadPostion::Both(position, position1, _) => {
+        //         BuildingPosition::All(*road1, *position, *position1)
+        //     }
+        // };
+        // !building_q.iter().any(|(_, _, bp)| &road_intersection == bp)
+    }
+    let possible_towns = possibles_towns.filter(|r| filter_by_building(r, building_q));
+    // TODO: show options
+    possible_towns
+        .filter_map(|p| {
+            let (x, y) = p.positon_to_pixel_coordinates();
+            (x != 0. || y != 0.).then_some((x, y, p))
+        })
+        .map(|(x, y, p)| {
+            (
+                Node {
+                    width: Val::Percent(100.0),
+                    height: Val::Percent(100.0),
+                    align_items: AlignItems::Center,
+                    justify_content: JustifyContent::Center,
+                    ..default()
+                },
+                children![(
+                    Button,
+                    Node {
+                        position_type: PositionType::Relative,
+                        width: Val::Px(15.0),
+                        height: Val::Px(15.0),
+                        // border: UiRect::all(Val::Px(2.0)),
+                        // horizontally center child text
+                        // justify_content: JustifyContent::Center,
+                        // vertically center child text
+                        // align_items: AlignItems::Center,
+                        left: Val::Px(x * 28.),
+                        top: Val::Px(y * 28.),
+                        ..default()
+                    },
+                    p,
+                    BorderRadius::MAX,
+                    BackgroundColor(NORMAL_BUTTON),
+                )],
+            )
+        })
+        .for_each(|b| {
+            commands.spawn(b);
+        });
+}
 fn draw_board(
     q: impl Iterator<Item = (Position, Hexagon, Number)>,
     mut materials: ResMut<'_, Assets<ColorMaterial>>,
@@ -875,11 +985,21 @@ enum ThreeWayDirection {
     Right,
 }
 // TODO: town city "enherit" from building make some quries easier
-#[derive(Component, PartialEq)]
+#[derive(Component, PartialEq, Default, Clone, Copy)]
 struct Building;
 #[derive(Component)]
 enum BuildingPosition {
     All(Position, Position, Position),
+}
+
+impl BuildingPosition {
+    fn new(p1: Position, p2: Position, p3: Position, size: Option<u8>) -> Option<Self> {
+        todo!()
+    }
+
+    fn positon_to_pixel_coordinates(&self) -> (f32, f32) {
+        todo!()
+    }
 }
 
 impl PartialEq for BuildingPosition {
