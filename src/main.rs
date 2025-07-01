@@ -11,7 +11,7 @@ use std::{
     ops::{Add, Div},
 };
 
-use bevy::{ecs::query::QueryData, prelude::*, window::PrimaryWindow};
+use bevy::{ecs::query::QueryData, prelude::*};
 
 use itertools::Itertools;
 use rand::seq::SliceRandom;
@@ -23,10 +23,7 @@ fn main() {
     app.init_state::<GameState>();
     app.insert_resource(BoardSize(3));
     app.insert_resource(CurrentColor(CatanColor::White));
-    app.insert_resource(CursorWorldPos(None));
     app.add_systems(Startup, setup);
-    app.add_systems(Update, get_cursor_world_pos);
-    app.add_systems(FixedUpdate, update_board_piece);
     app.add_systems(OnEnter(GameState::PlaceRoad), (place_normal_road,));
     app.add_systems(OnEnter(GameState::PlaceTown), (place_normal_town,));
     app.add_systems(OnEnter(GameState::Turn), (show_turn_ui,));
@@ -89,12 +86,12 @@ impl From<Position> for FPosition {
     }
 }
 impl FPosition {
-    fn filter_coordinate(mut self, coordinate: Coordinate) -> Self {
+    const fn filter_coordinate(mut self, coordinate: Coordinate) -> Self {
         match coordinate {
             Coordinate::Q => self.q = 0.,
             Coordinate::R => self.r = 0.,
             Coordinate::S => self.s = 0.,
-        };
+        }
         self
     }
     const fn get_shared_coordinate(&self, other: &Self) -> Option<Coordinate> {
@@ -113,9 +110,9 @@ impl FPosition {
             .map(|shared_coordinate| self.interesect_with_coordinate(other, shared_coordinate))
     }
 
-    fn interesect_with_coordinate(
+    const fn interesect_with_coordinate(
         self,
-        other @ Self {
+        Self {
             q: q1,
             r: r1,
             s: s1,
@@ -128,27 +125,27 @@ impl FPosition {
                 // ideas is that the midpoint will be here the road is between two hexes
                 // doesn't seem to be working
                 Self {
-                    q: q,
-                    r: (r + r1) / 2.,
-                    s: (s + s1) / 2.,
+                    q,
+                    r: f32::midpoint(r, r1),
+                    s: f32::midpoint(s, s1),
                 }
             }
             Coordinate::R => {
                 // ideas is that the midpoint will be here the road is between two hexes
                 // doesn't seem to be working
                 Self {
-                    r: r,
-                    q: (q + q1) / 2.,
-                    s: (s + s1) / 2.,
+                    r,
+                    q: f32::midpoint(q, q1),
+                    s: f32::midpoint(s, s1),
                 }
             }
             Coordinate::S => {
                 // ideas is that the midpoint will be here the road is between two hexes
                 // doesn't seem to be working
                 Self {
-                    s: s,
-                    r: (r + r1) / 2.,
-                    q: (q + q1) / 2.,
+                    s,
+                    r: f32::midpoint(r, r1),
+                    q: f32::midpoint(q, q1),
                 }
             }
         }
@@ -215,7 +212,6 @@ impl Position {
             }))
         .then_some(Self { q, r, s })
     }
-    // returns the two neighboring hexes for the two hexes passed in
 }
 impl Add for Position {
     type Output = Self;
@@ -484,26 +480,6 @@ fn generate_postions(n: i8) -> impl Iterator<Item = Position> {
 enum Port {}
 #[derive(Resource, Clone, Copy)]
 struct BoardSize(u8);
-const fn update_board_piece(q: Query<'_, '_, (&mut Hexagon, &Position)>) {
-    // q.iter_mut()
-    //     .for_each(|mut foo| *foo.0 = rand::random::<u8>().into());
-}
-
-#[derive(Resource)]
-struct CursorWorldPos(Option<Vec2>);
-fn get_cursor_world_pos(
-    mut cursor_world_pos: ResMut<'_, CursorWorldPos>,
-    primary_window: Single<'_, &Window, With<PrimaryWindow>>,
-    q_camera: Single<'_, (&Camera, &GlobalTransform)>,
-) {
-    let (main_camera, main_camera_transform) = *q_camera;
-    // Get the cursor position in the world
-    cursor_world_pos.0 = primary_window.cursor_position().and_then(|cursor_pos| {
-        main_camera
-            .viewport_to_world_2d(main_camera_transform, cursor_pos)
-            .ok()
-    });
-}
 
 const NORMAL_BUTTON: Color = Color::srgb(0.15, 0.15, 0.15);
 const HOVERED_BUTTON: Color = Color::srgb(0.25, 0.25, 0.25);
@@ -513,7 +489,7 @@ const PRESSED_BUTTON: Color = Color::srgb(0.35, 0.75, 0.35);
 // button in game to start road placement ui
 struct RoadButton;
 #[derive(Component, PartialEq, Debug, Clone, Copy)]
-// button in gam/ to start town placement ui
+// button in game to start town placement ui
 struct TownButton;
 // TODO: combine with turn_ui_road_interaction
 fn turn_ui_town_interaction(
@@ -521,43 +497,22 @@ fn turn_ui_town_interaction(
     mut interaction_query: Query<
         '_,
         '_,
-        (
-            &TownButton,
-            &Interaction,
-            // &mut BackgroundColor,
-            &mut Button,
-        ),
+        (&TownButton, &Interaction, &mut Button),
         Changed<Interaction>,
     >,
 ) {
     for (entity, interaction, mut button) in &mut interaction_query {
         match *interaction {
             Interaction::Pressed => {
-                // input_focus.set(entity);
-                // **text = "Press".to_string();
-                // *color = PRESSED_BUTTON.into();
-                // *border_color = BorderColor::all(RED.into());
-
-                // The accessibility system's only update the button's state when the `Button` component is marked as changed.
                 button.set_changed();
 
-                // TODO: proper state switch
                 game_state.set(GameState::PlaceTown);
                 button.set_changed();
             }
             Interaction::Hovered => {
-                // input_focus.set(entity);
-                // **text = "Hover".to_string();
-                // *color = HOVERED_BUTTON.into();
-                // *border_color = BorderColor::all(Color::WHITE);
                 button.set_changed();
             }
-            Interaction::None => {
-                // input_focus.clear();
-                // **text = "Button".to_string();
-                // *color = NORMAL_BUTTON.into();
-                // *border_color = BorderColor::all(Color::BLACK);
-            }
+            Interaction::None => {}
         }
     }
 }
@@ -566,48 +521,26 @@ fn turn_ui_road_interaction(
     mut interaction_query: Query<
         '_,
         '_,
-        (
-            &RoadButton,
-            &Interaction,
-            // &mut BackgroundColor,
-            &mut Button,
-        ),
+        (&RoadButton, &Interaction, &mut Button),
         Changed<Interaction>,
     >,
 ) {
     for (entity, interaction, mut button) in &mut interaction_query {
         match *interaction {
             Interaction::Pressed => {
-                // input_focus.set(entity);
-                // **text = "Press".to_string();
-                // *color = PRESSED_BUTTON.into();
-                // *border_color = BorderColor::all(RED.into());
-
-                // The accessibility system's only update the button's state when the `Button` component is marked as changed.
                 button.set_changed();
 
-                // TODO: proper state switch
                 game_state.set(GameState::PlaceRoad);
                 button.set_changed();
             }
             Interaction::Hovered => {
-                // input_focus.set(entity);
-                // **text = "Hover".to_string();
-                // *color = HOVERED_BUTTON.into();
-                // *border_color = BorderColor::all(Color::WHITE);
                 button.set_changed();
             }
-            Interaction::None => {
-                // input_focus.clear();
-                // **text = "Button".to_string();
-                // *color = NORMAL_BUTTON.into();
-                // *border_color = BorderColor::all(Color::BLACK);
-            }
+            Interaction::None => {}
         }
     }
 }
 fn show_turn_ui(mut commands: Commands<'_, '_>, asset_server: Res<'_, AssetServer>) {
-    // TODO: have button with picture of road
     let road_icon = asset_server.load("road.png");
     let town_icon: Handle<Image> = asset_server.load("house.png");
     commands.spawn((
@@ -628,8 +561,6 @@ fn show_turn_ui(mut commands: Commands<'_, '_>, asset_server: Res<'_, AssetServe
                 Button,
                 ImageNode::new(road_icon),
                 RoadButton,
-                // NodeImageMode
-                // BackgroundColor(NORMAL_BUTTON),
             ),
             (
                 Node {
@@ -641,7 +572,6 @@ fn show_turn_ui(mut commands: Commands<'_, '_>, asset_server: Res<'_, AssetServe
                 Button,
                 ImageNode::new(town_icon),
                 TownButton,
-                // BackgroundColor(NORMAL_BUTTON),
             )
         ],
     ));
@@ -657,8 +587,6 @@ fn cleanup<T: Component>(
 fn place_normal_interaction<Kind: Component + Default, Pos: Component + Copy>(
     mut game_state: ResMut<'_, NextState<GameState>>,
     color_r: Res<'_, CurrentColor>,
-    materials: ResMut<'_, Assets<ColorMaterial>>,
-    meshes: ResMut<'_, Assets<Mesh>>,
     mut commands: Commands<'_, '_>,
     mut road_free_q: Query<'_, '_, (&Kind, &CatanColor, &mut Left)>,
     mut interaction_query: Query<
@@ -671,12 +599,8 @@ fn place_normal_interaction<Kind: Component + Default, Pos: Component + Copy>(
     for (entity, interaction, mut color, mut button) in &mut interaction_query {
         match *interaction {
             Interaction::Pressed => {
-                // input_focus.set(entity);
-                // **text = "Press".to_string();
                 *color = PRESSED_BUTTON.into();
-                // *border_color = BorderColor::all(RED.into());
 
-                // The accessibility system's only update the button's state when the `Button` component is marked as changed.
                 button.set_changed();
 
                 commands.spawn((Kind::default(), color_r.0, *entity));
@@ -685,22 +609,15 @@ fn place_normal_interaction<Kind: Component + Default, Pos: Component + Copy>(
                     *left = Left(left.0 - 1);
                 }
 
-                // TODO: proper state switch
                 game_state.set(GameState::Turn);
                 button.set_changed();
             }
             Interaction::Hovered => {
-                // input_focus.set(entity);
-                // **text = "Hover".to_string();
                 *color = HOVERED_BUTTON.into();
-                // *border_color = BorderColor::all(Color::WHITE);
                 button.set_changed();
             }
             Interaction::None => {
-                // input_focus.clear();
-                // **text = "Button".to_string();
                 *color = NORMAL_BUTTON.into();
-                // *border_color = BorderColor::all(Color::BLACK);
             }
         }
     }
@@ -715,12 +632,10 @@ fn place_normal_road(
     road_free_q: Query<'_, '_, (&Road, &CatanColor, &Left)>,
     road_q: Query<'_, '_, RoadQuery>,
     building_q: Query<'_, '_, (&'_ Building, &'_ BuildingPosition)>,
-
-    cursor_world_pos: ResMut<'_, CursorWorldPos>,
 ) {
     let unplaced_roads_correct_color = road_free_q.iter().find(|r| r.1 == &color_r.0);
 
-    // nor roads to place
+    // no roads to place
     let Some(_) = unplaced_roads_correct_color.filter(|r| r.2.0 > 0) else {
         return;
     };
@@ -743,11 +658,7 @@ fn place_normal_road(
         .flat_map(|RoadQueryItem(_, _, road)| {
             println!("original road {road:?}");
             match road {
-                RoadPostion::Both(p1, p2, q) => {
-                    // TODO: this currently does not include roads that go from edge inwards
-                    // also includes "unplaces roads (roads that all postions are none)
-
-                    // neighboring two seems to be a bit flawed, and maybe should be road postion
+                RoadPostion::Both(p1, p2, _) => {
                     let (p3, p4) = road.neighboring_two(Some(size_r.0));
                     println!("p3 {p3:?} p4 {p4:?}");
                     let make_road_pos = |p, option_p1: Option<_>, p1| {
@@ -762,10 +673,8 @@ fn place_normal_road(
                     [
                         (
                             // the other point (used to check for towns/cities)
-
                             // the postion of the road
                             make_road_pos(*p2, p3, p1)
-                            // TODO: roads on edge of board
                         ),
                         (make_road_pos(*p2, p4, p1)),
                         (make_road_pos(*p1, p3, p2)),
@@ -797,7 +706,6 @@ fn place_normal_road(
         !building_q.iter().any(|(_, bp)| &road_intersection == bp)
     }
     let possible_roads = possible_roads.filter(|r| filter_by_building(r, building_q));
-    // TODO: show options
     possible_roads
         .filter_map(|p| {
             let (x, y) = p.1.positon_to_pixel_coordinates();
@@ -818,11 +726,6 @@ fn place_normal_road(
                         position_type: PositionType::Relative,
                         width: Val::Px(15.0),
                         height: Val::Px(15.0),
-                        // border: UiRect::all(Val::Px(2.0)),
-                        // horizontally center child text
-                        // justify_content: JustifyContent::Center,
-                        // vertically center child text
-                        // align_items: AlignItems::Center,
                         left: Val::Px(x * 28.),
                         top: Val::Px(y * 28.),
                         ..default()
@@ -843,14 +746,14 @@ fn place_normal_town(
     mut commands: Commands<'_, '_>,
     color_r: Res<'_, CurrentColor>,
     size_r: Res<'_, BoardSize>,
-    road_free_q: Query<'_, '_, (&Town, &CatanColor, &Left)>,
+    town_free_q: Query<'_, '_, (&Town, &CatanColor, &Left)>,
     road_q: Query<'_, '_, RoadQuery>,
     building_q: Query<'_, '_, (&'_ Building, &'_ CatanColor, &'_ BuildingPosition)>,
 ) {
-    let unplaced_roads_correct_color = road_free_q.iter().find(|r| r.1 == &color_r.0);
+    let unplaced_towns_correct_color = town_free_q.iter().find(|r| r.1 == &color_r.0);
 
-    // nor roads to place
-    let Some(_) = unplaced_roads_correct_color.filter(|r| r.2.0 > 0) else {
+    // no towns to place
+    let Some(_) = unplaced_towns_correct_color.filter(|r| r.2.0 > 0) else {
         return;
     };
 
@@ -883,15 +786,8 @@ fn place_normal_town(
         };
     let possible_towns = possibles_towns
         .inspect(|p| println!("possible town {p:?}"))
-        .filter(|r| {
-            let filter_by_building = filter_by_building(r, building_q);
-            println!("is it safe {r:?} {filter_by_building}");
-            filter_by_building
-        });
-    // TODO: show options
+        .filter(|r| filter_by_building(r, building_q));
     possible_towns
-        .collect_vec()
-        .into_iter()
         .filter_map(|p| {
             let (x, y) = p.positon_to_pixel_coordinates();
             (x != 0. || y != 0.).then_some((x, y, p))
@@ -911,11 +807,6 @@ fn place_normal_town(
                         position_type: PositionType::Relative,
                         width: Val::Px(15.0),
                         height: Val::Px(15.0),
-                        // border: UiRect::all(Val::Px(2.0)),
-                        // horizontally center child text
-                        // justify_content: JustifyContent::Center,
-                        // vertically center child text
-                        // align_items: AlignItems::Center,
                         left: Val::Px(x * 28.),
                         top: Val::Px(y * 28.),
                         ..default()
@@ -935,30 +826,15 @@ fn buildings_on_roads(
     current_color_roads: impl Iterator<Item = RoadPostion>,
     size_r: BoardSize,
 ) -> impl Iterator<Item = BuildingPosition> {
-    current_color_roads.flat_map(move |road| {
-        match road {
-            RoadPostion::Both(p1, p2, q) => {
-                // TODO: this currently does not include roads that go from edge inwards
-                // also includes "unplaces roads (roads that all postions are none)
-
-                // neighboring two seems to be a bit flawed, and maybe should be road postion
-                let (p3, p4) = road.neighboring_two(Some(size_r.0));
-                let make_town_pos = |p, option_p1: Option<_>, p2| {
-                    option_p1.and_then(|p1| BuildingPosition::new(p, p1, p2, Some(size_r.0)))
-                };
-                [
-                    (
-                        // the other point (used to check for towns/cities)
-
-                        // the postion of the road
-                        make_town_pos(p1, p3, p2)
-                        // TODO: roads on edge of board
-                    ),
-                    (make_town_pos(p1, p4, p2)),
-                ]
+    current_color_roads.flat_map(move |road| match road {
+        RoadPostion::Both(p1, p2, _) => {
+            let (p3, p4) = road.neighboring_two(Some(size_r.0));
+            let make_town_pos = |p, option_p1: Option<_>, p2| {
+                option_p1.and_then(|p1| BuildingPosition::new(p, p1, p2, Some(size_r.0)))
+            };
+            [(make_town_pos(p1, p3, p2)), (make_town_pos(p1, p4, p2))]
                 .into_iter()
                 .flatten()
-            }
         }
     })
 }
@@ -1039,11 +915,7 @@ impl PiecePostion {
 #[derive(Component, PartialEq, Eq)]
 struct Left(pub u8);
 #[derive(Component, Clone, Copy, Debug)]
-// If we had whether it was an edge or not as individual struct we could interersting stuff with
-// quries at the type level (maybe have base road postion type for quires that use both)
 enum RoadPostion {
-    // maybe we could enforce more stuff i.e. they will share one coordinate
-    // and the others will be +1 or -1 respectively
     /// Dont use this constructor use `Self::new`
     Both(Position, Position, Coordinate),
 }
@@ -1107,18 +979,9 @@ impl PartialEq for RoadPostion {
         }
     }
 }
-#[derive(Component, Clone, Copy, Debug, PartialEq)]
-enum TwoWayDirection {
-    Left,
-    Right,
-}
-#[derive(Component, Clone, Copy, Debug, PartialEq)]
-enum ThreeWayDirection {
-    Left,
-    Middle,
-    Right,
-}
-// TODO: town city "enherit" from building make some quries easier
+
+// town city "enherit" from building make some quries easier
+// i think right way to do it with is with `[require(..)]`
 #[derive(Component, PartialEq, Default, Clone, Copy)]
 struct Building;
 #[derive(Component, Clone, Copy, Debug)]
@@ -1133,9 +996,6 @@ impl BuildingPosition {
 
     fn positon_to_pixel_coordinates(&self) -> (f32, f32) {
         match self {
-            // the double intersections makes that the second intersection never happens (at least
-            // the way its implemented currently)
-            // even if originally all three sides interesected
             Self::All(position, position1, position2) => {
                 let fposition: FPosition = (*position).into();
                 let fposition1: FPosition = (*position1).into();
