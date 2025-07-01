@@ -580,9 +580,9 @@ fn turn_ui_road_interaction(
     }
 }
 fn show_turn_ui(mut commands: Commands<'_, '_>, asset_server: Res<'_, AssetServer>) {
-    // TODO: city placement button
     let road_icon = asset_server.load("road.png");
     let town_icon: Handle<Image> = asset_server.load("house.png");
+    let city_icon = asset_server.load("city.png");
     commands.spawn((
         Node {
             width: Val::Percent(100.0),
@@ -612,6 +612,17 @@ fn show_turn_ui(mut commands: Commands<'_, '_>, asset_server: Res<'_, AssetServe
                 Button,
                 ImageNode::new(town_icon),
                 TownButton,
+            ),
+            (
+                Node {
+                    left: Val::Px(25.),
+                    width: Val::Px(37.306),
+                    height: Val::Px(25.0),
+                    ..default()
+                },
+                Button,
+                ImageNode::new(city_icon),
+                CityButton,
             )
         ],
     ));
@@ -628,9 +639,9 @@ fn place_normal_city_interaction(
     mut game_state: ResMut<'_, NextState<GameState>>,
     color_r: Res<'_, CurrentColor>,
     mut commands: Commands<'_, '_>,
-    town_free_q: Query<'_, '_, (&Town, &CatanColor, &mut Left)>,
+    mut town_free_q: Query<'_, '_, (&Town, &CatanColor, &mut Left), Without<City>>,
     town_q: Query<'_, '_, (Entity, &Town, &CatanColor, &BuildingPosition)>,
-    mut city_free_q: Query<'_, '_, (&City, &CatanColor, &mut Left)>,
+    mut city_free_q: Query<'_, '_, (&City, &CatanColor, &mut Left), Without<Town>>,
     mut interaction_query: Query<
         '_,
         '_,
@@ -659,7 +670,7 @@ fn place_normal_city_interaction(
                 if let Some((entity1, _, _, _)) = town_to_be_replaced {
                     commands.entity(entity1).remove::<Town>().insert(City);
                 }
-                let towns_left = city_free_q.iter_mut().find(|x| x.1 == &color_r.0);
+                let towns_left = town_free_q.iter_mut().find(|x| x.1 == &color_r.0);
                 if let Some((_, _, mut left)) = towns_left {
                     *left = Left(left.0 + 1);
                 }
