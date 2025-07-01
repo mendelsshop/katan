@@ -12,6 +12,7 @@ use bevy::{ecs::query::QueryData, prelude::*, window::PrimaryWindow};
 
 use itertools::Itertools;
 use rand::seq::SliceRandom;
+
 fn main() {
     println!("Hello, world!");
     let mut app = App::new();
@@ -24,16 +25,27 @@ fn main() {
     app.add_systems(Update, get_cursor_world_pos);
     app.add_systems(FixedUpdate, update_board_piece);
     app.add_systems(OnEnter(GameState::PlaceRoad), (place_normal_road,));
+    app.add_systems(OnEnter(GameState::PlaceTown), (place_normal_town,));
     app.add_systems(OnEnter(GameState::Turn), (show_turn_ui,));
 
     app.add_systems(
         Update,
         turn_ui_road_interaction.run_if(in_state(GameState::Turn)),
     );
-    app.add_systems(OnExit(GameState::PlaceRoad), (cleanup_road_place,));
     app.add_systems(
         Update,
-        place_normal_road_interaction.run_if(in_state(GameState::PlaceRoad)),
+        turn_ui_town_interaction.run_if(in_state(GameState::Turn)),
+    );
+
+    app.add_systems(OnExit(GameState::PlaceRoad), (cleanup::<RoadPostion>,));
+    app.add_systems(OnExit(GameState::PlaceTown), (cleanup::<BuildingPosition>,));
+    app.add_systems(
+        Update,
+        place_normal_interaction::<Road, RoadPostion>.run_if(in_state(GameState::PlaceRoad)),
+    );
+    app.add_systems(
+        Update,
+        place_normal_interaction::<Town, BuildingPosition>.run_if(in_state(GameState::PlaceTown)),
     );
     app.run();
 }
@@ -45,6 +57,7 @@ enum GameState {
     Start,
     PlaceRoad,
     Turn,
+    PlaceTown,
 }
 #[derive(Component, PartialEq, Debug, Clone, Copy)]
 enum Number {
@@ -73,6 +86,62 @@ impl From<Position> for FPosition {
     }
 }
 impl FPosition {
+    const fn get_shared_coordinate(&self, other: &Self) -> Option<Coordinate> {
+        if self.q == other.q {
+            Some(Coordinate::Q)
+        } else if self.r == other.r {
+            Some(Coordinate::R)
+        } else if self.s == other.s {
+            Some(Coordinate::S)
+        } else {
+            None
+        }
+    }
+    pub fn intersect(self, other: Self) -> Option<Self> {
+        self.get_shared_coordinate(&other)
+            .map(|shared_coordinate| self.interesect_with_coordinate(other, shared_coordinate))
+    }
+
+    fn interesect_with_coordinate(
+        self,
+        other @ Self {
+            q: q1,
+            r: r1,
+            s: s1,
+        }: Self,
+        shared_coordinate: Coordinate,
+    ) -> Self {
+        let Self { q, r, s } = self;
+        match shared_coordinate {
+            Coordinate::Q => {
+                // ideas is that the midpoint will be here the road is between two hexes
+                // doesn't seem to be working
+                Self {
+                    q: q,
+                    r: (r + r1) / 2.,
+                    s: (s + s1) / 2.,
+                }
+            }
+            Coordinate::R => {
+                // ideas is that the midpoint will be here the road is between two hexes
+                // doesn't seem to be working
+                Self {
+                    r: r,
+                    q: (q + q1) / 2.,
+                    s: (s + s1) / 2.,
+                }
+            }
+            Coordinate::S => {
+                // ideas is that the midpoint will be here the road is between two hexes
+                // doesn't seem to be working
+                Self {
+                    s: s,
+                    r: (r + r1) / 2.,
+                    q: (q + q1) / 2.,
+                }
+            }
+        }
+    }
     fn hex_to_pixel(self) -> (f32, f32) {
         let x = 3f32.sqrt().mul_add(self.q, 3f32.sqrt() / 2. * self.r);
         let y = 3. / 2. * self.r;
@@ -81,6 +150,28 @@ impl FPosition {
 }
 // maybe do size const generics?
 impl Position {
+    const DIRECTION_VECTORS: [Self; 6] = [
+        Self { q: 1, r: 0, s: -1 },
+        Self { q: 1, r: -1, s: 0 },
+        Self { q: 0, r: -1, s: 1 },
+        Self { q: -1, r: 0, s: 1 },
+        Self { q: -1, r: 1, s: 0 },
+        Self { q: 0, r: 1, s: -1 },
+    ];
+    fn rotate_right(&self) -> Self {
+        let Self { q, r, s } = self;
+        Self {
+            q: -r,
+            r: -s,
+            s: -q,
+        }
+    }
+    fn building_positions_around(&self) -> [BuildingPosition; 6] {
+        Self::DIRECTION_VECTORS.map(|p| {
+            let p1 = p.rotate_right();
+            BuildingPosition::All(*self, p + *self, p1 + *self)
+        })
+    }
     fn all_points_are(&self, mut f: impl FnMut(i8) -> bool) -> bool {
         f(self.q) && f(self.r) && f(self.s)
     }
@@ -189,13 +280,13 @@ enum Resource {
     Wheat,
     Ore,
 }
-#[derive(Debug, Component, Clone, Copy)]
+#[derive(Debug, Component, Clone, Copy, Default)]
 #[require(Building)]
 struct Town;
 #[derive(Debug, Component, Clone, Copy)]
 #[require(Building)]
 struct City;
-#[derive(Debug, Component, Clone, Copy)]
+#[derive(Debug, Component, Clone, Copy, Default)]
 struct Road;
 #[derive(Debug, Component, Clone, Copy)]
 enum DevelopmentCard {
@@ -392,6 +483,52 @@ struct RoadButton;
 #[derive(Component, PartialEq, Debug, Clone, Copy)]
 // button in gam/ to start town placement ui
 struct TownButton;
+// TODO: combine with turn_ui_road_interaction
+fn turn_ui_town_interaction(
+    mut game_state: ResMut<'_, NextState<GameState>>,
+    mut interaction_query: Query<
+        '_,
+        '_,
+        (
+            &TownButton,
+            &Interaction,
+            // &mut BackgroundColor,
+            &mut Button,
+        ),
+        Changed<Interaction>,
+    >,
+) {
+    for (entity, interaction, mut button) in &mut interaction_query {
+        match *interaction {
+            Interaction::Pressed => {
+                // input_focus.set(entity);
+                // **text = "Press".to_string();
+                // *color = PRESSED_BUTTON.into();
+                // *border_color = BorderColor::all(RED.into());
+
+                // The accessibility system's only update the button's state when the `Button` component is marked as changed.
+                button.set_changed();
+
+                // TODO: proper state switch
+                game_state.set(GameState::PlaceTown);
+                button.set_changed();
+            }
+            Interaction::Hovered => {
+                // input_focus.set(entity);
+                // **text = "Hover".to_string();
+                // *color = HOVERED_BUTTON.into();
+                // *border_color = BorderColor::all(Color::WHITE);
+                button.set_changed();
+            }
+            Interaction::None => {
+                // input_focus.clear();
+                // **text = "Button".to_string();
+                // *color = NORMAL_BUTTON.into();
+                // *border_color = BorderColor::all(Color::BLACK);
+            }
+        }
+    }
+}
 fn turn_ui_road_interaction(
     mut game_state: ResMut<'_, NextState<GameState>>,
     mut interaction_query: Query<
@@ -477,30 +614,25 @@ fn show_turn_ui(mut commands: Commands<'_, '_>, asset_server: Res<'_, AssetServe
         ],
     ));
 }
-fn cleanup_road_place(
+fn cleanup<T: Component>(
     mut commands: Commands<'_, '_>,
-    mut interaction_query: Query<'_, '_, Entity, (With<RoadPostion>, With<Button>)>,
+    mut interaction_query: Query<'_, '_, Entity, (With<T>, With<Button>)>,
 ) {
     for entity in &mut interaction_query {
         commands.entity(entity).despawn();
     }
 }
-fn place_normal_road_interaction(
+fn place_normal_interaction<Kind: Component + Default, Pos: Component + Copy>(
     mut game_state: ResMut<'_, NextState<GameState>>,
     color_r: Res<'_, CurrentColor>,
     materials: ResMut<'_, Assets<ColorMaterial>>,
     meshes: ResMut<'_, Assets<Mesh>>,
     mut commands: Commands<'_, '_>,
-    mut road_free_q: Query<'_, '_, (&Road, &CatanColor, &mut Left)>,
+    mut road_free_q: Query<'_, '_, (&Kind, &CatanColor, &mut Left)>,
     mut interaction_query: Query<
         '_,
         '_,
-        (
-            &RoadPostion,
-            &Interaction,
-            &mut BackgroundColor,
-            &mut Button,
-        ),
+        (&Pos, &Interaction, &mut BackgroundColor, &mut Button),
         Changed<Interaction>,
     >,
 ) {
@@ -515,7 +647,7 @@ fn place_normal_road_interaction(
                 // The accessibility system's only update the button's state when the `Button` component is marked as changed.
                 button.set_changed();
 
-                commands.spawn((Road, color_r.0, *entity));
+                commands.spawn((Kind::default(), color_r.0, *entity));
                 let roads_left = road_free_q.iter_mut().find(|x| x.1 == &color_r.0);
                 if let Some((_, _, mut left)) = roads_left {
                     *left = Left(left.0 - 1);
@@ -565,6 +697,7 @@ fn place_normal_road(
     let (current_color_roads, _): (Vec<_>, Vec<_>) =
         road_q.into_iter().partition(|r| *r.1 == color_r.0);
 
+    println!("current new roads");
     // we don't check current color roads is empty b/c by iterating over them we are essentially
     // doing that already
     // roads are between two hexes (if one coordiante is the same
@@ -577,6 +710,7 @@ fn place_normal_road(
     let possibles_roads = current_color_roads
         .into_iter()
         .flat_map(|RoadQueryItem(_, _, road)| {
+            println!("original road {road:?}");
             match road {
                 RoadPostion::Both(p1, p2, q) => {
                     // TODO: this currently does not include roads that go from edge inwards
@@ -584,6 +718,7 @@ fn place_normal_road(
 
                     // neighboring two seems to be a bit flawed, and maybe should be road postion
                     let (p3, p4) = road.neighboring_two(Some(size_r.0));
+                    println!("p3 {p3:?} p4 {p4:?}");
                     let make_road_pos = |p, option_p1: Option<_>, p1| {
                         option_p1.and_then(|p1| {
                             println!(
@@ -611,9 +746,11 @@ fn place_normal_road(
             }
         });
 
+    println!("filtering out neighboring roads");
     // 2) make sure that there is no road already there (whether that color or not)
-    let possible_roads =
-        possibles_roads.filter(|(_, r)| !road_q.iter().any(|RoadQueryItem(_, _, r1)| r == r1));
+    let possible_roads = possibles_roads
+        .filter(|(_, r)| !road_q.iter().any(|RoadQueryItem(_, _, r1)| r == r1))
+        .inspect(|r| println!("{:?}", r.1));
 
     // 3) make sure there is no differeent color town at the three itersection
     // partition into other color used towns with single partiton
@@ -712,11 +849,9 @@ fn place_normal_town(
                             // the other point (used to check for towns/cities)
 
                             // the postion of the road
-                            make_town_pos(*p2, p3, *p1)
+                            make_town_pos(*p1, p3, *p2)
                             // TODO: roads on edge of board
                         ),
-                        (make_town_pos(*p2, p4, *p1)),
-                        (make_town_pos(*p1, p3, *p2)),
                         (make_town_pos(*p1, p4, *p2)),
                     ]
                     .into_iter()
@@ -725,21 +860,28 @@ fn place_normal_town(
             }
         });
 
-    println!("filtering out neighboring roads");
-
     fn filter_by_building<B: Component>(
         position: &BuildingPosition,
         building_q: Query<'_, '_, (&B, &CatanColor, &BuildingPosition)>,
     ) -> bool {
-        todo!()
-        // let road_intersection = match road2 {
-        //     RoadPostion::Both(position, position1, _) => {
-        //         BuildingPosition::All(*road1, *position, *position1)
-        //     }
-        // };
-        // !building_q.iter().any(|(_, _, bp)| &road_intersection == bp)
+        match position {
+            BuildingPosition::All(position, position1, position2) => ![
+                position.building_positions_around(),
+                position1.building_positions_around(),
+                position2.building_positions_around(),
+            ]
+            .concat()
+            .iter()
+            .any(|p| building_q.iter().any(|(_, _, place_b)| p == place_b)),
+        }
     }
-    let possible_towns = possibles_towns.filter(|r| filter_by_building(r, building_q));
+    let possible_towns = possibles_towns
+        .inspect(|p| println!("possible town {p:?}"))
+        .filter(|r| {
+            let filter_by_building = filter_by_building(r, building_q);
+            println!("is it safe {r:?} {filter_by_building}");
+            filter_by_building
+        });
     // TODO: show options
     possible_towns
         .filter_map(|p| {
@@ -905,59 +1047,11 @@ impl RoadPostion {
     }
     fn positon_to_pixel_coordinates(&self) -> (f32, f32) {
         match self {
-            Self::Both(
-                Position { q, r, s },
-                Position {
-                    q: q1,
-                    r: r1,
-                    s: s1,
-                },
-                Coordinate::Q,
-            ) => {
-                // ideas is that the midpoint will be here the road is between two hexes
-                // doesn't seem to be working
-                let midpoint = FPosition {
-                    q: f32::from(*q),
-                    r: f32::from(r + r1) / 2.,
-                    s: f32::from(s + s1) / 2.,
-                };
-                midpoint.hex_to_pixel()
-            }
-            Self::Both(
-                Position { q, r, s },
-                Position {
-                    q: q1,
-                    r: r1,
-                    s: s1,
-                },
-                Coordinate::R,
-            ) => {
-                // ideas is that the midpoint will be here the road is between two hexes
-                // doesn't seem to be working
-                let midpoint = FPosition {
-                    r: f32::from(*r),
-                    q: f32::from(q + q1) / 2.,
-                    s: f32::from(s + s1) / 2.,
-                };
-                midpoint.hex_to_pixel()
-            }
-            Self::Both(
-                Position { q, r, s },
-                Position {
-                    q: q1,
-                    r: r1,
-                    s: s1,
-                },
-                Coordinate::S,
-            ) => {
-                // ideas is that the midpoint will be here the road is between two hexes
-                // doesn't seem to be working
-                let midpoint = FPosition {
-                    s: f32::from(*s),
-                    r: f32::from(r + r1) / 2.,
-                    q: f32::from(q + q1) / 2.,
-                };
-                midpoint.hex_to_pixel()
+            Self::Both(position, position1, coordinate) => {
+                let fposition: FPosition = (*position).into();
+                fposition
+                    .interesect_with_coordinate((*position1).into(), *coordinate)
+                    .hex_to_pixel()
             }
         }
     }
@@ -987,18 +1081,29 @@ enum ThreeWayDirection {
 // TODO: town city "enherit" from building make some quries easier
 #[derive(Component, PartialEq, Default, Clone, Copy)]
 struct Building;
-#[derive(Component)]
+#[derive(Component, Clone, Copy, Debug)]
 enum BuildingPosition {
     All(Position, Position, Position),
 }
 
 impl BuildingPosition {
-    fn new(p1: Position, p2: Position, p3: Position, size: Option<u8>) -> Option<Self> {
-        todo!()
+    const fn new(p1: Position, p2: Position, p3: Position, size: Option<u8>) -> Option<Self> {
+        Some(Self::All(p1, p2, p3))
     }
 
     fn positon_to_pixel_coordinates(&self) -> (f32, f32) {
-        todo!()
+        match self {
+            // the double intersections makes that the second intersection never happens (at least
+            // the way its implemented currently)
+            // even if originally all three sides interesected
+            Self::All(position, position1, position2) => {
+                let fposition: FPosition = (*position).into();
+                fposition
+                    .intersect((*position1).into())
+                    .and_then(|fposition| fposition.intersect((*position2).into()))
+                    .map_or((0., 0.), FPosition::hex_to_pixel)
+            }
+        }
     }
 }
 
@@ -1033,7 +1138,7 @@ fn generate_pieces(commands: &mut Commands<'_, '_>) {
         CatanColor::White,
         RoadPostion::new(
             Position { q: 0, r: 0, s: 0 },
-            Position { q: 0, r: -1, s: 1 },
+            Position { q: -1, r: 0, s: 1 },
             // Position { q: 2, r: -1, s: -1 },
             // Position { q: 2, r: 0, s: -2 },
             Some(3),
