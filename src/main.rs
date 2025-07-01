@@ -6,7 +6,10 @@
     clippy::missing_panics_doc
 )]
 
-use std::{mem::swap, ops::Add};
+use std::{
+    mem::swap,
+    ops::{Add, Div},
+};
 
 use bevy::{ecs::query::QueryData, prelude::*, window::PrimaryWindow};
 
@@ -86,6 +89,14 @@ impl From<Position> for FPosition {
     }
 }
 impl FPosition {
+    fn filter_coordinate(mut self, coordinate: Coordinate) -> Self {
+        match coordinate {
+            Coordinate::Q => self.q = 0.,
+            Coordinate::R => self.r = 0.,
+            Coordinate::S => self.s = 0.,
+        };
+        self
+    }
     const fn get_shared_coordinate(&self, other: &Self) -> Option<Coordinate> {
         if self.q == other.q {
             Some(Coordinate::Q)
@@ -217,7 +228,28 @@ impl Add for Position {
         }
     }
 }
+impl Div<f32> for FPosition {
+    type Output = Self;
 
+    fn div(self, rhs: f32) -> Self::Output {
+        Self {
+            q: self.q / rhs,
+            r: self.r / rhs,
+            s: self.s / rhs,
+        }
+    }
+}
+impl Add for FPosition {
+    type Output = Self;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        Self {
+            q: self.q + rhs.q,
+            r: self.r + rhs.r,
+            s: self.s + rhs.s,
+        }
+    }
+}
 #[derive(Debug, Component, Clone, Copy)]
 // our hexagons are pointy
 enum Hexagon {
@@ -450,7 +482,7 @@ fn generate_postions(n: i8) -> impl Iterator<Item = Position> {
 }
 #[derive(Debug)]
 enum Port {}
-#[derive(Resource)]
+#[derive(Resource, Clone, Copy)]
 struct BoardSize(u8);
 const fn update_board_piece(q: Query<'_, '_, (&mut Hexagon, &Position)>) {
     // q.iter_mut()
@@ -685,7 +717,6 @@ fn place_normal_road(
     building_q: Query<'_, '_, (&'_ Building, &'_ BuildingPosition)>,
 
     cursor_world_pos: ResMut<'_, CursorWorldPos>,
-    q_camera: Single<'_, (&Camera, &GlobalTransform)>,
 ) {
     let unplaced_roads_correct_color = road_free_q.iter().find(|r| r.1 == &color_r.0);
 
@@ -815,9 +846,6 @@ fn place_normal_town(
     road_free_q: Query<'_, '_, (&Town, &CatanColor, &Left)>,
     road_q: Query<'_, '_, RoadQuery>,
     building_q: Query<'_, '_, (&'_ Building, &'_ CatanColor, &'_ BuildingPosition)>,
-
-    cursor_world_pos: ResMut<'_, CursorWorldPos>,
-    q_camera: Single<'_, (&Camera, &GlobalTransform)>,
 ) {
     let unplaced_roads_correct_color = road_free_q.iter().find(|r| r.1 == &color_r.0);
 
@@ -829,52 +857,30 @@ fn place_normal_town(
     let (current_color_roads, _): (Vec<_>, Vec<_>) =
         road_q.into_iter().partition(|r| *r.1 == color_r.0);
 
-    let possibles_towns = current_color_roads
-        .into_iter()
-        .flat_map(|RoadQueryItem(_, _, road)| {
-            println!("original road {road:?}");
-            match road {
-                RoadPostion::Both(p1, p2, q) => {
-                    // TODO: this currently does not include roads that go from edge inwards
-                    // also includes "unplaces roads (roads that all postions are none)
+    let possibles_towns = buildings_on_roads(
+        current_color_roads
+            .into_iter()
+            .map(|RoadQueryItem(_, _, road)| *road),
+        BoardSize(size_r.0),
+    );
 
-                    // neighboring two seems to be a bit flawed, and maybe should be road postion
-                    let (p3, p4) = road.neighboring_two(Some(size_r.0));
-                    println!("p3 {p3:?} p4 {p4:?}");
-                    let make_town_pos = |p, option_p1: Option<_>, p2| {
-                        option_p1.and_then(|p1| BuildingPosition::new(p, p1, p2, Some(size_r.0)))
-                    };
+    let filter_by_building =
+        |position: &BuildingPosition,
+         building_q: Query<'_, '_, (&_, &CatanColor, &BuildingPosition)>| {
+            match position {
+                BuildingPosition::All(position, position1, position2) => !buildings_on_roads(
                     [
-                        (
-                            // the other point (used to check for towns/cities)
-
-                            // the postion of the road
-                            make_town_pos(*p1, p3, *p2)
-                            // TODO: roads on edge of board
-                        ),
-                        (make_town_pos(*p1, p4, *p2)),
+                        RoadPostion::new(*position, *position1, Some(size_r.0)),
+                        RoadPostion::new(*position, *position2, Some(size_r.0)),
+                        RoadPostion::new(*position1, *position2, Some(size_r.0)),
                     ]
                     .into_iter()
-                    .flatten()
-                }
+                    .flatten(),
+                    BoardSize(size_r.0),
+                )
+                .any(|p| building_q.iter().any(|(_, _, place_b)| &p == place_b)),
             }
-        });
-
-    fn filter_by_building<B: Component>(
-        position: &BuildingPosition,
-        building_q: Query<'_, '_, (&B, &CatanColor, &BuildingPosition)>,
-    ) -> bool {
-        match position {
-            BuildingPosition::All(position, position1, position2) => ![
-                position.building_positions_around(),
-                position1.building_positions_around(),
-                position2.building_positions_around(),
-            ]
-            .concat()
-            .iter()
-            .any(|p| building_q.iter().any(|(_, _, place_b)| p == place_b)),
-        }
-    }
+        };
     let possible_towns = possibles_towns
         .inspect(|p| println!("possible town {p:?}"))
         .filter(|r| {
@@ -884,6 +890,8 @@ fn place_normal_town(
         });
     // TODO: show options
     possible_towns
+        .collect_vec()
+        .into_iter()
         .filter_map(|p| {
             let (x, y) = p.positon_to_pixel_coordinates();
             (x != 0. || y != 0.).then_some((x, y, p))
@@ -921,6 +929,38 @@ fn place_normal_town(
         .for_each(|b| {
             commands.spawn(b);
         });
+}
+
+fn buildings_on_roads(
+    current_color_roads: impl Iterator<Item = RoadPostion>,
+    size_r: BoardSize,
+) -> impl Iterator<Item = BuildingPosition> {
+    current_color_roads.flat_map(move |road| {
+        match road {
+            RoadPostion::Both(p1, p2, q) => {
+                // TODO: this currently does not include roads that go from edge inwards
+                // also includes "unplaces roads (roads that all postions are none)
+
+                // neighboring two seems to be a bit flawed, and maybe should be road postion
+                let (p3, p4) = road.neighboring_two(Some(size_r.0));
+                let make_town_pos = |p, option_p1: Option<_>, p2| {
+                    option_p1.and_then(|p1| BuildingPosition::new(p, p1, p2, Some(size_r.0)))
+                };
+                [
+                    (
+                        // the other point (used to check for towns/cities)
+
+                        // the postion of the road
+                        make_town_pos(p1, p3, p2)
+                        // TODO: roads on edge of board
+                    ),
+                    (make_town_pos(p1, p4, p2)),
+                ]
+                .into_iter()
+                .flatten()
+            }
+        }
+    })
 }
 fn draw_board(
     q: impl Iterator<Item = (Position, Hexagon, Number)>,
@@ -1098,10 +1138,9 @@ impl BuildingPosition {
             // even if originally all three sides interesected
             Self::All(position, position1, position2) => {
                 let fposition: FPosition = (*position).into();
-                fposition
-                    .intersect((*position1).into())
-                    .and_then(|fposition| fposition.intersect((*position2).into()))
-                    .map_or((0., 0.), FPosition::hex_to_pixel)
+                let fposition1: FPosition = (*position1).into();
+                let fposition2: FPosition = (*position2).into();
+                ((fposition + fposition1 + fposition2) / 3.).hex_to_pixel()
             }
         }
     }
