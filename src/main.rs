@@ -631,7 +631,7 @@ fn place_normal_road(
     size_r: Res<'_, BoardSize>,
     road_free_q: Query<'_, '_, (&Road, &CatanColor, &Left)>,
     road_q: Query<'_, '_, RoadQuery>,
-    building_q: Query<'_, '_, (&'_ Building, &'_ BuildingPosition)>,
+    building_q: Query<'_, '_, (&'_ Building, &CatanColor, &'_ BuildingPosition)>,
 ) {
     let unplaced_roads_correct_color = road_free_q.iter().find(|r| r.1 == &color_r.0);
 
@@ -661,13 +661,13 @@ fn place_normal_road(
                 RoadPostion::Both(p1, p2, _) => {
                     let (p3, p4) = road.neighboring_two(Some(size_r.0));
                     println!("p3 {p3:?} p4 {p4:?}");
-                    let make_road_pos = |p, option_p1: Option<_>, p1| {
+                    let make_road_pos = |p, option_p1: Option<_>, p2: &Position| {
                         option_p1.and_then(|p1| {
                             println!(
                                 "non filtered roads {p:?}-{p1:?} = {:?}",
                                 RoadPostion::new(p, p1, Some(size_r.0))
                             );
-                            RoadPostion::new(p, p1, Some(size_r.0)).map(|r| (p1, r))
+                            RoadPostion::new(p, p1, Some(size_r.0)).map(|r| (*p2, r))
                         })
                     };
                     [
@@ -694,18 +694,25 @@ fn place_normal_road(
 
     // 3) make sure there is no differeent color town at the three itersection
     // partition into other color used towns with single partiton
-    fn filter_by_building<B: Component>(
+    fn filter_by_building<'a>(
         (road1, road2): &(Position, RoadPostion),
-        building_q: Query<'_, '_, (&B, &BuildingPosition)>,
+        mut building_q: impl Iterator<Item = &'a BuildingPosition>,
     ) -> bool {
         let road_intersection = match road2 {
             RoadPostion::Both(position, position1, _) => {
                 BuildingPosition::All(*road1, *position, *position1)
             }
         };
-        !building_q.iter().any(|(_, bp)| &road_intersection == bp)
+        !building_q.any(|bp| &road_intersection == bp)
     }
-    let possible_roads = possible_roads.filter(|r| filter_by_building(r, building_q));
+    let possible_roads = possible_roads.filter(|r| {
+        filter_by_building(
+            r,
+            building_q
+                .iter()
+                .filter_map(|(_, color, pos)| Some(pos).filter(|_| *color != color_r.0)),
+        )
+    });
     possible_roads
         .filter_map(|p| {
             let (x, y) = p.1.positon_to_pixel_coordinates();
