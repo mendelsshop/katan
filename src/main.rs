@@ -23,6 +23,7 @@ fn main() {
     app.init_state::<GameState>();
     app.insert_resource(BoardSize(3));
     app.insert_resource(CurrentColor(CatanColor::White));
+    app.insert_resource(Resources::new_game());
     app.add_systems(Startup, setup);
     app.add_systems(OnEnter(GameState::PlaceRoad), (place_normal_road,));
     app.add_systems(OnEnter(GameState::PlaceTown), (place_normal_town,));
@@ -312,13 +313,32 @@ enum CatanColor {
     Blue,
     White,
 }
-#[derive(Debug, Component, Clone, Copy)]
-enum Resource {
-    Wood = 0,
-    Brick,
-    Sheep,
-    Wheat,
-    Ore,
+
+#[derive(Debug, Component, Resource, Clone, Copy)]
+pub struct Resources {
+    wood: u8,
+    brick: u8,
+    sheep: u8,
+    wheat: u8,
+    ore: u8,
+}
+
+impl Resources {
+    #[must_use] pub const fn new_player() -> Self {
+        Self::new(0, 0, 0, 0, 0)
+    }
+    #[must_use] pub const fn new_game() -> Self {
+        Self::new(19, 19, 19, 19, 19)
+    }
+    #[must_use] pub const fn new(wood: u8, brick: u8, sheep: u8, wheat: u8, ore: u8) -> Self {
+        Self {
+            wood,
+            brick,
+            sheep,
+            wheat,
+            ore,
+        }
+    }
 }
 #[derive(Debug, Component, Clone, Copy, Default)]
 #[require(Building)]
@@ -1195,6 +1215,7 @@ fn generate_pieces(commands: &mut Commands<'_, '_>) {
         commands.spawn((Town, color, Left(5)));
         commands.spawn((City, color, Left(4)));
         commands.spawn((Road, color, Left(15)));
+        commands.spawn((Resources::new_player(), color));
     }
     commands.spawn((
         Road,
