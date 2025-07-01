@@ -26,6 +26,7 @@ fn main() {
     app.add_systems(Startup, setup);
     app.add_systems(OnEnter(GameState::PlaceRoad), (place_normal_road,));
     app.add_systems(OnEnter(GameState::PlaceTown), (place_normal_town,));
+    app.add_systems(OnEnter(GameState::PlaceCity), (place_normal_city,));
     app.add_systems(OnEnter(GameState::Turn), (show_turn_ui,));
 
     app.add_systems(
@@ -36,9 +37,14 @@ fn main() {
         Update,
         turn_ui_town_interaction.run_if(in_state(GameState::Turn)),
     );
+    app.add_systems(
+        Update,
+        turn_ui_city_interaction.run_if(in_state(GameState::Turn)),
+    );
 
     app.add_systems(OnExit(GameState::PlaceRoad), (cleanup::<RoadPostion>,));
     app.add_systems(OnExit(GameState::PlaceTown), (cleanup::<BuildingPosition>,));
+    app.add_systems(OnExit(GameState::PlaceCity), (cleanup::<BuildingPosition>,));
     app.add_systems(
         Update,
         place_normal_interaction::<Road, RoadPostion>.run_if(in_state(GameState::PlaceRoad)),
@@ -46,6 +52,11 @@ fn main() {
     app.add_systems(
         Update,
         place_normal_interaction::<Town, BuildingPosition>.run_if(in_state(GameState::PlaceTown)),
+    );
+
+    app.add_systems(
+        Update,
+        place_normal_city_interaction.run_if(in_state(GameState::PlaceCity)),
     );
     app.run();
 }
@@ -58,6 +69,7 @@ enum GameState {
     PlaceRoad,
     Turn,
     PlaceTown,
+    PlaceCity,
 }
 #[derive(Component, PartialEq, Debug, Clone, Copy)]
 enum Number {
@@ -491,7 +503,34 @@ struct RoadButton;
 #[derive(Component, PartialEq, Debug, Clone, Copy)]
 // button in game to start town placement ui
 struct TownButton;
+#[derive(Component, PartialEq, Debug, Clone, Copy)]
+// button in game to start city placement ui
+struct CityButton;
 // TODO: combine with turn_ui_road_interaction
+fn turn_ui_city_interaction(
+    mut game_state: ResMut<'_, NextState<GameState>>,
+    mut interaction_query: Query<
+        '_,
+        '_,
+        (&CityButton, &Interaction, &mut Button),
+        Changed<Interaction>,
+    >,
+) {
+    for (entity, interaction, mut button) in &mut interaction_query {
+        match *interaction {
+            Interaction::Pressed => {
+                button.set_changed();
+
+                game_state.set(GameState::PlaceCity);
+                button.set_changed();
+            }
+            Interaction::Hovered => {
+                button.set_changed();
+            }
+            Interaction::None => {}
+        }
+    }
+}
 fn turn_ui_town_interaction(
     mut game_state: ResMut<'_, NextState<GameState>>,
     mut interaction_query: Query<
@@ -541,6 +580,7 @@ fn turn_ui_road_interaction(
     }
 }
 fn show_turn_ui(mut commands: Commands<'_, '_>, asset_server: Res<'_, AssetServer>) {
+    // TODO: city placement button
     let road_icon = asset_server.load("road.png");
     let town_icon: Handle<Image> = asset_server.load("house.png");
     commands.spawn((
@@ -584,11 +624,67 @@ fn cleanup<T: Component>(
         commands.entity(entity).despawn();
     }
 }
+fn place_normal_city_interaction(
+    mut game_state: ResMut<'_, NextState<GameState>>,
+    color_r: Res<'_, CurrentColor>,
+    mut commands: Commands<'_, '_>,
+    town_free_q: Query<'_, '_, (&Town, &CatanColor, &mut Left)>,
+    town_q: Query<'_, '_, (Entity, &Town, &CatanColor, &BuildingPosition)>,
+    mut city_free_q: Query<'_, '_, (&City, &CatanColor, &mut Left)>,
+    mut interaction_query: Query<
+        '_,
+        '_,
+        (
+            &BuildingPosition,
+            &Interaction,
+            &mut BackgroundColor,
+            &mut Button,
+        ),
+        Changed<Interaction>,
+    >,
+) {
+    for (entity, interaction, mut color, mut button) in &mut interaction_query {
+        match *interaction {
+            Interaction::Pressed => {
+                *color = PRESSED_BUTTON.into();
+
+                button.set_changed();
+
+                let town_to_be_replaced =
+                    town_q
+                        .iter()
+                        .find(|(_, _, catan_color, building_position)| {
+                            **catan_color == color_r.0 && *building_position == entity
+                        });
+                if let Some((entity1, _, _, _)) = town_to_be_replaced {
+                    commands.entity(entity1).remove::<Town>().insert(City);
+                }
+                let towns_left = city_free_q.iter_mut().find(|x| x.1 == &color_r.0);
+                if let Some((_, _, mut left)) = towns_left {
+                    *left = Left(left.0 + 1);
+                }
+                let city_left = city_free_q.iter_mut().find(|x| x.1 == &color_r.0);
+                if let Some((_, _, mut left)) = city_left {
+                    *left = Left(left.0 - 1);
+                }
+                game_state.set(GameState::Turn);
+                button.set_changed();
+            }
+            Interaction::Hovered => {
+                *color = HOVERED_BUTTON.into();
+                button.set_changed();
+            }
+            Interaction::None => {
+                *color = NORMAL_BUTTON.into();
+            }
+        }
+    }
+}
 fn place_normal_interaction<Kind: Component + Default, Pos: Component + Copy>(
     mut game_state: ResMut<'_, NextState<GameState>>,
     color_r: Res<'_, CurrentColor>,
     mut commands: Commands<'_, '_>,
-    mut road_free_q: Query<'_, '_, (&Kind, &CatanColor, &mut Left)>,
+    mut kind_free_q: Query<'_, '_, (&Kind, &CatanColor, &mut Left)>,
     mut interaction_query: Query<
         '_,
         '_,
@@ -604,8 +700,8 @@ fn place_normal_interaction<Kind: Component + Default, Pos: Component + Copy>(
                 button.set_changed();
 
                 commands.spawn((Kind::default(), color_r.0, *entity));
-                let roads_left = road_free_q.iter_mut().find(|x| x.1 == &color_r.0);
-                if let Some((_, _, mut left)) = roads_left {
+                let kind_left = kind_free_q.iter_mut().find(|x| x.1 == &color_r.0);
+                if let Some((_, _, mut left)) = kind_left {
                     *left = Left(left.0 - 1);
                 }
 
@@ -748,7 +844,57 @@ fn place_normal_road(
         });
 }
 
-// same logic for town and city
+fn place_normal_city(
+    mut commands: Commands<'_, '_>,
+    color_r: Res<'_, CurrentColor>,
+    city_free_q: Query<'_, '_, (&City, &CatanColor, &Left)>,
+    town_q: Query<'_, '_, (&'_ Town, &'_ CatanColor, &'_ BuildingPosition)>,
+) {
+    let unplaced_city_correct_color = city_free_q.iter().find(|r| r.1 == &color_r.0);
+
+    // no cites to place
+    let Some(_) = unplaced_city_correct_color.filter(|r| r.2.0 > 0) else {
+        return;
+    };
+
+    let current_color_towns = town_q.into_iter().filter(|r| *r.1 == color_r.0);
+
+    let possibles_cities = current_color_towns.into_iter().map(|(_, _, p)| *p);
+
+    possibles_cities
+        .filter_map(|p| {
+            let (x, y) = p.positon_to_pixel_coordinates();
+            (x != 0. || y != 0.).then_some((x, y, p))
+        })
+        .map(|(x, y, p)| {
+            (
+                Node {
+                    width: Val::Percent(100.0),
+                    height: Val::Percent(100.0),
+                    align_items: AlignItems::Center,
+                    justify_content: JustifyContent::Center,
+                    ..default()
+                },
+                children![(
+                    Button,
+                    Node {
+                        position_type: PositionType::Relative,
+                        width: Val::Px(15.0),
+                        height: Val::Px(15.0),
+                        left: Val::Px(x * 28.),
+                        top: Val::Px(y * 28.),
+                        ..default()
+                    },
+                    p,
+                    BorderRadius::MAX,
+                    BackgroundColor(NORMAL_BUTTON),
+                )],
+            )
+        })
+        .for_each(|b| {
+            commands.spawn(b);
+        });
+}
 fn place_normal_town(
     mut commands: Commands<'_, '_>,
     color_r: Res<'_, CurrentColor>,
