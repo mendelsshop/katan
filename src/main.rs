@@ -48,11 +48,13 @@ fn main() {
     app.add_systems(OnExit(GameState::PlaceCity), (cleanup::<BuildingPosition>,));
     app.add_systems(
         Update,
-        place_normal_interaction::<Road, RoadPostion>.run_if(in_state(GameState::PlaceRoad)),
+        place_normal_interaction::<Road, RoadPostion, RoadUI>
+            .run_if(in_state(GameState::PlaceRoad)),
     );
     app.add_systems(
         Update,
-        place_normal_interaction::<Town, BuildingPosition>.run_if(in_state(GameState::PlaceTown)),
+        place_normal_interaction::<Town, BuildingPosition, TownUI>
+            .run_if(in_state(GameState::PlaceTown)),
     );
 
     app.add_systems(
@@ -324,13 +326,16 @@ pub struct Resources {
 }
 
 impl Resources {
-    #[must_use] pub const fn new_player() -> Self {
+    #[must_use]
+    pub const fn new_player() -> Self {
         Self::new(0, 0, 0, 0, 0)
     }
-    #[must_use] pub const fn new_game() -> Self {
+    #[must_use]
+    pub const fn new_game() -> Self {
         Self::new(19, 19, 19, 19, 19)
     }
-    #[must_use] pub const fn new(wood: u8, brick: u8, sheep: u8, wheat: u8, ore: u8) -> Self {
+    #[must_use]
+    pub const fn new(wood: u8, brick: u8, sheep: u8, wheat: u8, ore: u8) -> Self {
         Self {
             wood,
             brick,
@@ -656,9 +661,11 @@ fn cleanup<T: Component>(
     }
 }
 fn place_normal_city_interaction(
+    mut commands: Commands<'_, '_>,
+    mut meshes: ResMut<'_, Assets<Mesh>>,
+    mut materials: ResMut<'_, Assets<ColorMaterial>>,
     mut game_state: ResMut<'_, NextState<GameState>>,
     color_r: Res<'_, CurrentColor>,
-    mut commands: Commands<'_, '_>,
     mut town_free_q: Query<'_, '_, (&Town, &CatanColor, &mut Left), Without<City>>,
     town_q: Query<'_, '_, (Entity, &Town, &CatanColor, &BuildingPosition)>,
     mut city_free_q: Query<'_, '_, (&City, &CatanColor, &mut Left), Without<Town>>,
@@ -699,6 +706,15 @@ fn place_normal_city_interaction(
                     *left = Left(left.0 - 1);
                 }
                 game_state.set(GameState::Turn);
+                let (x, y) = entity.positon_to_pixel_coordinates();
+
+                let mesh1 = meshes.add(Rectangle::new(13.0, 13.));
+                commands.spawn((
+                    Mesh2d(mesh1),
+                    MeshMaterial2d(materials.add(Color::BLACK)),
+                    Transform::from_xyz(x * 28.0, -y * 28., 0.0),
+                ));
+
                 button.set_changed();
             }
             Interaction::Hovered => {
@@ -711,10 +727,65 @@ fn place_normal_city_interaction(
         }
     }
 }
-fn place_normal_interaction<Kind: Component + Default, Pos: Component + Copy>(
+pub trait UI {
+    type Pos;
+    fn bundle(
+        pos: Self::Pos,
+        meshes: &mut ResMut<'_, Assets<Mesh>>,
+        materials: &mut ResMut<'_, Assets<ColorMaterial>>,
+    ) -> impl Bundle;
+}
+struct RoadUI;
+impl UI for RoadUI {
+    type Pos = RoadPostion;
+
+    fn bundle(
+        pos: Self::Pos,
+        meshes: &mut ResMut<'_, Assets<Mesh>>,
+        materials: &mut ResMut<'_, Assets<ColorMaterial>>,
+    ) -> impl Bundle {
+        let (x, y) = pos.positon_to_pixel_coordinates();
+        let mesh1 = meshes.add(Rectangle::new(7.0, 20.));
+        (
+            Mesh2d(mesh1),
+            MeshMaterial2d(materials.add(Color::BLACK)),
+            Transform::from_xyz(x * 28.0, -y * 28., 0.0).with_rotation(Quat::from_rotation_z(
+                match pos.shared_coordinate() {
+                    Coordinate::R => 0f32,
+                    Coordinate::Q => -60f32,
+                    Coordinate::S => 60f32,
+                }
+                .to_radians(),
+            )),
+        )
+    }
+}
+struct TownUI;
+impl UI for TownUI {
+    type Pos = BuildingPosition;
+
+    fn bundle(
+        pos: Self::Pos,
+        meshes: &mut ResMut<'_, Assets<Mesh>>,
+        materials: &mut ResMut<'_, Assets<ColorMaterial>>,
+    ) -> impl Bundle {
+        let (x, y) = pos.positon_to_pixel_coordinates();
+        let mesh1 = meshes.add(RegularPolygon::new(7.0, 3));
+        (
+            Mesh2d(mesh1),
+            MeshMaterial2d(materials.add(Color::BLACK)),
+            Transform::from_xyz(x * 28.0, -y * 28., 0.0),
+        )
+    }
+}
+// should interaction be doing the ui update for showing the roads/towns
+fn place_normal_interaction<Kind: Component + Default, Pos: Component + Copy, U: UI<Pos = Pos>>(
     mut game_state: ResMut<'_, NextState<GameState>>,
     color_r: Res<'_, CurrentColor>,
     mut commands: Commands<'_, '_>,
+
+    mut meshes: ResMut<'_, Assets<Mesh>>,
+    mut materials: ResMut<'_, Assets<ColorMaterial>>,
     mut kind_free_q: Query<'_, '_, (&Kind, &CatanColor, &mut Left)>,
     mut interaction_query: Query<
         '_,
@@ -737,6 +808,7 @@ fn place_normal_interaction<Kind: Component + Default, Pos: Component + Copy>(
                 }
 
                 game_state.set(GameState::Turn);
+                commands.spawn(U::bundle(*entity, &mut meshes, &mut materials));
                 button.set_changed();
             }
             Interaction::Hovered => {
@@ -1139,6 +1211,11 @@ impl RoadPostion {
                     ),
                 }
             }
+        }
+    }
+    const fn shared_coordinate(&self) -> Coordinate {
+        match self {
+            Self::Both(_, _, coordinate) => *coordinate,
         }
     }
     fn positon_to_pixel_coordinates(&self) -> (f32, f32) {
