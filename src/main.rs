@@ -352,6 +352,13 @@ impl Add for Resources {
 }
 
 impl Resources {
+    #[must_use] pub const fn contains(self, rhs: Self) -> bool {
+        self.wood >= rhs.wood
+            && self.brick >= rhs.brick
+            && self.sheep >= rhs.sheep
+            && self.wheat >= rhs.wheat
+            && self.ore >= rhs.ore
+    }
     #[must_use]
     pub const fn new_player() -> Self {
         Self::new(0, 0, 0, 0, 0)
@@ -566,19 +573,28 @@ fn turn_ui_city_interaction(
         (&CityButton, &Interaction, &mut Button),
         Changed<Interaction>,
     >,
+    player_resources: Query<'_, '_, (&Resources, &CatanColor)>,
+    color_r: Res<'_, CurrentColor>,
 ) {
-    for (entity, interaction, mut button) in &mut interaction_query {
-        match *interaction {
-            Interaction::Pressed => {
-                button.set_changed();
+    let player_resources = player_resources.iter().find(|x| x.1 == &color_r.0);
+    if let Some((resources, _)) = player_resources {
+        for (entity, interaction, mut button) in &mut interaction_query {
+            if resources.contains(TownUI::resources()) {
+                match *interaction {
+                    Interaction::Pressed => {
+                        button.set_changed();
 
-                game_state.set(GameState::PlaceCity);
-                button.set_changed();
+                        game_state.set(GameState::PlaceCity);
+                        button.set_changed();
+                    }
+                    Interaction::Hovered => {
+                        button.set_changed();
+                    }
+                    Interaction::None => {}
+                }
+            } else {
+                // TODO: grey out
             }
-            Interaction::Hovered => {
-                button.set_changed();
-            }
-            Interaction::None => {}
         }
     }
 }
@@ -590,19 +606,28 @@ fn turn_ui_town_interaction(
         (&TownButton, &Interaction, &mut Button),
         Changed<Interaction>,
     >,
+    player_resources: Query<'_, '_, (&Resources, &CatanColor)>,
+    color_r: Res<'_, CurrentColor>,
 ) {
-    for (entity, interaction, mut button) in &mut interaction_query {
-        match *interaction {
-            Interaction::Pressed => {
-                button.set_changed();
+    let player_resources = player_resources.iter().find(|x| x.1 == &color_r.0);
+    if let Some((resources, _)) = player_resources {
+        for (entity, interaction, mut button) in &mut interaction_query {
+            if resources.contains(TownUI::resources()) {
+                match *interaction {
+                    Interaction::Pressed => {
+                        button.set_changed();
 
-                game_state.set(GameState::PlaceTown);
-                button.set_changed();
+                        game_state.set(GameState::PlaceTown);
+                        button.set_changed();
+                    }
+                    Interaction::Hovered => {
+                        button.set_changed();
+                    }
+                    Interaction::None => {}
+                }
+            } else {
+                // TODO: grey out
             }
-            Interaction::Hovered => {
-                button.set_changed();
-            }
-            Interaction::None => {}
         }
     }
 }
@@ -614,19 +639,28 @@ fn turn_ui_road_interaction(
         (&RoadButton, &Interaction, &mut Button),
         Changed<Interaction>,
     >,
+    player_resources: Query<'_, '_, (&Resources, &CatanColor)>,
+    color_r: Res<'_, CurrentColor>,
 ) {
-    for (entity, interaction, mut button) in &mut interaction_query {
-        match *interaction {
-            Interaction::Pressed => {
-                button.set_changed();
+    let player_resources = player_resources.iter().find(|x| x.1 == &color_r.0);
+    if let Some((resources, _)) = player_resources {
+        for (entity, interaction, mut button) in &mut interaction_query {
+            if resources.contains(TownUI::resources()) {
+                match *interaction {
+                    Interaction::Pressed => {
+                        button.set_changed();
 
-                game_state.set(GameState::PlaceRoad);
-                button.set_changed();
+                        game_state.set(GameState::PlaceRoad);
+                        button.set_changed();
+                    }
+                    Interaction::Hovered => {
+                        button.set_changed();
+                    }
+                    Interaction::None => {}
+                }
+            } else {
+                // TODO: grey out
             }
-            Interaction::Hovered => {
-                button.set_changed();
-            }
-            Interaction::None => {}
         }
     }
 }
