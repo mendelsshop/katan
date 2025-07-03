@@ -8,7 +8,7 @@
 
 use std::{
     mem::swap,
-    ops::{Add, Div},
+    ops::{Add, Div, Sub},
 };
 
 use bevy::{ecs::query::QueryData, prelude::*};
@@ -323,6 +323,32 @@ pub struct Resources {
     sheep: u8,
     wheat: u8,
     ore: u8,
+}
+impl Sub for Resources {
+    type Output = Self;
+
+    fn sub(self, rhs: Self) -> Self::Output {
+        Self {
+            wood: self.wood - rhs.wood,
+            brick: self.brick - rhs.brick,
+            sheep: self.sheep - rhs.sheep,
+            wheat: self.wheat - rhs.wheat,
+            ore: self.ore - rhs.ore,
+        }
+    }
+}
+impl Add for Resources {
+    type Output = Self;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        Self {
+            wood: self.wood + rhs.wood,
+            brick: self.brick + rhs.brick,
+            sheep: self.sheep + rhs.sheep,
+            wheat: self.wheat + rhs.wheat,
+            ore: self.ore + rhs.ore,
+        }
+    }
 }
 
 impl Resources {
@@ -669,6 +695,8 @@ fn place_normal_city_interaction(
     mut town_free_q: Query<'_, '_, (&Town, &CatanColor, &mut Left), Without<City>>,
     town_q: Query<'_, '_, (Entity, &Town, &CatanColor, &BuildingPosition)>,
     mut city_free_q: Query<'_, '_, (&City, &CatanColor, &mut Left), Without<Town>>,
+    mut resources: ResMut<'_, Resources>,
+    mut player_resources: Query<'_, '_, (&mut Resources, &CatanColor)>,
     mut interaction_query: Query<
         '_,
         '_,
@@ -705,6 +733,19 @@ fn place_normal_city_interaction(
                 if let Some((_, _, mut left)) = city_left {
                     *left = Left(left.0 - 1);
                 }
+                let city_resources = Resources {
+                    wood: 0,
+                    brick: 0,
+                    sheep: 0,
+                    wheat: 2,
+                    ore: 3,
+                };
+                let player_resources = player_resources.iter_mut().find(|x| x.1 == &color_r.0);
+                if let Some((mut resources, _)) = player_resources {
+                    *resources = *resources - city_resources;
+                }
+                *resources = *resources + city_resources;
+
                 game_state.set(GameState::Turn);
                 let (x, y) = entity.positon_to_pixel_coordinates();
 
@@ -734,6 +775,7 @@ pub trait UI {
         meshes: &mut ResMut<'_, Assets<Mesh>>,
         materials: &mut ResMut<'_, Assets<ColorMaterial>>,
     ) -> impl Bundle;
+    fn resources() -> Resources;
 }
 struct RoadUI;
 impl UI for RoadUI {
@@ -759,6 +801,16 @@ impl UI for RoadUI {
             )),
         )
     }
+
+    fn resources() -> Resources {
+        Resources {
+            wood: 1,
+            brick: 1,
+            sheep: 0,
+            wheat: 0,
+            ore: 0,
+        }
+    }
 }
 struct TownUI;
 impl UI for TownUI {
@@ -777,9 +829,21 @@ impl UI for TownUI {
             Transform::from_xyz(x * 28.0, -y * 28., 0.0),
         )
     }
+
+    fn resources() -> Resources {
+        Resources {
+            wood: 1,
+            brick: 1,
+            sheep: 1,
+            wheat: 1,
+            ore: 0,
+        }
+    }
 }
 // should interaction be doing the ui update for showing the roads/towns
 fn place_normal_interaction<Kind: Component + Default, Pos: Component + Copy, U: UI<Pos = Pos>>(
+    mut resources: ResMut<'_, Resources>,
+    mut player_resources: Query<'_, '_, (&mut Resources, &CatanColor)>,
     mut game_state: ResMut<'_, NextState<GameState>>,
     color_r: Res<'_, CurrentColor>,
     mut commands: Commands<'_, '_>,
@@ -805,7 +869,11 @@ fn place_normal_interaction<Kind: Component + Default, Pos: Component + Copy, U:
                 if let Some((_, _, mut left)) = kind_left {
                     *left = Left(left.0 - 1);
                 }
-
+                let player_resources = player_resources.iter_mut().find(|x| x.1 == &color_r.0);
+                if let Some((mut resources, _)) = player_resources {
+                    *resources = *resources - U::resources();
+                }
+                *resources = *resources + U::resources();
                 game_state.set(GameState::Turn);
                 commands.spawn(U::bundle(*entity, &mut meshes, &mut materials));
                 button.set_changed();
