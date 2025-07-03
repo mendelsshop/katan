@@ -783,7 +783,6 @@ fn place_normal_interaction<Kind: Component + Default, Pos: Component + Copy, U:
     mut game_state: ResMut<'_, NextState<GameState>>,
     color_r: Res<'_, CurrentColor>,
     mut commands: Commands<'_, '_>,
-
     mut meshes: ResMut<'_, Assets<Mesh>>,
     mut materials: ResMut<'_, Assets<ColorMaterial>>,
     mut kind_free_q: Query<'_, '_, (&Kind, &CatanColor, &mut Left)>,
@@ -831,6 +830,7 @@ fn place_normal_road(
     road_free_q: Query<'_, '_, (&Road, &CatanColor, &Left)>,
     road_q: Query<'_, '_, RoadQuery>,
     building_q: Query<'_, '_, (&'_ Building, &CatanColor, &'_ BuildingPosition)>,
+    mut game_state: ResMut<'_, NextState<GameState>>,
 ) {
     let unplaced_roads_correct_color = road_free_q.iter().find(|r| r.1 == &color_r.0);
 
@@ -912,7 +912,8 @@ fn place_normal_road(
                 .filter_map(|(_, color, pos)| Some(pos).filter(|_| *color != color_r.0)),
         )
     });
-    possible_roads
+
+    let count = possible_roads
         .filter_map(|p| {
             let (x, y) = p.1.positon_to_pixel_coordinates();
             (x != 0. || y != 0.).then_some((x, y, p.1))
@@ -942,9 +943,13 @@ fn place_normal_road(
                 )],
             )
         })
-        .for_each(|b| {
+        .map(|b| {
             commands.spawn(b);
-        });
+        })
+        .count();
+    if count == 0 {
+        game_state.set(GameState::Turn);
+    }
 }
 
 fn place_normal_city(
@@ -952,6 +957,7 @@ fn place_normal_city(
     color_r: Res<'_, CurrentColor>,
     city_free_q: Query<'_, '_, (&City, &CatanColor, &Left)>,
     town_q: Query<'_, '_, (&'_ Town, &'_ CatanColor, &'_ BuildingPosition)>,
+    mut game_state: ResMut<'_, NextState<GameState>>,
 ) {
     let unplaced_city_correct_color = city_free_q.iter().find(|r| r.1 == &color_r.0);
 
@@ -964,7 +970,7 @@ fn place_normal_city(
 
     let possibles_cities = current_color_towns.into_iter().map(|(_, _, p)| *p);
 
-    possibles_cities
+    let count = possibles_cities
         .filter_map(|p| {
             let (x, y) = p.positon_to_pixel_coordinates();
             (x != 0. || y != 0.).then_some((x, y, p))
@@ -994,9 +1000,13 @@ fn place_normal_city(
                 )],
             )
         })
-        .for_each(|b| {
+        .map(|b| {
             commands.spawn(b);
-        });
+        })
+        .count();
+    if count == 0 {
+        game_state.set(GameState::Turn);
+    }
 }
 fn place_normal_town(
     mut commands: Commands<'_, '_>,
@@ -1005,6 +1015,7 @@ fn place_normal_town(
     town_free_q: Query<'_, '_, (&Town, &CatanColor, &Left)>,
     road_q: Query<'_, '_, RoadQuery>,
     building_q: Query<'_, '_, (&'_ Building, &'_ CatanColor, &'_ BuildingPosition)>,
+    mut game_state: ResMut<'_, NextState<GameState>>,
 ) {
     let unplaced_towns_correct_color = town_free_q.iter().find(|r| r.1 == &color_r.0);
 
@@ -1043,7 +1054,7 @@ fn place_normal_town(
     let possible_towns = possibles_towns
         .inspect(|p| println!("possible town {p:?}"))
         .filter(|r| filter_by_building(r, building_q));
-    possible_towns
+    let count = possible_towns
         .filter_map(|p| {
             let (x, y) = p.positon_to_pixel_coordinates();
             (x != 0. || y != 0.).then_some((x, y, p))
@@ -1073,9 +1084,13 @@ fn place_normal_town(
                 )],
             )
         })
-        .for_each(|b| {
+        .map(|b| {
             commands.spawn(b);
-        });
+        })
+        .count();
+    if count == 0 {
+        game_state.set(GameState::Turn);
+    }
 }
 
 fn buildings_on_roads(
@@ -1307,7 +1322,7 @@ fn generate_pieces(commands: &mut Commands<'_, '_>) {
         .unwrap(),
     ));
 }
-#[derive(QueryData, Debug)]
+#[derive(QueryData, Debug, Clone, Copy)]
 pub struct RoadQuery(&'static Road, &'static CatanColor, &'static RoadPostion);
 fn setup(
     mut next_state: ResMut<'_, NextState<GameState>>,
