@@ -959,8 +959,12 @@ fn place_normal_interaction<Kind: Component + Default, Pos: Component + Copy, U:
         }
     }
 }
-fn roll_dice() -> u8 {
-    rand::random_range(1..=6) + rand::random_range(1..=6)
+#[derive(Component, PartialEq, Default, Clone, Copy)]
+struct Die;
+fn roll_dice() -> (u8, u8, u8) {
+    let dice1 = rand::random_range(1..=6);
+    let dice2 = rand::random_range(1..=6);
+    (dice1 + dice2, dice1, dice2)
 }
 fn full_roll_dice(
     board: Query<'_, '_, (&Hexagon, &Number, &Position)>,
@@ -969,8 +973,17 @@ fn full_roll_dice(
     mut player_resources: Query<'_, '_, (&CatanColor, &mut Resources)>,
     resources: ResMut<'_, Resources>,
     robber: Res<'_, Robber>,
+    mut die_q: Query<'_, '_, &mut TextSpan, With<Die>>,
 ) {
-    let roll = roll_dice();
+    let (roll, d1, d2) = roll_dice();
+    // assumes two dice
+    die_q
+        .iter_mut()
+        .zip([d1, d2])
+        .for_each(|(mut die_ui, new_roll)| {
+            **die_ui = new_roll.to_string();
+        });
+
     // TODO: what happens when 7 rolled
     if roll != 7 {
         distribute_resources(
@@ -1586,7 +1599,67 @@ fn generate_pieces(commands: &mut Commands<'_, '_>) {
         .unwrap(),
     ));
 }
+fn setup_dice(mut commands: Commands<'_, '_>) {
+    commands.spawn((
+        Node {
+            width: Val::Percent(100.0),
+            height: Val::Percent(100.0),
+            align_items: AlignItems::End,
+            justify_content: JustifyContent::End,
+            ..default()
+        },
+        children![
+            (
+                Node {
+                    left: Val::Px(-15.),
+                    width: Val::Px(20.0),
+                    height: Val::Px(20.0),
+                    border: UiRect::all(Val::Px(1.)),
+                    top: Val::Px(-4.),
+                    ..default()
+                },
+                Button,
+                Text::new("0"),
+                BorderColor(Color::BLACK),
+                TextColor(Color::BLACK),
+                TextLayout::new_with_justify(JustifyText::Center),
+                BackgroundColor(Color::WHITE),
+                Outline {
+                    width: Val::Px(4.),
+                    offset: Val::Px(0.),
+                    color: Color::BLACK,
+                },
+                Die,
+            ),
+            (
+                Node {
+                    left: Val::Px(-4.),
+                    top: Val::Px(-4.),
+
+                    width: Val::Px(20.),
+                    height: Val::Px(20.0),
+
+                    border: UiRect::all(Val::Px(1.)),
+                    ..default()
+                },
+                Outline {
+                    width: Val::Px(4.),
+                    offset: Val::Px(0.),
+                    color: Color::BLACK,
+                },
+                BorderColor(Color::BLACK),
+                BackgroundColor(Color::WHITE),
+                TextLayout::new_with_justify(JustifyText::Center),
+                TextColor(Color::BLACK),
+                Button,
+                Text::new("0"),
+                Die,
+            )
+        ],
+    ));
+}
 #[derive(QueryData, Debug, Clone, Copy)]
+
 pub struct RoadQuery(&'static Road, &'static CatanColor, &'static RoadPostion);
 fn setup(
     mut next_state: ResMut<'_, NextState<GameState>>,
@@ -1604,4 +1677,5 @@ fn setup(
     generate_development_cards(&mut commands);
     generate_pieces(&mut commands);
     next_state.set(GameState::Turn);
+    setup_dice(commands);
 }
