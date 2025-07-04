@@ -954,17 +954,38 @@ fn place_normal_interaction<Kind: Component + Default, Pos: Component + Copy, U:
         }
     }
 }
-fn road_dice() -> u8 {
+fn roll_dice() -> u8 {
     rand::random_range(1..=6) + rand::random_range(1..=6)
 }
+fn full_roll_dice(
+    board: Query<'_, '_, (&Hexagon, &Number, &Position)>,
+    towns: Query<'_, '_, (&Town, &CatanColor, &BuildingPosition)>,
+    cities: Query<'_, '_, (&City, &CatanColor, &BuildingPosition)>,
+    mut player_resources: Query<'_, '_, (&CatanColor, &mut Resources)>,
+    resources: ResMut<'_, Resources>,
+) {
+    let roll = roll_dice();
+    distribute_resources(
+        roll,
+        board.iter().map(|(h, n, p)| (*h, *n, *p)),
+        towns.iter().map(|(b, c, p)| (*b, *c, *p)),
+        cities.iter().map(|(b, c, p)| (*b, *c, *p)),
+        player_resources
+            .iter_mut()
+            .map(|(c, r)| (*c, r.into_inner())),
+        resources.into_inner(),
+    );
+}
+
 fn distribute_resources<'a>(
     roll: u8,
     board: impl Iterator<Item = (Hexagon, Number, Position)> + Clone,
     towns: impl Iterator<Item = (Town, CatanColor, BuildingPosition)>,
     cities: impl Iterator<Item = (City, CatanColor, BuildingPosition)>,
-    player_resources: impl Iterator<Item = (CatanColor, &'a mut Resources)> + Clone,
+    player_resources: impl Iterator<Item = (CatanColor, &'a mut Resources)>,
     resources: &mut Resources,
 ) {
+    let mut player_resources = player_resources.collect_vec();
     let board = board.filter(|(_, number, _)| matches!(number, Number::Number(n) if *n == roll));
     fn on_board_with_hex<Building>(
         mut board: impl Iterator<Item = (Hexagon, Number, Position)>,
@@ -979,10 +1000,10 @@ fn distribute_resources<'a>(
             },
         )
     }
-    fn get_by_color<T>(
+    fn get_by_color<'a, T: 'a>(
         color: &CatanColor,
-        mut things: impl Iterator<Item = (CatanColor, T)>,
-    ) -> Option<T> {
+        mut things: impl Iterator<Item = &'a mut (CatanColor, T)>,
+    ) -> Option<&'a mut T> {
         things.find(|(c, _)| c == color).map(|(_, t)| t)
     }
     fn hexagon_to_resources(hex: Hexagon) -> Resources {
@@ -1029,18 +1050,18 @@ fn distribute_resources<'a>(
         }
     }
     for (b, color, hex) in on_board_with_hex(board.clone(), towns) {
-        let player_resources = get_by_color(&color, player_resources.clone());
+        let player_resources = get_by_color(&color, player_resources.iter_mut());
         if let Some(player_resources) = player_resources {
             let gained = hexagon_to_resources(hex);
-            *player_resources += gained;
+            **player_resources += gained;
             *resources -= gained;
         }
     }
     for (b, color, hex) in on_board_with_hex(board, cities) {
-        let player_resources = get_by_color(&color, player_resources.clone());
+        let player_resources = get_by_color(&color, player_resources.iter_mut());
         if let Some(player_resources) = player_resources {
             let gained = hexagon_to_resources(hex) * 2;
-            *player_resources += gained;
+            **player_resources += gained;
             *resources -= gained;
         }
     }
