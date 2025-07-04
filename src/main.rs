@@ -43,6 +43,10 @@ fn main() {
         Update,
         turn_ui_city_interaction.run_if(in_state(GameState::Turn)),
     );
+    app.add_systems(
+        Update,
+        turn_ui_roll_interaction.run_if(in_state(GameState::Roll)),
+    );
 
     app.add_systems(OnExit(GameState::PlaceRoad), (cleanup::<RoadPostion>,));
     app.add_systems(OnExit(GameState::PlaceTown), (cleanup::<BuildingPosition>,));
@@ -959,28 +963,70 @@ fn place_normal_interaction<Kind: Component + Default, Pos: Component + Copy, U:
         }
     }
 }
+fn turn_ui_roll_interaction(
+    mut game_state: ResMut<'_, NextState<GameState>>,
+    mut interaction_query: Query<
+        '_,
+        '_,
+        (&DieButton, &Interaction, &mut Button),
+        Changed<Interaction>,
+    >,
+    board: Query<'_, '_, (&Hexagon, &Number, &Position)>,
+    towns: Query<'_, '_, (&Town, &CatanColor, &BuildingPosition)>,
+    cities: Query<'_, '_, (&City, &CatanColor, &BuildingPosition)>,
+    mut player_resources: Query<'_, '_, (&CatanColor, &mut Resources)>,
+    mut resources: ResMut<'_, Resources>,
+    robber: Res<'_, Robber>,
+    mut die_q: Query<'_, '_, &mut Text, With<DieButton>>,
+) {
+    for (entity, interaction, mut button) in &mut interaction_query {
+        match *interaction {
+            Interaction::Pressed => {
+                button.set_changed();
+
+                game_state.set(GameState::Turn);
+                full_roll_dice(
+                    &board,
+                    &towns,
+                    &cities,
+                    &mut player_resources,
+                    &mut resources,
+                    &robber,
+                    &mut die_q,
+                );
+                button.set_changed();
+            }
+            Interaction::Hovered => {
+                button.set_changed();
+            }
+            Interaction::None => {}
+        }
+    }
+}
 #[derive(Component, PartialEq, Default, Clone, Copy)]
-struct Die;
+struct DieButton;
 fn roll_dice() -> (u8, u8, u8) {
     let dice1 = rand::random_range(1..=6);
     let dice2 = rand::random_range(1..=6);
     (dice1 + dice2, dice1, dice2)
 }
 fn full_roll_dice(
-    board: Query<'_, '_, (&Hexagon, &Number, &Position)>,
-    towns: Query<'_, '_, (&Town, &CatanColor, &BuildingPosition)>,
-    cities: Query<'_, '_, (&City, &CatanColor, &BuildingPosition)>,
-    mut player_resources: Query<'_, '_, (&CatanColor, &mut Resources)>,
-    resources: ResMut<'_, Resources>,
-    robber: Res<'_, Robber>,
-    mut die_q: Query<'_, '_, &mut TextSpan, With<Die>>,
+    board: &Query<'_, '_, (&Hexagon, &Number, &Position)>,
+    towns: &Query<'_, '_, (&Town, &CatanColor, &BuildingPosition)>,
+    cities: &Query<'_, '_, (&City, &CatanColor, &BuildingPosition)>,
+    player_resources: &mut Query<'_, '_, (&CatanColor, &mut Resources)>,
+    resources: &mut ResMut<'_, Resources>,
+    robber: &Res<'_, Robber>,
+    die_q: &mut Query<'_, '_, &mut Text, With<DieButton>>,
 ) {
     let (roll, d1, d2) = roll_dice();
+    println!("rolled {roll} {:?}", die_q.iter().clone().collect_vec());
     // assumes two dice
     die_q
         .iter_mut()
         .zip([d1, d2])
         .for_each(|(mut die_ui, new_roll)| {
+            println!("d {new_roll}");
             **die_ui = new_roll.to_string();
         });
 
@@ -994,8 +1040,8 @@ fn full_roll_dice(
             player_resources
                 .iter_mut()
                 .map(|(c, r)| (*c, r.into_inner())),
-            resources.into_inner(),
-            robber.into_inner(),
+            resources,
+            robber,
         );
     }
 }
@@ -1629,7 +1675,7 @@ fn setup_dice(mut commands: Commands<'_, '_>) {
                     offset: Val::Px(0.),
                     color: Color::BLACK,
                 },
-                Die,
+                DieButton,
             ),
             (
                 Node {
@@ -1653,7 +1699,7 @@ fn setup_dice(mut commands: Commands<'_, '_>) {
                 TextColor(Color::BLACK),
                 Button,
                 Text::new("0"),
-                Die,
+                DieButton,
             )
         ],
     ));
@@ -1676,6 +1722,6 @@ fn setup(
     );
     generate_development_cards(&mut commands);
     generate_pieces(&mut commands);
-    next_state.set(GameState::Turn);
+    next_state.set(GameState::Roll);
     setup_dice(commands);
 }
