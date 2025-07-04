@@ -8,7 +8,7 @@
 
 use std::{
     mem::swap,
-    ops::{Add, Div, Sub},
+    ops::{Add, AddAssign, Div, Mul, Sub, SubAssign},
 };
 
 use bevy::{ecs::query::QueryData, prelude::*};
@@ -337,6 +337,37 @@ impl Sub for Resources {
         }
     }
 }
+impl Mul<u8> for Resources {
+    type Output = Self;
+
+    fn mul(self, rhs: u8) -> Self::Output {
+        Self {
+            wood: self.wood * rhs,
+            brick: self.brick * rhs,
+            sheep: self.sheep * rhs,
+            wheat: self.wheat * rhs,
+            ore: self.ore * rhs,
+        }
+    }
+}
+impl SubAssign for Resources {
+    fn sub_assign(&mut self, rhs: Self) {
+        self.wood -= rhs.wood;
+        self.brick -= rhs.brick;
+        self.sheep -= rhs.sheep;
+        self.wheat -= rhs.wheat;
+        self.ore -= rhs.ore;
+    }
+}
+impl AddAssign for Resources {
+    fn add_assign(&mut self, rhs: Self) {
+        self.wood += rhs.wood;
+        self.brick += rhs.brick;
+        self.sheep += rhs.sheep;
+        self.wheat += rhs.wheat;
+        self.ore += rhs.ore;
+    }
+}
 impl Add for Resources {
     type Output = Self;
 
@@ -352,7 +383,8 @@ impl Add for Resources {
 }
 
 impl Resources {
-    #[must_use] pub const fn contains(self, rhs: Self) -> bool {
+    #[must_use]
+    pub const fn contains(self, rhs: Self) -> bool {
         self.wood >= rhs.wood
             && self.brick >= rhs.brick
             && self.sheep >= rhs.sheep
@@ -776,9 +808,9 @@ fn place_normal_city_interaction(
                 };
                 let player_resources = player_resources.iter_mut().find(|x| x.1 == &color_r.0);
                 if let Some((mut resources, _)) = player_resources {
-                    *resources = *resources - city_resources;
+                    *resources -= city_resources;
                 }
-                *resources = *resources + city_resources;
+                *resources += city_resources;
 
                 game_state.set(GameState::Turn);
                 let (x, y) = entity.positon_to_pixel_coordinates();
@@ -905,9 +937,9 @@ fn place_normal_interaction<Kind: Component + Default, Pos: Component + Copy, U:
                 }
                 let player_resources = player_resources.iter_mut().find(|x| x.1 == &color_r.0);
                 if let Some((mut resources, _)) = player_resources {
-                    *resources = *resources - U::resources();
+                    *resources -= U::resources();
                 }
-                *resources = *resources + U::resources();
+                *resources += U::resources();
                 game_state.set(GameState::Turn);
                 commands.spawn(U::bundle(*entity, &mut meshes, &mut materials));
                 button.set_changed();
@@ -919,6 +951,97 @@ fn place_normal_interaction<Kind: Component + Default, Pos: Component + Copy, U:
             Interaction::None => {
                 *color = NORMAL_BUTTON.into();
             }
+        }
+    }
+}
+fn road_dice() -> u8 {
+    rand::random_range(1..=6) + rand::random_range(1..=6)
+}
+fn distribute_resources<'a>(
+    roll: u8,
+    board: impl Iterator<Item = (Hexagon, Number, Position)> + Clone,
+    towns: impl Iterator<Item = (Town, CatanColor, BuildingPosition)>,
+    cities: impl Iterator<Item = (City, CatanColor, BuildingPosition)>,
+    player_resources: impl Iterator<Item = (CatanColor, &'a mut Resources)> + Clone,
+    resources: &mut Resources,
+) {
+    let board = board.filter(|(_, number, _)| matches!(number, Number::Number(n) if *n == roll));
+    fn on_board_with_hex<Building>(
+        mut board: impl Iterator<Item = (Hexagon, Number, Position)>,
+        buildings: impl Iterator<Item = (Building, CatanColor, BuildingPosition)>,
+    ) -> impl Iterator<Item = (Building, CatanColor, Hexagon)> {
+        buildings.filter_map(
+            move |(_0, catan_color, BuildingPosition::All(p1, p2, p3))| {
+                // does this need to be cloned
+                board
+                    .find(|(_, _, pos)| pos == &p1 || pos == &p2 || pos == &p3)
+                    .map(|(hex, _, _)| (_0, catan_color, hex))
+            },
+        )
+    }
+    fn get_by_color<T>(
+        color: &CatanColor,
+        mut things: impl Iterator<Item = (CatanColor, T)>,
+    ) -> Option<T> {
+        things.find(|(c, _)| c == color).map(|(_, t)| t)
+    }
+    fn hexagon_to_resources(hex: Hexagon) -> Resources {
+        match hex {
+            Hexagon::Wood => Resources {
+                wood: 1,
+                brick: 0,
+                sheep: 0,
+                wheat: 0,
+                ore: 0,
+            },
+            Hexagon::Brick => Resources {
+                wood: 0,
+                brick: 1,
+                sheep: 0,
+                wheat: 0,
+                ore: 0,
+            },
+            Hexagon::Sheep => Resources {
+                wood: 0,
+                brick: 0,
+                sheep: 1,
+                wheat: 0,
+                ore: 0,
+            },
+            Hexagon::Wheat => Resources {
+                wood: 0,
+                brick: 0,
+                sheep: 0,
+                wheat: 1,
+                ore: 0,
+            },
+            Hexagon::Ore => Resources {
+                wood: 0,
+                brick: 0,
+                sheep: 0,
+                wheat: 0,
+                ore: 1,
+            },
+            Hexagon::Desert => todo!(),
+            Hexagon::Water => todo!(),
+            Hexagon::Port => todo!(),
+            Hexagon::Empty => todo!(),
+        }
+    }
+    for (b, color, hex) in on_board_with_hex(board.clone(), towns) {
+        let player_resources = get_by_color(&color, player_resources.clone());
+        if let Some(player_resources) = player_resources {
+            let gained = hexagon_to_resources(hex);
+            *player_resources += gained;
+            *resources -= gained;
+        }
+    }
+    for (b, color, hex) in on_board_with_hex(board, cities) {
+        let player_resources = get_by_color(&color, player_resources.clone());
+        if let Some(player_resources) = player_resources {
+            let gained = hexagon_to_resources(hex) * 2;
+            *player_resources += gained;
+            *resources -= gained;
         }
     }
 }
