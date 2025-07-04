@@ -22,6 +22,7 @@ fn main() {
     app.add_plugins((DefaultPlugins,));
     app.init_state::<GameState>();
     app.insert_resource(BoardSize(3));
+    app.init_resource::<Robber>();
     app.insert_resource(CurrentColor(CatanColor::White));
     app.insert_resource(Resources::new_game());
     app.add_systems(Startup, setup);
@@ -70,6 +71,7 @@ enum GameState {
     Nothing,
     Start,
     PlaceRoad,
+    Roll,
     Turn,
     PlaceTown,
     PlaceCity,
@@ -519,6 +521,9 @@ fn generate_bord(commands: &mut Commands<'_, '_>) -> Vec<(Position, Hexagon, Num
         .into_iter()
         .partition(|(_, _, n)| Number::Number(8) == *n || Number::Number(6) == *n);
     let mut inhabited = fix_numbers(reds, normal_number);
+    if let Some(desert) = desert.first() {
+        commands.insert_resource(Robber(desert.0));
+    }
     inhabited.append(&mut desert);
     inhabited.extend(generate_postions_ring(3).map(|p| (p, Hexagon::Empty, Number::None)));
     for hex in &inhabited {
@@ -963,18 +968,23 @@ fn full_roll_dice(
     cities: Query<'_, '_, (&City, &CatanColor, &BuildingPosition)>,
     mut player_resources: Query<'_, '_, (&CatanColor, &mut Resources)>,
     resources: ResMut<'_, Resources>,
+    robber: Res<'_, Robber>,
 ) {
     let roll = roll_dice();
-    distribute_resources(
-        roll,
-        board.iter().map(|(h, n, p)| (*h, *n, *p)),
-        towns.iter().map(|(b, c, p)| (*b, *c, *p)),
-        cities.iter().map(|(b, c, p)| (*b, *c, *p)),
-        player_resources
-            .iter_mut()
-            .map(|(c, r)| (*c, r.into_inner())),
-        resources.into_inner(),
-    );
+    // TODO: what happens when 7 rolled
+    if roll != 7 {
+        distribute_resources(
+            roll,
+            board.iter().map(|(h, n, p)| (*h, *n, *p)),
+            towns.iter().map(|(b, c, p)| (*b, *c, *p)),
+            cities.iter().map(|(b, c, p)| (*b, *c, *p)),
+            player_resources
+                .iter_mut()
+                .map(|(c, r)| (*c, r.into_inner())),
+            resources.into_inner(),
+            robber.into_inner(),
+        );
+    }
 }
 
 fn distribute_resources<'a>(
@@ -984,21 +994,22 @@ fn distribute_resources<'a>(
     cities: impl Iterator<Item = (City, CatanColor, BuildingPosition)>,
     player_resources: impl Iterator<Item = (CatanColor, &'a mut Resources)>,
     resources: &mut Resources,
+    robber: &Robber,
 ) {
     let mut player_resources = player_resources.collect_vec();
-    let board = board.filter(|(_, number, _)| matches!(number, Number::Number(n) if *n == roll));
+    let board = board.filter(|(_, number, p)| {
+        p != &robber.0 && matches!(number, Number::Number(n) if *n == roll)
+    });
     fn on_board_with_hex<Building>(
         mut board: impl Iterator<Item = (Hexagon, Number, Position)>,
         buildings: impl Iterator<Item = (Building, CatanColor, BuildingPosition)>,
     ) -> impl Iterator<Item = (Building, CatanColor, Hexagon)> {
-        buildings.filter_map(
-            move |(_0, catan_color, BuildingPosition::All(p1, p2, p3))| {
-                // does this need to be cloned
-                board
-                    .find(|(_, _, pos)| pos == &p1 || pos == &p2 || pos == &p3)
-                    .map(|(hex, _, _)| (_0, catan_color, hex))
-            },
-        )
+        buildings.filter_map(move |(b, catan_color, BuildingPosition::All(p1, p2, p3))| {
+            // does this need to be cloned
+            board
+                .find(|(_, _, pos)| pos == &p1 || pos == &p2 || pos == &p3)
+                .map(|(hex, _, _)| (b, catan_color, hex))
+        })
     }
     fn get_by_color<'a, T: 'a>(
         color: &CatanColor,
@@ -1541,6 +1552,13 @@ impl PartialEq for BuildingPosition {
             }
             _ => false,
         }
+    }
+}
+#[derive(Resource, PartialEq, Clone, Copy)]
+struct Robber(Position);
+impl Default for Robber {
+    fn default() -> Self {
+        Self(Position { q: 0, r: 0, s: 0 })
     }
 }
 fn generate_pieces(commands: &mut Commands<'_, '_>) {
