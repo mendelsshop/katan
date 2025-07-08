@@ -1003,6 +1003,9 @@ fn turn_ui_roll_interaction(
         }
     }
 }
+
+#[derive(Component, PartialEq, Default, Clone, Copy)]
+struct SkipButton;
 #[derive(Component, PartialEq, Default, Clone, Copy)]
 struct DieButton;
 fn roll_dice() -> (u8, u8, u8) {
@@ -1657,7 +1660,7 @@ fn setup_dice(mut commands: Commands<'_, '_>) {
         children![
             (
                 Node {
-                    left: Val::Px(-15.),
+                    left: Val::Px(-44.2),
                     width: Val::Px(20.0),
                     height: Val::Px(20.0),
                     border: UiRect::all(Val::Px(1.)),
@@ -1679,7 +1682,7 @@ fn setup_dice(mut commands: Commands<'_, '_>) {
             ),
             (
                 Node {
-                    left: Val::Px(-4.),
+                    left: Val::Px(-35.),
                     top: Val::Px(-4.),
 
                     width: Val::Px(20.),
@@ -1712,6 +1715,7 @@ fn setup(
     mut commands: Commands<'_, '_>,
     meshes: ResMut<'_, Assets<Mesh>>,
     materials: ResMut<'_, Assets<ColorMaterial>>,
+    asset_server: Res<'_, AssetServer>,
 ) {
     commands.spawn(Camera2d);
     draw_board(
@@ -1723,5 +1727,41 @@ fn setup(
     generate_development_cards(&mut commands);
     generate_pieces(&mut commands);
     next_state.set(GameState::Roll);
+
+    add_skip_button(&mut commands, asset_server);
+
     setup_dice(commands);
+}
+
+fn add_skip_button(commands: &mut Commands<'_, '_>, asset_server: Res<'_, AssetServer>) {
+    let road_icon = asset_server.load("x.png");
+    commands.spawn((
+        Node {
+            width: Val::Percent(100.0),
+            height: Val::Percent(100.0),
+            align_items: AlignItems::End,
+            justify_content: JustifyContent::End,
+            ..default()
+        },
+        children![(
+            ImageNode::new(road_icon),
+            Node {
+                left: Val::Px(-5.),
+                width: Val::Px(20.0),
+                height: Val::Px(20.0),
+                border: UiRect::all(Val::Px(1.)),
+                top: Val::Px(-4.),
+                ..default()
+            },
+            Button,
+            TextLayout::new_with_justify(JustifyText::Center),
+            SkipButton,
+            Outline {
+                width: Val::Px(4.),
+                offset: Val::Px(0.),
+                color: Color::BLACK,
+            },
+            BorderColor(Color::BLACK),
+        ),],
+    ));
 }
