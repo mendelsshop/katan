@@ -185,6 +185,7 @@ impl FPosition {
     fn hex_to_pixel(self) -> (f32, f32) {
         let x = 3f32.sqrt().mul_add(self.q, 3f32.sqrt() / 2. * self.r);
         let y = 3. / 2. * self.r;
+        let y = (3. / 2.) * self.r * -1.;
         (x, y)
     }
 }
@@ -1463,10 +1464,8 @@ fn draw_board(
     for q in q {
         let mesh = meshes.add(RegularPolygon::new(25.0, 6));
         let mesh1 = meshes.add(Circle::new(13.0));
-        let x = 3f32
-            .sqrt()
-            .mul_add(f32::from(q.0.q), 3f32.sqrt() / 2. * f32::from(q.0.r));
-        let y = 3. / 2. * f32::from(q.0.r);
+        let (x, y) = FPosition::hex_to_pixel(q.0.into());
+                println!("{q:?} {}, {}",  x, y);
         commands.spawn((
             Mesh2d(mesh),
             MeshMaterial2d(materials.add(q.1.color())),
