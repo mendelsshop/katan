@@ -47,7 +47,11 @@ fn main() {
         Update,
         turn_ui_roll_interaction.run_if(in_state(GameState::Roll)),
     );
-
+    app.add_systems(
+        Update,
+        // TODO: if in turn or place state
+        turn_ui_next_interaction,
+    );
     app.add_systems(OnExit(GameState::PlaceRoad), (cleanup::<RoadPostion>,));
     app.add_systems(OnExit(GameState::PlaceTown), (cleanup::<BuildingPosition>,));
     app.add_systems(OnExit(GameState::PlaceCity), (cleanup::<BuildingPosition>,));
@@ -963,6 +967,25 @@ fn place_normal_interaction<Kind: Component + Default, Pos: Component + Copy, U:
         }
     }
 }
+fn turn_ui_next_interaction(
+    mut game_state: ResMut<'_, NextState<GameState>>,
+    interaction_query: Single<'_, (&NextButton, &Interaction, &mut Button), Changed<Interaction>>,
+) {
+    let (_, interaction, mut button) = interaction_query.into_inner();
+    // for (entity, interaction, mut button) in &mut interaction_query {
+    match *interaction {
+        Interaction::Pressed => {
+            game_state.set(GameState::Roll);
+            // TODO: change color
+            button.set_changed();
+        }
+        Interaction::Hovered => {
+            button.set_changed();
+        }
+        Interaction::None => {}
+    }
+    // }
+}
 fn turn_ui_roll_interaction(
     mut game_state: ResMut<'_, NextState<GameState>>,
     mut interaction_query: Query<
@@ -1005,7 +1028,7 @@ fn turn_ui_roll_interaction(
 }
 
 #[derive(Component, PartialEq, Default, Clone, Copy)]
-struct SkipButton;
+struct NextButton;
 #[derive(Component, PartialEq, Default, Clone, Copy)]
 struct DieButton;
 fn roll_dice() -> (u8, u8, u8) {
@@ -1728,12 +1751,12 @@ fn setup(
     generate_pieces(&mut commands);
     next_state.set(GameState::Roll);
 
-    add_skip_button(&mut commands, asset_server);
+    add_next_button(&mut commands, asset_server);
 
     setup_dice(commands);
 }
 
-fn add_skip_button(commands: &mut Commands<'_, '_>, asset_server: Res<'_, AssetServer>) {
+fn add_next_button(commands: &mut Commands<'_, '_>, asset_server: Res<'_, AssetServer>) {
     let road_icon = asset_server.load("x.png");
     commands.spawn((
         Node {
@@ -1755,7 +1778,7 @@ fn add_skip_button(commands: &mut Commands<'_, '_>, asset_server: Res<'_, AssetS
             },
             Button,
             TextLayout::new_with_justify(JustifyText::Center),
-            SkipButton,
+            NextButton,
             Outline {
                 width: Val::Px(4.),
                 offset: Val::Px(0.),
