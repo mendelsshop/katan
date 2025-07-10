@@ -12,7 +12,6 @@ use std::{
 };
 
 use bevy::{ecs::query::QueryData, prelude::*};
-
 const CITY_RESOURCES: Resources = Resources {
     wood: 0,
     brick: 0,
@@ -183,8 +182,8 @@ impl FPosition {
         }
     }
     fn hex_to_pixel(self) -> (f32, f32) {
-        let x = 3f32.sqrt().mul_add(self.q, 3f32.sqrt() / 2. * self.r);
-        let y = 3. / 2. * self.r;
+        // let x = 3f32.sqrt().mul_add(self.q, 3f32.sqrt() / 2. * self.r);
+        let x = 3f32.sqrt() * self.q + (3f32.sqrt() / 2.) * self.r;
         let y = (3. / 2.) * self.r * -1.;
         (x, y)
     }
@@ -478,7 +477,7 @@ fn generate_development_cards(commands: &mut Commands<'_, '_>) {
         commands.spawn(card);
     }
 }
-fn generate_bord(commands: &mut Commands<'_, '_>) -> Vec<(Position, Hexagon, Number)> {
+fn generate_board(commands: &mut Commands<'_, '_>) -> Vec<(Position, Hexagon, Number)> {
     let mut numbers = [
         (Number::Number(2)),
         (Number::Number(3)),
@@ -1165,6 +1164,18 @@ fn distribute_resources<'a>(
         }
     }
 }
+fn get_setup_road_placements(
+    size_r: Res<'_, BoardSize>,
+    road_q: Query<'_, '_, RoadQuery>,
+) -> impl Iterator<Item = RoadPostion> {
+    // generate all road possobilties
+    let possible_roads = generate_postions(3)
+        .array_combinations::<2>()
+        .filter_map(move |[p1, p2]| RoadPostion::new(p1, p2, Some(size_r.0)))
+        // filter out ones that are already placed
+        .filter(move |road| road_q.iter().map(|r| r.2).contains(road));
+    possible_roads
+}
 // not for initial game setup where the are no roads yet
 // TODO: maybe we should impose an order on postions for stuff like roads so that comparing them is
 // easeier (i.e. first postion is smallest ....)
@@ -1369,36 +1380,8 @@ fn place_normal_town(
         return;
     };
 
-    let (current_color_roads, _): (Vec<_>, Vec<_>) =
-        road_q.into_iter().partition(|r| *r.1 == color_r.0);
-
-    let possibles_towns = buildings_on_roads(
-        current_color_roads
-            .into_iter()
-            .map(|RoadQueryItem(_, _, road)| *road),
-        BoardSize(size_r.0),
-    );
-
-    let filter_by_building =
-        |position: &BuildingPosition,
-         building_q: Query<'_, '_, (&_, &CatanColor, &BuildingPosition)>| {
-            match position {
-                BuildingPosition::All(position, position1, position2) => !buildings_on_roads(
-                    [
-                        RoadPostion::new(*position, *position1, Some(size_r.0)),
-                        RoadPostion::new(*position, *position2, Some(size_r.0)),
-                        RoadPostion::new(*position1, *position2, Some(size_r.0)),
-                    ]
-                    .into_iter()
-                    .flatten(),
-                    BoardSize(size_r.0),
-                )
-                .any(|p| building_q.iter().any(|(_, _, place_b)| &p == place_b)),
-            }
-        };
-    let possible_towns = possibles_towns
-        .inspect(|p| println!("possible town {p:?}"))
-        .filter(|r| filter_by_building(r, building_q));
+    let possible_towns =
+        get_possible_town_placements(color_r.0, BoardSize(size_r.0), road_q, building_q);
     let count = possible_towns
         .filter_map(|p| {
             let (x, y) = p.positon_to_pixel_coordinates();
@@ -1436,6 +1419,45 @@ fn place_normal_town(
     if count == 0 {
         game_state.set(GameState::Turn);
     }
+}
+
+fn get_possible_town_placements(
+    color_r: CatanColor,
+    size_r: BoardSize,
+    road_q: Query<'_, '_, RoadQuery>,
+    building_q: Query<'_, '_, (&Building, &CatanColor, &BuildingPosition)>,
+) -> impl Iterator<Item = BuildingPosition> {
+    let (current_color_roads, _): (Vec<_>, Vec<_>) =
+        road_q.into_iter().partition(|r| *r.1 == color_r);
+
+    let possibles_towns = buildings_on_roads(
+        current_color_roads
+            .into_iter()
+            .map(|RoadQueryItem(_, _, road)| *road),
+        BoardSize(size_r.0),
+    );
+
+    let filter_by_building =
+        move |position: &BuildingPosition,
+              building_q: Query<'_, '_, (&_, &CatanColor, &BuildingPosition)>| {
+            match position {
+                BuildingPosition::All(position, position1, position2) => !buildings_on_roads(
+                    [
+                        RoadPostion::new(*position, *position1, Some(size_r.0)),
+                        RoadPostion::new(*position, *position2, Some(size_r.0)),
+                        RoadPostion::new(*position1, *position2, Some(size_r.0)),
+                    ]
+                    .into_iter()
+                    .flatten(),
+                    BoardSize(size_r.0),
+                )
+                .any(|p| building_q.iter().any(|(_, _, place_b)| &p == place_b)),
+            }
+        };
+    let possible_towns = possibles_towns
+        .inspect(|p| println!("possible town {p:?}"))
+        .filter(move |r| filter_by_building(r, building_q));
+    possible_towns
 }
 
 fn buildings_on_roads(
@@ -1743,9 +1765,9 @@ fn setup(
 ) {
     commands.spawn(Camera2d);
     draw_board(
-        generate_bord(&mut commands).into_iter(),
         materials,
         meshes,
+        generate_board(&mut commands).into_iter(),
         &mut commands,
     );
     generate_development_cards(&mut commands);
