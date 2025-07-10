@@ -7,7 +7,7 @@
 )]
 
 use std::{
-    iter::Cycle,
+    iter::{Chain, Cycle, Rev},
     mem::swap,
     ops::{Add, AddAssign, Div, Mul, Sub, SubAssign},
     vec::IntoIter,
@@ -35,6 +35,7 @@ fn main() {
     // TODO: is there way to init resource
     // without giving a value
     app.insert_resource(CurrentColor(CatanColor::White));
+    app.insert_resource(CurrentSetupColor(CatanColor::White));
     app.add_systems(Startup, setup);
     app.add_systems(OnEnter(GameState::PlaceRoad), (place_normal_road,));
     app.add_systems(OnEnter(GameState::PlaceTown), (place_normal_town,));
@@ -64,6 +65,7 @@ fn main() {
     );
     app.add_systems(OnExit(GameState::PlaceRoad), cleanup::<RoadPostion>);
     app.add_systems(OnEnter(GameState::Roll), set_color);
+    app.add_systems(OnEnter(GameState::SetupRoad), set_setup_color);
     app.add_systems(OnExit(GameState::PlaceTown), cleanup::<BuildingPosition>);
     app.add_systems(OnExit(GameState::PlaceCity), cleanup::<BuildingPosition>);
     app.add_systems(
@@ -87,8 +89,25 @@ fn main() {
 #[derive(Resource, Debug)]
 struct ColorIterator(Cycle<IntoIter<CatanColor>>);
 
+#[derive(Resource, Debug)]
+struct SetupColorIterator(Chain<IntoIter<CatanColor>, Rev<IntoIter<CatanColor>>>);
 fn set_color(mut color_r: ResMut<'_, CurrentColor>, color_rotation: ResMut<'_, ColorIterator>) {
     *color_r = CurrentColor(color_rotation.into_inner().0.next().unwrap());
+}
+#[derive(Resource, Debug)]
+struct CurrentSetupColor(CatanColor);
+fn set_setup_color(
+    mut game_state: ResMut<'_, NextState<GameState>>,
+    mut color_r: ResMut<'_, CurrentSetupColor>,
+    color_rotation: ResMut<'_, SetupColorIterator>,
+) {
+    if let Some(color) = color_rotation.into_inner().0.next() {
+        *color_r = CurrentSetupColor(color);
+    } else {
+        // TODO: will this happen fast enough so that the last player wont have option to do it a
+        // 3rd time
+        game_state.set(GameState::Roll);
+    }
 }
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default, States)]
 enum GameState {
@@ -100,6 +119,8 @@ enum GameState {
     Turn,
     PlaceTown,
     PlaceCity,
+    SetupRoad,
+    SetupHouse,
 }
 #[derive(Component, PartialEq, Debug, Clone, Copy)]
 enum Number {
@@ -1787,6 +1808,36 @@ fn setup(
 
     add_next_button(&mut commands, asset_server);
 
+    // this has to be set dynamically
+    commands.insert_resource(ColorIterator(
+        vec![
+            CatanColor::White,
+            CatanColor::Red,
+            CatanColor::Blue,
+            CatanColor::Green,
+        ]
+        .into_iter()
+        .cycle(),
+    ));
+    commands.insert_resource(SetupColorIterator(
+        vec![
+            CatanColor::White,
+            CatanColor::Red,
+            CatanColor::Blue,
+            CatanColor::Green,
+        ]
+        .into_iter()
+        .chain(
+            vec![
+                CatanColor::White,
+                CatanColor::Red,
+                CatanColor::Blue,
+                CatanColor::Green,
+            ]
+            .into_iter()
+            .rev(),
+        ),
+    ));
     setup_dice(commands);
 }
 
