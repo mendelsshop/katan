@@ -7,8 +7,10 @@
 )]
 
 use std::{
+    iter::Cycle,
     mem::swap,
     ops::{Add, AddAssign, Div, Mul, Sub, SubAssign},
+    vec::IntoIter,
 };
 
 use bevy::{ecs::query::QueryData, prelude::*};
@@ -29,8 +31,10 @@ fn main() {
     app.init_state::<GameState>();
     app.insert_resource(BoardSize(3));
     app.init_resource::<Robber>();
-    app.insert_resource(CurrentColor(CatanColor::White));
     app.insert_resource(Resources::new_game());
+    // TODO: is there way to init resource
+    // without giving a value
+    app.insert_resource(CurrentColor(CatanColor::White));
     app.add_systems(Startup, setup);
     app.add_systems(OnEnter(GameState::PlaceRoad), (place_normal_road,));
     app.add_systems(OnEnter(GameState::PlaceTown), (place_normal_town,));
@@ -58,9 +62,10 @@ fn main() {
         // TODO: if in turn or place state
         turn_ui_next_interaction,
     );
-    app.add_systems(OnExit(GameState::PlaceRoad), (cleanup::<RoadPostion>,));
-    app.add_systems(OnExit(GameState::PlaceTown), (cleanup::<BuildingPosition>,));
-    app.add_systems(OnExit(GameState::PlaceCity), (cleanup::<BuildingPosition>,));
+    app.add_systems(OnExit(GameState::PlaceRoad), cleanup::<RoadPostion>);
+    app.add_systems(OnEnter(GameState::Roll), set_color);
+    app.add_systems(OnExit(GameState::PlaceTown), cleanup::<BuildingPosition>);
+    app.add_systems(OnExit(GameState::PlaceCity), cleanup::<BuildingPosition>);
     app.add_systems(
         Update,
         place_normal_interaction::<Road, RoadPostion, RoadUI>
@@ -79,6 +84,12 @@ fn main() {
     app.run();
 }
 
+#[derive(Resource, Debug)]
+struct ColorIterator(Cycle<IntoIter<CatanColor>>);
+
+fn set_color(mut color_r: ResMut<'_, CurrentColor>, color_rotation: ResMut<'_, ColorIterator>) {
+    *color_r = CurrentColor(color_rotation.into_inner().0.next().unwrap());
+}
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default, States)]
 enum GameState {
     #[default]
@@ -1169,12 +1180,12 @@ fn get_setup_road_placements(
     road_q: Query<'_, '_, RoadQuery>,
 ) -> impl Iterator<Item = RoadPostion> {
     // generate all road possobilties
-    let possible_roads = generate_postions(3)
+
+    generate_postions(3)
         .array_combinations::<2>()
         .filter_map(move |[p1, p2]| RoadPostion::new(p1, p2, Some(size_r.0)))
         // filter out ones that are already placed
-        .filter(move |road| road_q.iter().map(|r| r.2).contains(road));
-    possible_roads
+        .filter(move |road| road_q.iter().map(|r| r.2).contains(road))
 }
 // not for initial game setup where the are no roads yet
 // TODO: maybe we should impose an order on postions for stuff like roads so that comparing them is
@@ -1454,10 +1465,10 @@ fn get_possible_town_placements(
                 .any(|p| building_q.iter().any(|(_, _, place_b)| &p == place_b)),
             }
         };
-    let possible_towns = possibles_towns
+
+    possibles_towns
         .inspect(|p| println!("possible town {p:?}"))
-        .filter(move |r| filter_by_building(r, building_q));
-    possible_towns
+        .filter(move |r| filter_by_building(r, building_q))
 }
 
 fn buildings_on_roads(
