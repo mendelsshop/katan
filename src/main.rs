@@ -37,6 +37,15 @@ fn main() {
     app.insert_resource(CurrentColor(CatanColor::White));
     app.insert_resource(CurrentSetupColor(CatanColor::White));
     app.add_systems(Startup, setup);
+    app.add_systems(OnEnter(GameState::SetupRoad), (place_setup_road,));
+    app.add_systems(OnEnter(GameState::SetupTown), (place_setup_town,));
+
+    app.add_systems(OnExit(GameState::SetupRoad), cleanup::<RoadPostion>);
+    app.add_systems(OnExit(GameState::SetupTown), cleanup::<BuildingPosition>);
+    app.add_systems(OnExit(GameState::PlaceRoad), cleanup::<RoadPostion>);
+    app.add_systems(OnExit(GameState::PlaceTown), cleanup::<BuildingPosition>);
+    app.add_systems(OnExit(GameState::PlaceCity), cleanup::<BuildingPosition>);
+
     app.add_systems(OnEnter(GameState::PlaceRoad), (place_normal_road,));
     app.add_systems(OnEnter(GameState::PlaceTown), (place_normal_town,));
     app.add_systems(OnEnter(GameState::PlaceCity), (place_normal_city,));
@@ -46,6 +55,8 @@ fn main() {
         Update,
         turn_ui_road_interaction.run_if(in_state(GameState::Turn)),
     );
+
+    app.add_systems(Update, show_resources);
     app.add_systems(
         Update,
         turn_ui_town_interaction.run_if(in_state(GameState::Turn)),
@@ -63,20 +74,17 @@ fn main() {
         // TODO: if in turn or place state
         turn_ui_next_interaction,
     );
-    app.add_systems(OnExit(GameState::PlaceRoad), cleanup::<RoadPostion>);
-    app.add_systems(OnEnter(GameState::Roll), set_color);
     app.add_systems(OnEnter(GameState::SetupRoad), set_setup_color);
-    app.add_systems(OnExit(GameState::PlaceTown), cleanup::<BuildingPosition>);
-    app.add_systems(OnExit(GameState::PlaceCity), cleanup::<BuildingPosition>);
+    app.add_systems(OnEnter(GameState::Roll), set_color);
     app.add_systems(
         Update,
         place_normal_interaction::<Road, RoadPostion, RoadUI>
-            .run_if(in_state(GameState::PlaceRoad)),
+            .run_if(in_state(GameState::PlaceRoad).or(in_state(GameState::SetupRoad))),
     );
     app.add_systems(
         Update,
         place_normal_interaction::<Town, BuildingPosition, TownUI>
-            .run_if(in_state(GameState::PlaceTown)),
+            .run_if(in_state(GameState::PlaceTown).or(in_state(GameState::SetupTown))),
     );
 
     app.add_systems(
@@ -103,6 +111,7 @@ fn set_setup_color(
 ) {
     if let Some(color) = color_rotation.into_inner().0.next() {
         *color_r = CurrentSetupColor(color);
+
     } else {
         // TODO: will this happen fast enough so that the last player wont have option to do it a
         // 3rd time
@@ -120,7 +129,7 @@ enum GameState {
     PlaceTown,
     PlaceCity,
     SetupRoad,
-    SetupHouse,
+    SetupTown,
 }
 #[derive(Component, PartialEq, Debug, Clone, Copy)]
 enum Number {
@@ -365,7 +374,7 @@ enum CatanColor {
     White,
 }
 
-#[derive(Debug, Component, Resource, Clone, Copy)]
+#[derive(Debug, Component, Resource, Clone, Copy, Default)]
 pub struct Resources {
     wood: u8,
     brick: u8,
@@ -825,7 +834,7 @@ fn place_normal_city_interaction(
             &mut Button,
             &Resources,
         ),
-    (Changed<Interaction>, Without<CatanColor>),
+        (Changed<Interaction>, Without<CatanColor>),
     >,
 ) {
     for (entity, interaction, mut color, mut button, required_resources) in &mut interaction_query {
@@ -954,10 +963,17 @@ impl UI for TownUI {
     }
 }
 // should interaction be doing the ui update for showing the roads/towns
-fn place_normal_interaction<Kind: Component + Default, Pos: Component + Copy, U: UI<Pos = Pos>>(
+fn place_normal_interaction<
+    Kind: Component + Default + std::fmt::Debug,
+    Pos: Component + Copy,
+    U: UI<Pos = Pos>,
+>(
     mut resources: ResMut<'_, Resources>,
     mut player_resources: Query<'_, '_, (&mut Resources, &CatanColor)>,
-    mut game_state: ResMut<'_, NextState<GameState>>,
+    mut game_state: Res<'_, State<GameState>>,
+    mut game_state_mut: ResMut<'_, NextState<GameState>>,
+    // TODO: need seperate one for setup color
+    // which means we could seperate the state changes and not need the double state paramaeters
     color_r: Res<'_, CurrentColor>,
     mut commands: Commands<'_, '_>,
     mut meshes: ResMut<'_, Assets<Mesh>>,
@@ -973,8 +989,7 @@ fn place_normal_interaction<Kind: Component + Default, Pos: Component + Copy, U:
             &mut Button,
             &Resources,
         ),
-    (        Changed<Interaction>, Without<CatanColor>),
-
+        (Changed<Interaction>, Without<CatanColor>),
     >,
 ) {
     for (entity, interaction, mut color, mut button, required_resources) in &mut interaction_query {
@@ -985,7 +1000,11 @@ fn place_normal_interaction<Kind: Component + Default, Pos: Component + Copy, U:
                 button.set_changed();
 
                 commands.spawn((Kind::default(), color_r.0, *entity));
-                let kind_left = kind_free_q.iter_mut().find(|x| x.1 == &color_r.0);
+                let kind_left = kind_free_q.iter_mut().find(|x| {
+                    println!("--{x:?}");
+                    x.1 == &color_r.0
+                });
+                println!("{kind_left:?}");
                 if let Some((_, _, mut left)) = kind_left {
                     *left = Left(left.0 - 1);
                 }
@@ -994,7 +1013,18 @@ fn place_normal_interaction<Kind: Component + Default, Pos: Component + Copy, U:
                     *resources -= *required_resources;
                 }
                 *resources += *required_resources;
-                game_state.set(GameState::Turn);
+                match *game_state.get() {
+                    GameState::Nothing
+                    | GameState::Start
+                    | GameState::PlaceRoad
+                    | GameState::Roll
+                    | GameState::Turn => {}
+                    GameState::PlaceTown | GameState::PlaceCity => {
+                        game_state_mut.set(GameState::Turn)
+                    }
+                    GameState::SetupRoad => game_state_mut.set(GameState::SetupTown),
+                    GameState::SetupTown => game_state_mut.set(GameState::SetupRoad),
+                }
                 commands.spawn(U::bundle(*entity, &mut meshes, &mut materials));
                 button.set_changed();
             }
@@ -1087,7 +1117,7 @@ fn full_roll_dice(
     die_q: &mut Query<'_, '_, &mut Text, With<DieButton>>,
 ) {
     let (roll, d1, d2) = roll_dice();
-    println!("rolled {roll} {:?}", die_q.iter().clone().collect_vec());
+    // println!("rolled {roll} {:?}", die_q.iter().clone().collect_vec());
     // assumes two dice
     die_q
         .iter_mut()
@@ -1213,7 +1243,52 @@ fn get_setup_road_placements(
         .array_combinations::<2>()
         .filter_map(move |[p1, p2]| RoadPostion::new(p1, p2, Some(size_r.0)))
         // filter out ones that are already placed
-        .filter(move |road| road_q.iter().map(|r| r.2).contains(road))
+        .filter(move |road| !road_q.iter().map(|r| r.2).contains(road))
+}
+fn place_setup_road(
+    mut commands: Commands<'_, '_>,
+    size_r: Res<'_, BoardSize>,
+    road_q: Query<'_, '_, RoadQuery>,
+    mut game_state: ResMut<'_, NextState<GameState>>,
+) {
+    let count = get_setup_road_placements(size_r, road_q)
+        .filter_map(|p| {
+            let (x, y) = p.positon_to_pixel_coordinates();
+            (x != 0. || y != 0.).then_some((x, y, p))
+        })
+        .map(|(x, y, p)| {
+            (
+                Node {
+                    width: Val::Percent(100.0),
+                    height: Val::Percent(100.0),
+                    align_items: AlignItems::Center,
+                    justify_content: JustifyContent::Center,
+                    ..default()
+                },
+                children![(
+                    Button,
+                    Node {
+                        position_type: PositionType::Relative,
+                        width: Val::Px(15.0),
+                        height: Val::Px(15.0),
+                        left: Val::Px(x * 28.),
+                        top: Val::Px(y * 28.),
+                        ..default()
+                    },
+                    p,
+                    Resources::default(),
+                    BorderRadius::MAX,
+                    BackgroundColor(NORMAL_BUTTON),
+                )],
+            )
+        })
+        .map(|b| {
+            commands.spawn(b);
+        })
+        .count();
+    if count == 0 {
+        game_state.set(GameState::Turn);
+    }
 }
 // not for initial game setup where the are no roads yet
 // TODO: maybe we should impose an order on postions for stuff like roads so that comparing them is
@@ -1405,6 +1480,50 @@ fn place_normal_city(
         game_state.set(GameState::Turn);
     }
 }
+fn place_setup_town(
+    mut commands: Commands<'_, '_>,
+    color_r: Res<'_, CurrentColor>,
+    size_r: Res<'_, BoardSize>,
+    road_q: Query<'_, '_, RoadQuery>,
+    building_q: Query<'_, '_, (&'_ Building, &'_ CatanColor, &'_ BuildingPosition)>,
+) {
+    let possible_towns =
+        get_possible_town_placements(color_r.0, BoardSize(size_r.0), road_q, building_q);
+    possible_towns
+        .filter_map(|p| {
+            let (x, y) = p.positon_to_pixel_coordinates();
+            (x != 0. || y != 0.).then_some((x, y, p))
+        })
+        .map(|(x, y, p)| {
+            (
+                Node {
+                    width: Val::Percent(100.0),
+                    height: Val::Percent(100.0),
+                    align_items: AlignItems::Center,
+                    justify_content: JustifyContent::Center,
+                    ..default()
+                },
+                children![(
+                    Button,
+                    Node {
+                        position_type: PositionType::Relative,
+                        width: Val::Px(15.0),
+                        height: Val::Px(15.0),
+                        left: Val::Px(x * 28.),
+                        top: Val::Px(y * 28.),
+                        ..default()
+                    },
+                    p,
+                    Resources::default(),
+                    BorderRadius::MAX,
+                    BackgroundColor(NORMAL_BUTTON),
+                )],
+            )
+        })
+        .for_each(|b| {
+            commands.spawn(b);
+        });
+}
 fn place_normal_town(
     mut commands: Commands<'_, '_>,
     color_r: Res<'_, CurrentColor>,
@@ -1590,7 +1709,7 @@ impl PiecePostion {
         }
     }
 }
-#[derive(Component, PartialEq, Eq)]
+#[derive(Component, PartialEq, Eq, Debug)]
 struct Left(pub u8);
 #[derive(Component, Clone, Copy, Debug)]
 enum RoadPostion {
