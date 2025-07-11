@@ -38,8 +38,8 @@ fn main() {
     app.insert_resource(CurrentSetupColor(CatanColor::White));
     app.add_systems(Startup, setup);
 
-    app.add_systems(OnEnter(GameState::SetupRoad), (place_setup_road,));
-    app.add_systems(OnEnter(GameState::SetupTown), (place_setup_town,));
+    app.add_systems(OnEnter(GameState::SetupRoad), place_setup_road);
+    app.add_systems(OnEnter(GameState::SetupTown), place_setup_town);
 
     app.add_systems(OnExit(GameState::SetupRoad), cleanup::<RoadPostion>);
     app.add_systems(OnExit(GameState::SetupTown), cleanup::<BuildingPosition>);
@@ -47,10 +47,10 @@ fn main() {
     app.add_systems(OnExit(GameState::PlaceTown), cleanup::<BuildingPosition>);
     app.add_systems(OnExit(GameState::PlaceCity), cleanup::<BuildingPosition>);
 
-    app.add_systems(OnEnter(GameState::PlaceRoad), (place_normal_road,));
-    app.add_systems(OnEnter(GameState::PlaceTown), (place_normal_town,));
-    app.add_systems(OnEnter(GameState::PlaceCity), (place_normal_city,));
-    app.add_systems(OnEnter(GameState::Turn), (show_turn_ui,));
+    app.add_systems(OnEnter(GameState::PlaceRoad), place_normal_road);
+    app.add_systems(OnEnter(GameState::PlaceTown), place_normal_town);
+    app.add_systems(OnEnter(GameState::PlaceCity), place_normal_city);
+    app.add_systems(OnEnter(GameState::Turn), show_turn_ui);
 
     app.add_systems(
         Update,
@@ -1384,8 +1384,8 @@ fn place_normal_road(
     println!("filtering out neighboring roads");
     // 2) make sure that there is no road already there (whether that color or not)
     let possible_roads = possibles_roads
-        .filter(|(_, r)| !road_q.iter().any(|RoadQueryItem(_, _, r1)| r == r1))
         .inspect(|r| println!("{:?}", r.1));
+        possibles_roads.filter(|(_, r)| !road_q.iter().any(|RoadQueryItem(_, _, r1)| r == r1));
 
     // 3) make sure there is no differeent color town at the three itersection
     // partition into other color used towns with single partiton
@@ -1508,7 +1508,7 @@ fn place_normal_city(
 }
 fn place_setup_town(
     mut commands: Commands<'_, '_>,
-    color_r: Res<'_, CurrentColor>,
+    color_r: Res<'_, CurrentSetupColor>,
     size_r: Res<'_, BoardSize>,
     road_q: Query<'_, '_, RoadQuery>,
     building_q: Query<'_, '_, (&'_ Building, &'_ CatanColor, &'_ BuildingPosition)>,
@@ -1868,18 +1868,6 @@ fn generate_pieces(commands: &mut Commands<'_, '_>) {
         commands.spawn((Road, color, Left(15)));
         commands.spawn((Resources::new_player(), color));
     }
-    commands.spawn((
-        Road,
-        CatanColor::White,
-        RoadPostion::new(
-            Position { q: 0, r: 0, s: 0 },
-            Position { q: -1, r: 0, s: 1 },
-            // Position { q: 2, r: -1, s: -1 },
-            // Position { q: 2, r: 0, s: -2 },
-            Some(3),
-        )
-        .unwrap(),
-    ));
 }
 fn setup_dice(mut commands: Commands<'_, '_>) {
     commands.spawn((
