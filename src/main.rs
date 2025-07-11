@@ -37,6 +37,7 @@ fn main() {
     app.insert_resource(CurrentColor(CatanColor::White));
     app.insert_resource(CurrentSetupColor(CatanColor::White));
     app.add_systems(Startup, setup);
+
     app.add_systems(OnEnter(GameState::SetupRoad), (place_setup_road,));
     app.add_systems(OnEnter(GameState::SetupTown), (place_setup_town,));
 
@@ -78,13 +79,23 @@ fn main() {
     app.add_systems(OnEnter(GameState::Roll), set_color);
     app.add_systems(
         Update,
-        place_normal_interaction::<Road, RoadPostion, RoadUI>
-            .run_if(in_state(GameState::PlaceRoad).or(in_state(GameState::SetupRoad))),
+        place_normal_interaction::<Road, RoadPostion, RoadUI, CurrentSetupColor>
+            .run_if(in_state(GameState::SetupRoad)),
     );
     app.add_systems(
         Update,
-        place_normal_interaction::<Town, BuildingPosition, TownUI>
-            .run_if(in_state(GameState::PlaceTown).or(in_state(GameState::SetupTown))),
+        place_normal_interaction::<Town, BuildingPosition, TownUI, CurrentSetupColor>
+            .run_if(in_state(GameState::SetupTown)),
+    );
+    app.add_systems(
+        Update,
+        place_normal_interaction::<Road, RoadPostion, RoadUI, CurrentColor>
+            .run_if(in_state(GameState::PlaceRoad)),
+    );
+    app.add_systems(
+        Update,
+        place_normal_interaction::<Town, BuildingPosition, TownUI, CurrentColor>
+            .run_if(in_state(GameState::PlaceTown)),
     );
 
     app.add_systems(
@@ -102,8 +113,13 @@ struct SetupColorIterator(Chain<IntoIter<CatanColor>, Rev<IntoIter<CatanColor>>>
 fn set_color(mut color_r: ResMut<'_, CurrentColor>, color_rotation: ResMut<'_, ColorIterator>) {
     *color_r = CurrentColor(color_rotation.into_inner().0.next().unwrap());
 }
-#[derive(Resource, Debug)]
+#[derive(Resource, Debug, Clone, Copy)]
 struct CurrentSetupColor(CatanColor);
+impl From<CurrentSetupColor> for CatanColor {
+    fn from(value: CurrentSetupColor) -> Self {
+        value.0
+    }
+}
 fn set_setup_color(
     mut game_state: ResMut<'_, NextState<GameState>>,
     mut color_r: ResMut<'_, CurrentSetupColor>,
@@ -366,6 +382,11 @@ impl Hexagon {
 #[derive(Debug, Resource, Clone, Copy)]
 // TODO: what about before turn order decided
 struct CurrentColor(CatanColor);
+impl From<CurrentColor> for CatanColor {
+    fn from(value: CurrentColor) -> Self {
+        value.0
+    }
+}
 #[derive(Debug, Component, Clone, Copy, PartialEq)]
 enum CatanColor {
     Red,
@@ -967,14 +988,18 @@ fn place_normal_interaction<
     Kind: Component + Default + std::fmt::Debug,
     Pos: Component + Copy,
     U: UI<Pos = Pos>,
+    // TODO: unify the different types of color for setup and during the game
+    // one way would be to make a color enum that has variant for setup and one for the rest of the game
+    // another way would be make the type of color be a marker struct that `#[requires(CatanColor)]`
+    // and then we could just look for CatanColor, and when we need the more specific one we specify
+    // via the marker struct
+    C: Into<CatanColor> + Resource + Copy,
 >(
     mut resources: ResMut<'_, Resources>,
     mut player_resources: Query<'_, '_, (&mut Resources, &CatanColor)>,
-    mut game_state: Res<'_, State<GameState>>,
+    game_state: Res<'_, State<GameState>>,
     mut game_state_mut: ResMut<'_, NextState<GameState>>,
-    // TODO: need seperate one for setup color
-    // which means we could seperate the state changes and not need the double state paramaeters
-    color_r: Res<'_, CurrentColor>,
+    color_r: Res<'_, C>,
     mut commands: Commands<'_, '_>,
     mut meshes: ResMut<'_, Assets<Mesh>>,
     mut materials: ResMut<'_, Assets<ColorMaterial>>,
@@ -992,6 +1017,7 @@ fn place_normal_interaction<
         (Changed<Interaction>, Without<CatanColor>),
     >,
 ) {
+    let current_color: CatanColor = (*color_r.into_inner()).into();
     for (entity, interaction, mut color, mut button, required_resources) in &mut interaction_query {
         match *interaction {
             Interaction::Pressed => {
@@ -999,16 +1025,16 @@ fn place_normal_interaction<
 
                 button.set_changed();
 
-                commands.spawn((Kind::default(), color_r.0, *entity));
+                commands.spawn((Kind::default(), current_color, *entity));
                 let kind_left = kind_free_q.iter_mut().find(|x| {
                     println!("--{x:?}");
-                    x.1 == &color_r.0
+                    x.1 == &current_color
                 });
                 println!("{kind_left:?}");
                 if let Some((_, _, mut left)) = kind_left {
                     *left = Left(left.0 - 1);
                 }
-                let player_resources = player_resources.iter_mut().find(|x| x.1 == &color_r.0);
+                let player_resources = player_resources.iter_mut().find(|x| x.1 == &current_color);
                 if let Some((mut resources, _)) = player_resources {
                     *resources -= *required_resources;
                 }
@@ -1020,7 +1046,7 @@ fn place_normal_interaction<
                     | GameState::Roll
                     | GameState::Turn => {}
                     GameState::PlaceTown | GameState::PlaceCity => {
-                        game_state_mut.set(GameState::Turn)
+                        game_state_mut.set(GameState::Turn);
                     }
                     GameState::SetupRoad => game_state_mut.set(GameState::SetupTown),
                     GameState::SetupTown => game_state_mut.set(GameState::SetupRoad),
@@ -1926,14 +1952,14 @@ fn setup(
 ) {
     commands.spawn(Camera2d);
     draw_board(
+        generate_board(&mut commands).into_iter(),
         materials,
         meshes,
-        generate_board(&mut commands).into_iter(),
         &mut commands,
     );
     generate_development_cards(&mut commands);
     generate_pieces(&mut commands);
-    next_state.set(GameState::Roll);
+    next_state.set(GameState::SetupRoad);
 
     add_next_button(&mut commands, asset_server);
 
