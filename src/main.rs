@@ -823,11 +823,12 @@ fn place_normal_city_interaction(
             &Interaction,
             &mut BackgroundColor,
             &mut Button,
+            &Resources,
         ),
-        Changed<Interaction>,
+    (Changed<Interaction>, Without<CatanColor>),
     >,
 ) {
-    for (entity, interaction, mut color, mut button) in &mut interaction_query {
+    for (entity, interaction, mut color, mut button, required_resources) in &mut interaction_query {
         match *interaction {
             Interaction::Pressed => {
                 *color = PRESSED_BUTTON.into();
@@ -852,12 +853,11 @@ fn place_normal_city_interaction(
                     *left = Left(left.0 - 1);
                 }
 
-                let city_resources = CITY_RESOURCES;
                 let player_resources = player_resources.iter_mut().find(|x| x.1 == &color_r.0);
                 if let Some((mut resources, _)) = player_resources {
-                    *resources -= city_resources;
+                    *resources -= *required_resources;
                 }
-                *resources += city_resources;
+                *resources += *required_resources;
 
                 game_state.set(GameState::Turn);
                 let (x, y) = entity.positon_to_pixel_coordinates();
@@ -966,11 +966,18 @@ fn place_normal_interaction<Kind: Component + Default, Pos: Component + Copy, U:
     mut interaction_query: Query<
         '_,
         '_,
-        (&Pos, &Interaction, &mut BackgroundColor, &mut Button),
-        Changed<Interaction>,
+        (
+            &Pos,
+            &Interaction,
+            &mut BackgroundColor,
+            &mut Button,
+            &Resources,
+        ),
+    (        Changed<Interaction>, Without<CatanColor>),
+
     >,
 ) {
-    for (entity, interaction, mut color, mut button) in &mut interaction_query {
+    for (entity, interaction, mut color, mut button, required_resources) in &mut interaction_query {
         match *interaction {
             Interaction::Pressed => {
                 *color = PRESSED_BUTTON.into();
@@ -984,9 +991,9 @@ fn place_normal_interaction<Kind: Component + Default, Pos: Component + Copy, U:
                 }
                 let player_resources = player_resources.iter_mut().find(|x| x.1 == &color_r.0);
                 if let Some((mut resources, _)) = player_resources {
-                    *resources -= U::resources();
+                    *resources -= *required_resources;
                 }
-                *resources += U::resources();
+                *resources += *required_resources;
                 game_state.set(GameState::Turn);
                 commands.spawn(U::bundle(*entity, &mut meshes, &mut materials));
                 button.set_changed();
@@ -1326,6 +1333,7 @@ fn place_normal_road(
                         ..default()
                     },
                     p,
+                    RoadUI::resources(),
                     BorderRadius::MAX,
                     BackgroundColor(NORMAL_BUTTON),
                 )],
@@ -1383,6 +1391,7 @@ fn place_normal_city(
                         ..default()
                     },
                     p,
+                    CITY_RESOURCES,
                     BorderRadius::MAX,
                     BackgroundColor(NORMAL_BUTTON),
                 )],
@@ -1439,6 +1448,7 @@ fn place_normal_town(
                         ..default()
                     },
                     p,
+                    TownUI::resources(),
                     BorderRadius::MAX,
                     BackgroundColor(NORMAL_BUTTON),
                 )],
