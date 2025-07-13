@@ -13,7 +13,7 @@ use std::{
     vec::IntoIter,
 };
 
-use bevy::{ecs::query::QueryData, prelude::*};
+use bevy::{color, ecs::query::QueryData, prelude::*};
 const CITY_RESOURCES: Resources = Resources {
     wood: 0,
     brick: 0,
@@ -127,7 +127,6 @@ fn set_setup_color(
 ) {
     if let Some(color) = color_rotation.into_inner().0.next() {
         *color_r = CurrentSetupColor(color);
-
     } else {
         // TODO: will this happen fast enough so that the last player wont have option to do it a
         // 3rd time
@@ -393,6 +392,16 @@ enum CatanColor {
     Green,
     Blue,
     White,
+}
+impl CatanColor {
+    fn to_bevy_color(self) -> Color {
+        match self {
+            Self::Red => color::palettes::basic::RED.into(),
+            Self::Green => color::palettes::basic::GREEN.into(),
+            Self::Blue => color::palettes::basic::BLUE.into(),
+            Self::White => color::palettes::basic::WHITE.into(),
+        }
+    }
 }
 
 #[derive(Debug, Component, Resource, Clone, Copy, Default)]
@@ -895,7 +904,7 @@ fn place_normal_city_interaction(
                 let mesh1 = meshes.add(Rectangle::new(13.0, 13.));
                 commands.spawn((
                     Mesh2d(mesh1),
-                    MeshMaterial2d(materials.add(Color::BLACK)),
+                    MeshMaterial2d(materials.add(color_r.0.to_bevy_color())),
                     Transform::from_xyz(x * 28.0, -y * 28., 0.0),
                 ));
 
@@ -917,6 +926,7 @@ pub trait UI {
         pos: Self::Pos,
         meshes: &mut ResMut<'_, Assets<Mesh>>,
         materials: &mut ResMut<'_, Assets<ColorMaterial>>,
+        color: CatanColor,
     ) -> impl Bundle;
     fn resources() -> Resources;
 }
@@ -928,12 +938,13 @@ impl UI for RoadUI {
         pos: Self::Pos,
         meshes: &mut ResMut<'_, Assets<Mesh>>,
         materials: &mut ResMut<'_, Assets<ColorMaterial>>,
+        color: CatanColor,
     ) -> impl Bundle {
         let (x, y) = pos.positon_to_pixel_coordinates();
         let mesh1 = meshes.add(Rectangle::new(7.0, 20.));
         (
             Mesh2d(mesh1),
-            MeshMaterial2d(materials.add(Color::BLACK)),
+            MeshMaterial2d(materials.add(color.to_bevy_color())),
             Transform::from_xyz(x * 28.0, -y * 28., 0.0).with_rotation(Quat::from_rotation_z(
                 match pos.shared_coordinate() {
                     Coordinate::R => 0f32,
@@ -963,12 +974,13 @@ impl UI for TownUI {
         pos: Self::Pos,
         meshes: &mut ResMut<'_, Assets<Mesh>>,
         materials: &mut ResMut<'_, Assets<ColorMaterial>>,
+        color: CatanColor,
     ) -> impl Bundle {
         let (x, y) = pos.positon_to_pixel_coordinates();
         let mesh1 = meshes.add(RegularPolygon::new(7.0, 3));
         (
             Mesh2d(mesh1),
-            MeshMaterial2d(materials.add(Color::BLACK)),
+            MeshMaterial2d(materials.add(color.to_bevy_color())),
             Transform::from_xyz(x * 28.0, -y * 28., 0.0),
         )
     }
@@ -1051,7 +1063,12 @@ fn place_normal_interaction<
                     GameState::SetupRoad => game_state_mut.set(GameState::SetupTown),
                     GameState::SetupTown => game_state_mut.set(GameState::SetupRoad),
                 }
-                commands.spawn(U::bundle(*entity, &mut meshes, &mut materials));
+                commands.spawn(U::bundle(
+                    *entity,
+                    &mut meshes,
+                    &mut materials,
+                    current_color,
+                ));
                 button.set_changed();
             }
             Interaction::Hovered => {
