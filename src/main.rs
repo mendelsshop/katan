@@ -1283,7 +1283,8 @@ fn get_setup_road_placements(
 ) -> impl Iterator<Item = RoadPostion> {
     // generate all road possobilties
 
-    generate_postions(3)
+    // generate the ring around it for edge roads
+    generate_postions(4)
         .array_combinations::<2>()
         .filter_map(move |[p1, p2]| RoadPostion::new(p1, p2, Some(size_r.0)))
         // filter out ones that are already placed
