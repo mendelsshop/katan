@@ -1775,7 +1775,14 @@ impl RoadPostion {
             p1.all_points_are(|p| -(size as i8) < p && p < size as i8)
                 || p2.all_points_are(|p| -(size as i8) < p && p < size as i8)
         });
-        let c = p1.get_shared_coordinate(&p2).filter(|_| not_off_board);
+        // veifies that the two roads boredering each other
+        let c = p1.get_shared_coordinate(&p2).filter(|c|
+           match c {
+            Coordinate::Q => p1.r.abs_diff(p2.r) <= 1 &&p1.s.abs_diff(p2.s) <= 1,
+            Coordinate::R => p1.q.abs_diff(p2.q) <= 1 &&p1.s.abs_diff(p2.s) <= 1,
+            Coordinate::S => p1.r.abs_diff(p2.r) <= 1 &&p1.q.abs_diff(p2.q) <= 1,
+        } &&
+            not_off_board);
         c.map(|c| Self::Both(p1, p2, c))
     }
     fn neighboring_two(&self, size: Option<u8>) -> (Option<Position>, Option<Position>) {
