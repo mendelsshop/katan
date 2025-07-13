@@ -1200,12 +1200,13 @@ fn distribute_resources<'a>(
         p != &robber.0 && matches!(number, Number::Number(n) if *n == roll)
     });
     fn on_board_with_hex<Building>(
-        mut board: impl Iterator<Item = (Hexagon, Number, Position)>,
+        board: impl Iterator<Item = (Hexagon, Number, Position)> + Clone,
         buildings: impl Iterator<Item = (Building, CatanColor, BuildingPosition)>,
     ) -> impl Iterator<Item = (Building, CatanColor, Hexagon)> {
         buildings.filter_map(move |(b, catan_color, BuildingPosition::All(p1, p2, p3))| {
             // does this need to be cloned
             board
+                .clone()
                 .find(|(_, _, pos)| pos == &p1 || pos == &p2 || pos == &p3)
                 .map(|(hex, _, _)| (b, catan_color, hex))
         })
