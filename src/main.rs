@@ -239,8 +239,8 @@ impl FPosition {
     }
     fn hex_to_pixel(self) -> (f32, f32) {
         // let x = 3f32.sqrt().mul_add(self.q, 3f32.sqrt() / 2. * self.r);
-        let x = 3f32.sqrt() * self.q + (3f32.sqrt() / 2.) * self.r;
-        let y = (3. / 2.) * self.r * -1.;
+        let y = -((3. / 2.) * self.r);
+        let x = 3f32.sqrt().mul_add(self.q, (3f32.sqrt() / 2.) * self.r);
         (x, y)
     }
 }
@@ -905,7 +905,7 @@ fn place_normal_city_interaction(
                 commands.spawn((
                     Mesh2d(mesh1),
                     MeshMaterial2d(materials.add(color_r.0.to_bevy_color())),
-                    Transform::from_xyz(x * 28.0, -y * 28., 0.0),
+                    Transform::from_xyz(x * 28.0, y * 28., 0.0),
                 ));
 
                 button.set_changed();
@@ -945,7 +945,7 @@ impl UI for RoadUI {
         (
             Mesh2d(mesh1),
             MeshMaterial2d(materials.add(color.to_bevy_color())),
-            Transform::from_xyz(x * 28.0, -y * 28., 0.0).with_rotation(Quat::from_rotation_z(
+            Transform::from_xyz(x * 28.0, y * 28., 0.0).with_rotation(Quat::from_rotation_z(
                 match pos.shared_coordinate() {
                     Coordinate::R => 0f32,
                     Coordinate::Q => -60f32,
@@ -981,7 +981,7 @@ impl UI for TownUI {
         (
             Mesh2d(mesh1),
             MeshMaterial2d(materials.add(color.to_bevy_color())),
-            Transform::from_xyz(x * 28.0, -y * 28., 0.0),
+            Transform::from_xyz(x * 28.0, y * 28., 0.0),
         )
     }
 
@@ -1052,12 +1052,8 @@ fn place_normal_interaction<
                 }
                 *resources += *required_resources;
                 match *game_state.get() {
-                    GameState::Nothing
-                    | GameState::Start
-                    | GameState::PlaceRoad
-                    | GameState::Roll
-                    | GameState::Turn => {}
-                    GameState::PlaceTown | GameState::PlaceCity => {
+                    GameState::Nothing | GameState::Start | GameState::Roll | GameState::Turn => {}
+                    GameState::PlaceRoad | GameState::PlaceTown | GameState::PlaceCity => {
                         game_state_mut.set(GameState::Turn);
                     }
                     GameState::SetupRoad => game_state_mut.set(GameState::SetupTown),
@@ -1317,7 +1313,7 @@ fn place_setup_road(
                         width: Val::Px(15.0),
                         height: Val::Px(15.0),
                         left: Val::Px(x * 28.),
-                        top: Val::Px(y * 28.),
+                        bottom: Val::Px(y * 28.),
                         ..default()
                     },
                     p,
@@ -1449,7 +1445,7 @@ fn place_normal_road(
                         width: Val::Px(15.0),
                         height: Val::Px(15.0),
                         left: Val::Px(x * 28.),
-                        top: Val::Px(y * 28.),
+                        bottom: Val::Px(y * 28.),
                         ..default()
                     },
                     p,
@@ -1507,7 +1503,7 @@ fn place_normal_city(
                         width: Val::Px(15.0),
                         height: Val::Px(15.0),
                         left: Val::Px(x * 28.),
-                        top: Val::Px(y * 28.),
+                        bottom: Val::Px(y * 28.),
                         ..default()
                     },
                     p,
@@ -1555,7 +1551,7 @@ fn place_setup_town(
                         width: Val::Px(15.0),
                         height: Val::Px(15.0),
                         left: Val::Px(x * 28.),
-                        top: Val::Px(y * 28.),
+                        bottom: Val::Px(y * 28.),
                         ..default()
                     },
                     p,
@@ -1608,7 +1604,7 @@ fn place_normal_town(
                         width: Val::Px(15.0),
                         height: Val::Px(15.0),
                         left: Val::Px(x * 28.),
-                        top: Val::Px(y * 28.),
+                        bottom: Val::Px(y * 28.),
                         ..default()
                     },
                     p,
