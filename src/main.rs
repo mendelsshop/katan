@@ -681,6 +681,10 @@ const PRESSED_BUTTON: Color = Color::srgb(0.35, 0.75, 0.35);
 #[derive(Component, PartialEq, Debug, Clone, Copy)]
 // button in game to start road placement ui
 struct RoadButton;
+
+#[derive(Component, PartialEq, Debug, Clone, Copy)]
+// button in game to obtain a developmennt card
+struct DevelopmentCardButton;
 #[derive(Component, PartialEq, Debug, Clone, Copy)]
 // button in game to start town placement ui
 struct TownButton;
@@ -791,6 +795,7 @@ fn show_turn_ui(mut commands: Commands<'_, '_>, asset_server: Res<'_, AssetServe
     let road_icon = asset_server.load("road.png");
     let town_icon: Handle<Image> = asset_server.load("house.png");
     let city_icon = asset_server.load("city.png");
+    let development_card_back = asset_server.load("development_card_back.png");
     commands.spawn((
         Node {
             width: Val::Percent(100.0),
@@ -831,7 +836,18 @@ fn show_turn_ui(mut commands: Commands<'_, '_>, asset_server: Res<'_, AssetServe
                 Button,
                 ImageNode::new(city_icon),
                 CityButton,
-            )
+            ),
+            (
+                Node {
+                    width: Val::Px(17.),
+                    height: Val::Px(25.0),
+                    left: Val::Px(35.),
+                    ..default()
+                },
+                Button,
+                ImageNode::new(development_card_back),
+                DevelopmentCardButton,
+            ),
         ],
     ));
 }
