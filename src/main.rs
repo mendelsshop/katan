@@ -70,6 +70,7 @@ fn main() {
         Update,
         turn_ui_roll_interaction.run_if(in_state(GameState::Roll)),
     );
+
     app.add_systems(
         Update,
         // TODO: if in turn or place state
@@ -81,6 +82,10 @@ fn main() {
         Update,
         place_normal_interaction::<Road, RoadPostion, RoadUI, CurrentSetupColor>
             .run_if(in_state(GameState::SetupRoad)),
+    );
+    app.add_systems(
+        Update,
+        buy_development_card_interaction.run_if(in_state(GameState::Turn)),
     );
     app.add_systems(
         Update,
@@ -838,6 +843,7 @@ fn show_turn_ui(mut commands: Commands<'_, '_>, asset_server: Res<'_, AssetServe
                 CityButton,
             ),
             (
+                // TODO: blur out if not any dev cards left, or maybe do this in iteraction
                 Node {
                     width: Val::Px(17.),
                     height: Val::Px(25.0),
@@ -923,6 +929,59 @@ fn place_normal_city_interaction(
                     MeshMaterial2d(materials.add(color_r.0.to_bevy_color())),
                     Transform::from_xyz(x * 28.0, y * 28., 0.0),
                 ));
+
+                button.set_changed();
+            }
+            Interaction::Hovered => {
+                *color = HOVERED_BUTTON.into();
+                button.set_changed();
+            }
+            Interaction::None => {
+                *color = NORMAL_BUTTON.into();
+            }
+        }
+    }
+}
+fn buy_development_card_interaction(
+    mut commands: Commands<'_, '_>,
+    color_r: Res<'_, CurrentColor>,
+    mut free_dev_cards: Query<'_, '_, (Entity, &DevelopmentCard), Without<CatanColor>>,
+    mut player_resources: Query<'_, '_, (&mut Resources, &CatanColor)>,
+    mut resources: ResMut<'_, Resources>,
+    interaction_query: Query<
+        '_,
+        '_,
+        (
+            &DevelopmentCardButton,
+            &Interaction,
+            &mut BackgroundColor,
+            &mut Button,
+        ),
+        Changed<Interaction>,
+    >,
+) {
+    for (entity, interaction, mut color, mut button) in interaction_query {
+        match *interaction {
+            Interaction::Pressed => {
+                *color = PRESSED_BUTTON.into();
+
+                button.set_changed();
+                if let Some(card) = free_dev_cards.iter_mut().next() {
+                    commands.entity(card.0).insert(color_r.0);
+                }
+
+                let required_resources = Resources {
+                    wood: 0,
+                    brick: 0,
+                    sheep: 1,
+                    wheat: 1,
+                    ore: 1,
+                };
+                let player_resources = player_resources.iter_mut().find(|x| x.1 == &color_r.0);
+                if let Some((mut resources, _)) = player_resources {
+                    *resources -= required_resources;
+                }
+                *resources += required_resources;
 
                 button.set_changed();
             }
