@@ -22,7 +22,7 @@ const CITY_RESOURCES: Resources = Resources {
     ore: 3,
 };
 use itertools::Itertools;
-use rand::seq::SliceRandom;
+use rand::seq::{IteratorRandom, SliceRandom};
 
 fn main() {
     println!("Hello, world!");
@@ -417,6 +417,7 @@ pub struct Resources {
     wheat: u8,
     ore: u8,
 }
+
 impl Sub for Resources {
     type Output = Self;
 
@@ -476,6 +477,27 @@ impl Add for Resources {
 }
 
 impl Resources {
+    fn checked_sub(self, rhs: Self) -> Option<Self> {
+        // applicative would be really nice for this no need for deep nesting
+        self.wood.checked_sub(rhs.wood).and_then(|wood| {
+            self.brick.checked_sub(rhs.brick).and_then(|brick| {
+                self.sheep.checked_sub(rhs.sheep).and_then(|sheep| {
+                    self.ore.checked_sub(rhs.ore).and_then(|ore| {
+                        self.wheat.checked_sub(rhs.wheat).map(|wheat| Self {
+                            wood,
+                            brick,
+                            sheep,
+                            wheat,
+                            ore,
+                        })
+                    })
+                })
+            })
+        })
+    }
+    const fn count(self) -> u8 {
+        self.wood + self.brick + self.sheep + self.wheat + self.ore
+    }
     #[must_use]
     pub const fn contains(self, rhs: Self) -> bool {
         self.wood >= rhs.wood
@@ -502,6 +524,65 @@ impl Resources {
             ore,
         }
     }
+}
+
+const fn place_robber() {
+    // show ui to place robber
+    // on every hex besides for current robber hex
+    // the make interaction function, that when clicked:
+    // 1) moves the robber there, set the robber postion
+    // 2) tries to take a resource from other player, or show ui to choose which player to pick
+    //    from
+}
+const fn place_robber_interaction() {}
+const fn choose_player_to_take_from() {}
+const fn choose_player_to_take_from_interaction() {}
+/// assumption: other player has at least on resource
+fn take_resource(current_color_resource: &mut Resources, other_color_resources: &mut Resources) {
+    let possible_resources_to_take = [
+        Resources {
+            wood: 1,
+            brick: 0,
+            sheep: 0,
+            wheat: 0,
+            ore: 0,
+        },
+        Resources {
+            wood: 0,
+            brick: 1,
+            sheep: 0,
+            wheat: 0,
+            ore: 0,
+        },
+        Resources {
+            wood: 0,
+            brick: 0,
+            sheep: 1,
+            wheat: 0,
+            ore: 0,
+        },
+        Resources {
+            wood: 0,
+            brick: 0,
+            sheep: 0,
+            wheat: 1,
+            ore: 0,
+        },
+        Resources {
+            wood: 0,
+            brick: 0,
+            sheep: 0,
+            wheat: 0,
+            ore: 1,
+        },
+    ]
+    .into_iter()
+    // verifiing that the player has the resources we are trying to take randomly
+    .filter(|r| other_color_resources.checked_sub(*r).is_some())
+    .choose(&mut rand::rng());
+    let resources_to_take = possible_resources_to_take.unwrap();
+    *other_color_resources -= resources_to_take;
+    *current_color_resource += resources_to_take;
 }
 #[derive(Debug, Component, Clone, Copy, Default)]
 #[require(Building)]
