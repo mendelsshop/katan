@@ -6,6 +6,8 @@
     clippy::missing_panics_doc
 )]
 
+mod dice;
+mod turn_ui;
 use std::{
     iter::{Chain, Cycle, Rev},
     mem::swap,
@@ -23,6 +25,8 @@ const CITY_RESOURCES: Resources = Resources {
 };
 use itertools::Itertools;
 use rand::seq::{IteratorRandom, SliceRandom};
+
+use crate::turn_ui::DevelopmentCardButton;
 
 fn main() {
     println!("Hello, world!");
@@ -50,31 +54,31 @@ fn main() {
     app.add_systems(OnEnter(GameState::PlaceRoad), place_normal_road);
     app.add_systems(OnEnter(GameState::PlaceTown), place_normal_town);
     app.add_systems(OnEnter(GameState::PlaceCity), place_normal_city);
-    app.add_systems(OnEnter(GameState::Turn), show_turn_ui);
+    app.add_systems(OnEnter(GameState::Turn), turn_ui::show_turn_ui);
 
     app.add_systems(
         Update,
-        turn_ui_road_interaction.run_if(in_state(GameState::Turn)),
+        turn_ui::turn_ui_road_interaction.run_if(in_state(GameState::Turn)),
     );
 
     app.add_systems(Update, show_resources);
     app.add_systems(
         Update,
-        turn_ui_town_interaction.run_if(in_state(GameState::Turn)),
+        turn_ui::turn_ui_town_interaction.run_if(in_state(GameState::Turn)),
     );
     app.add_systems(
         Update,
-        turn_ui_city_interaction.run_if(in_state(GameState::Turn)),
+        turn_ui::turn_ui_city_interaction.run_if(in_state(GameState::Turn)),
     );
     app.add_systems(
         Update,
-        turn_ui_roll_interaction.run_if(in_state(GameState::Roll)),
+        turn_ui::turn_ui_roll_interaction.run_if(in_state(GameState::Roll)),
     );
 
     app.add_systems(
         Update,
         // TODO: if in turn or place state
-        turn_ui_next_interaction,
+        turn_ui::turn_ui_next_interaction,
     );
     app.add_systems(OnEnter(GameState::SetupRoad), set_setup_color);
     app.add_systems(OnEnter(GameState::Roll), set_color);
@@ -764,180 +768,6 @@ const NORMAL_BUTTON: Color = Color::srgb(0.15, 0.15, 0.15);
 const HOVERED_BUTTON: Color = Color::srgb(0.25, 0.25, 0.25);
 const PRESSED_BUTTON: Color = Color::srgb(0.35, 0.75, 0.35);
 
-#[derive(Component, PartialEq, Debug, Clone, Copy)]
-// button in game to start road placement ui
-struct RoadButton;
-
-#[derive(Component, PartialEq, Debug, Clone, Copy)]
-// button in game to obtain a developmennt card
-struct DevelopmentCardButton;
-#[derive(Component, PartialEq, Debug, Clone, Copy)]
-// button in game to start town placement ui
-struct TownButton;
-#[derive(Component, PartialEq, Debug, Clone, Copy)]
-// button in game to start city placement ui
-struct CityButton;
-// TODO: combine with turn_ui_road_interaction
-fn turn_ui_city_interaction(
-    mut game_state: ResMut<'_, NextState<GameState>>,
-    mut interaction_query: Query<
-        '_,
-        '_,
-        (&CityButton, &Interaction, &mut Button),
-        Changed<Interaction>,
-    >,
-    player_resources: Query<'_, '_, (&Resources, &CatanColor)>,
-    color_r: Res<'_, CurrentColor>,
-) {
-    let player_resources = player_resources.iter().find(|x| x.1 == &color_r.0);
-    if let Some((resources, _)) = player_resources {
-        for (entity, interaction, mut button) in &mut interaction_query {
-            if resources.contains(CITY_RESOURCES) {
-                match *interaction {
-                    Interaction::Pressed => {
-                        button.set_changed();
-
-                        game_state.set(GameState::PlaceCity);
-                        button.set_changed();
-                    }
-                    Interaction::Hovered => {
-                        button.set_changed();
-                    }
-                    Interaction::None => {}
-                }
-            } else {
-                // TODO: grey out
-            }
-        }
-    }
-}
-fn turn_ui_town_interaction(
-    mut game_state: ResMut<'_, NextState<GameState>>,
-    mut interaction_query: Query<
-        '_,
-        '_,
-        (&TownButton, &Interaction, &mut Button),
-        Changed<Interaction>,
-    >,
-    player_resources: Query<'_, '_, (&Resources, &CatanColor)>,
-    color_r: Res<'_, CurrentColor>,
-) {
-    let player_resources = player_resources.iter().find(|x| x.1 == &color_r.0);
-    if let Some((resources, _)) = player_resources {
-        for (entity, interaction, mut button) in &mut interaction_query {
-            if resources.contains(TownUI::resources()) {
-                match *interaction {
-                    Interaction::Pressed => {
-                        button.set_changed();
-
-                        game_state.set(GameState::PlaceTown);
-                        button.set_changed();
-                    }
-                    Interaction::Hovered => {
-                        button.set_changed();
-                    }
-                    Interaction::None => {}
-                }
-            } else {
-                // TODO: grey out
-            }
-        }
-    }
-}
-fn turn_ui_road_interaction(
-    mut game_state: ResMut<'_, NextState<GameState>>,
-    mut interaction_query: Query<
-        '_,
-        '_,
-        (&RoadButton, &Interaction, &mut Button),
-        Changed<Interaction>,
-    >,
-    player_resources: Query<'_, '_, (&Resources, &CatanColor)>,
-    color_r: Res<'_, CurrentColor>,
-) {
-    let player_resources = player_resources.iter().find(|x| x.1 == &color_r.0);
-    if let Some((resources, _)) = player_resources {
-        for (entity, interaction, mut button) in &mut interaction_query {
-            if resources.contains(RoadUI::resources()) {
-                match *interaction {
-                    Interaction::Pressed => {
-                        button.set_changed();
-
-                        game_state.set(GameState::PlaceRoad);
-                        button.set_changed();
-                    }
-                    Interaction::Hovered => {
-                        button.set_changed();
-                    }
-                    Interaction::None => {}
-                }
-            } else {
-                // TODO: grey out
-            }
-        }
-    }
-}
-fn show_turn_ui(mut commands: Commands<'_, '_>, asset_server: Res<'_, AssetServer>) {
-    let road_icon = asset_server.load("road.png");
-    let town_icon: Handle<Image> = asset_server.load("house.png");
-    let city_icon = asset_server.load("city.png");
-    let development_card_back = asset_server.load("development_card_back.png");
-    commands.spawn((
-        Node {
-            width: Val::Percent(100.0),
-            height: Val::Percent(100.0),
-            align_items: AlignItems::End,
-            justify_content: JustifyContent::Center,
-            ..default()
-        },
-        children![
-            (
-                Node {
-                    width: Val::Px(25.0),
-                    height: Val::Px(10.0),
-                    ..default()
-                },
-                Button,
-                ImageNode::new(road_icon),
-                RoadButton,
-            ),
-            (
-                Node {
-                    left: Val::Px(15.),
-                    width: Val::Px(25.0),
-                    height: Val::Px(25.0),
-                    ..default()
-                },
-                Button,
-                ImageNode::new(town_icon),
-                TownButton,
-            ),
-            (
-                Node {
-                    left: Val::Px(25.),
-                    width: Val::Px(37.306),
-                    height: Val::Px(25.0),
-                    ..default()
-                },
-                Button,
-                ImageNode::new(city_icon),
-                CityButton,
-            ),
-            (
-                // TODO: blur out if not any dev cards left, or maybe do this in iteraction
-                Node {
-                    width: Val::Px(17.),
-                    height: Val::Px(25.0),
-                    left: Val::Px(35.),
-                    ..default()
-                },
-                Button,
-                ImageNode::new(development_card_back),
-                DevelopmentCardButton,
-            ),
-        ],
-    ));
-}
 fn cleanup<T: Component>(
     mut commands: Commands<'_, '_>,
     mut interaction_query: Query<'_, '_, Entity, (With<T>, With<Button>)>,
@@ -946,6 +776,7 @@ fn cleanup<T: Component>(
         commands.entity(entity).despawn();
     }
 }
+
 fn place_normal_city_interaction(
     mut commands: Commands<'_, '_>,
     mut meshes: ResMut<'_, Assets<Mesh>>,
@@ -1233,202 +1064,7 @@ fn place_normal_interaction<
         }
     }
 }
-fn turn_ui_next_interaction(
-    mut game_state: ResMut<'_, NextState<GameState>>,
-    interaction_query: Single<'_, (&NextButton, &Interaction, &mut Button), Changed<Interaction>>,
-) {
-    let (_, interaction, mut button) = interaction_query.into_inner();
-    // for (entity, interaction, mut button) in &mut interaction_query {
-    match *interaction {
-        Interaction::Pressed => {
-            game_state.set(GameState::Roll);
-            // TODO: change color
-            button.set_changed();
-        }
-        Interaction::Hovered => {
-            button.set_changed();
-        }
-        Interaction::None => {}
-    }
-    // }
-}
-fn turn_ui_roll_interaction(
-    mut game_state: ResMut<'_, NextState<GameState>>,
-    mut interaction_query: Query<
-        '_,
-        '_,
-        (&DieButton, &Interaction, &mut Button),
-        Changed<Interaction>,
-    >,
-    board: Query<'_, '_, (&Hexagon, &Number, &Position)>,
-    towns: Query<'_, '_, (&Town, &CatanColor, &BuildingPosition)>,
-    cities: Query<'_, '_, (&City, &CatanColor, &BuildingPosition)>,
-    mut player_resources: Query<'_, '_, (&CatanColor, &mut Resources)>,
-    mut resources: ResMut<'_, Resources>,
-    robber: Res<'_, Robber>,
-    mut die_q: Query<'_, '_, &mut Text, With<DieButton>>,
-) {
-    for (entity, interaction, mut button) in &mut interaction_query {
-        match *interaction {
-            Interaction::Pressed => {
-                button.set_changed();
 
-                game_state.set(GameState::Turn);
-                full_roll_dice(
-                    &board,
-                    &towns,
-                    &cities,
-                    &mut player_resources,
-                    &mut resources,
-                    &robber,
-                    &mut die_q,
-                );
-                button.set_changed();
-            }
-            Interaction::Hovered => {
-                button.set_changed();
-            }
-            Interaction::None => {}
-        }
-    }
-}
-
-#[derive(Component, PartialEq, Default, Clone, Copy)]
-struct NextButton;
-#[derive(Component, PartialEq, Default, Clone, Copy)]
-struct DieButton;
-fn roll_dice() -> (u8, u8, u8) {
-    let dice1 = rand::random_range(1..=6);
-    let dice2 = rand::random_range(1..=6);
-    (dice1 + dice2, dice1, dice2)
-}
-fn full_roll_dice(
-    board: &Query<'_, '_, (&Hexagon, &Number, &Position)>,
-    towns: &Query<'_, '_, (&Town, &CatanColor, &BuildingPosition)>,
-    cities: &Query<'_, '_, (&City, &CatanColor, &BuildingPosition)>,
-    player_resources: &mut Query<'_, '_, (&CatanColor, &mut Resources)>,
-    resources: &mut ResMut<'_, Resources>,
-    robber: &Res<'_, Robber>,
-    die_q: &mut Query<'_, '_, &mut Text, With<DieButton>>,
-) {
-    let (roll, d1, d2) = roll_dice();
-    // println!("rolled {roll} {:?}", die_q.iter().clone().collect_vec());
-    // assumes two dice
-    die_q
-        .iter_mut()
-        .zip([d1, d2])
-        .for_each(|(mut die_ui, new_roll)| {
-            println!("d {new_roll}");
-            **die_ui = new_roll.to_string();
-        });
-
-    // TODO: what happens when 7 rolled
-    if roll != 7 {
-        distribute_resources(
-            roll,
-            board.iter().map(|(h, n, p)| (*h, *n, *p)),
-            towns.iter().map(|(b, c, p)| (*b, *c, *p)),
-            cities.iter().map(|(b, c, p)| (*b, *c, *p)),
-            player_resources
-                .iter_mut()
-                .map(|(c, r)| (*c, r.into_inner())),
-            resources,
-            robber,
-        );
-    }
-}
-
-fn distribute_resources<'a>(
-    roll: u8,
-    board: impl Iterator<Item = (Hexagon, Number, Position)> + Clone,
-    towns: impl Iterator<Item = (Town, CatanColor, BuildingPosition)>,
-    cities: impl Iterator<Item = (City, CatanColor, BuildingPosition)>,
-    player_resources: impl Iterator<Item = (CatanColor, &'a mut Resources)>,
-    resources: &mut Resources,
-    robber: &Robber,
-) {
-    let mut player_resources = player_resources.collect_vec();
-    let board = board.filter(|(_, number, p)| {
-        p != &robber.0 && matches!(number, Number::Number(n) if *n == roll)
-    });
-    fn on_board_with_hex<Building>(
-        board: impl Iterator<Item = (Hexagon, Number, Position)> + Clone,
-        buildings: impl Iterator<Item = (Building, CatanColor, BuildingPosition)>,
-    ) -> impl Iterator<Item = (Building, CatanColor, Hexagon)> {
-        buildings.filter_map(move |(b, catan_color, BuildingPosition::All(p1, p2, p3))| {
-            // does this need to be cloned
-            board
-                .clone()
-                .find(|(_, _, pos)| pos == &p1 || pos == &p2 || pos == &p3)
-                .map(|(hex, _, _)| (b, catan_color, hex))
-        })
-    }
-    fn get_by_color<'a, T: 'a>(
-        color: &CatanColor,
-        mut things: impl Iterator<Item = &'a mut (CatanColor, T)>,
-    ) -> Option<&'a mut T> {
-        things.find(|(c, _)| c == color).map(|(_, t)| t)
-    }
-    fn hexagon_to_resources(hex: Hexagon) -> Resources {
-        match hex {
-            Hexagon::Wood => Resources {
-                wood: 1,
-                brick: 0,
-                sheep: 0,
-                wheat: 0,
-                ore: 0,
-            },
-            Hexagon::Brick => Resources {
-                wood: 0,
-                brick: 1,
-                sheep: 0,
-                wheat: 0,
-                ore: 0,
-            },
-            Hexagon::Sheep => Resources {
-                wood: 0,
-                brick: 0,
-                sheep: 1,
-                wheat: 0,
-                ore: 0,
-            },
-            Hexagon::Wheat => Resources {
-                wood: 0,
-                brick: 0,
-                sheep: 0,
-                wheat: 1,
-                ore: 0,
-            },
-            Hexagon::Ore => Resources {
-                wood: 0,
-                brick: 0,
-                sheep: 0,
-                wheat: 0,
-                ore: 1,
-            },
-            Hexagon::Desert => todo!(),
-            Hexagon::Water => todo!(),
-            Hexagon::Port => todo!(),
-            Hexagon::Empty => todo!(),
-        }
-    }
-    for (b, color, hex) in on_board_with_hex(board.clone(), towns) {
-        let player_resources = get_by_color(&color, player_resources.iter_mut());
-        if let Some(player_resources) = player_resources {
-            let gained = hexagon_to_resources(hex);
-            **player_resources += gained;
-            *resources -= gained;
-        }
-    }
-    for (b, color, hex) in on_board_with_hex(board, cities) {
-        let player_resources = get_by_color(&color, player_resources.iter_mut());
-        if let Some(player_resources) = player_resources {
-            let gained = hexagon_to_resources(hex) * 2;
-            **player_resources += gained;
-            *resources -= gained;
-        }
-    }
-}
 fn get_setup_road_placements(
     size_r: Res<'_, BoardSize>,
     road_q: Query<'_, '_, RoadQuery>,
@@ -2027,8 +1663,8 @@ impl PartialEq for BuildingPosition {
         }
     }
 }
-#[derive(Resource, PartialEq, Clone, Copy)]
-struct Robber(Position);
+#[derive(Resource, PartialEq, Clone, Copy, Debug)]
+pub struct Robber(Position);
 impl Default for Robber {
     fn default() -> Self {
         Self(Position { q: 0, r: 0, s: 0 })
@@ -2047,65 +1683,7 @@ fn generate_pieces(commands: &mut Commands<'_, '_>) {
         commands.spawn((Resources::new_player(), color));
     }
 }
-fn setup_dice(mut commands: Commands<'_, '_>) {
-    commands.spawn((
-        Node {
-            width: Val::Percent(100.0),
-            height: Val::Percent(100.0),
-            align_items: AlignItems::End,
-            justify_content: JustifyContent::End,
-            ..default()
-        },
-        children![
-            (
-                Node {
-                    left: Val::Px(-44.2),
-                    width: Val::Px(20.0),
-                    height: Val::Px(20.0),
-                    border: UiRect::all(Val::Px(1.)),
-                    top: Val::Px(-4.),
-                    ..default()
-                },
-                Button,
-                Text::new("0"),
-                BorderColor(Color::BLACK),
-                TextColor(Color::BLACK),
-                TextLayout::new_with_justify(JustifyText::Center),
-                BackgroundColor(Color::WHITE),
-                Outline {
-                    width: Val::Px(4.),
-                    offset: Val::Px(0.),
-                    color: Color::BLACK,
-                },
-                DieButton,
-            ),
-            (
-                Node {
-                    left: Val::Px(-35.),
-                    top: Val::Px(-4.),
 
-                    width: Val::Px(20.),
-                    height: Val::Px(20.0),
-
-                    border: UiRect::all(Val::Px(1.)),
-                    ..default()
-                },
-                Outline {
-                    width: Val::Px(4.),
-                    offset: Val::Px(0.),
-                    color: Color::BLACK,
-                },
-                BorderColor(Color::BLACK),
-                BackgroundColor(Color::WHITE),
-                TextLayout::new_with_justify(JustifyText::Center),
-                TextColor(Color::BLACK),
-                Button,
-                Text::new("0"),
-                DieButton,
-            )
-        ],
-    ));
-}
 #[derive(QueryData, Debug, Clone, Copy)]
 
 pub struct RoadQuery(&'static Road, &'static CatanColor, &'static RoadPostion);
@@ -2127,7 +1705,7 @@ fn setup(
     generate_pieces(&mut commands);
     next_state.set(GameState::SetupRoad);
 
-    add_next_button(&mut commands, asset_server);
+    turn_ui::add_next_button(&mut commands, asset_server);
 
     // this has to be set dynamically
     commands.insert_resource(ColorIterator(
@@ -2159,38 +1737,5 @@ fn setup(
             .rev(),
         ),
     ));
-    setup_dice(commands);
-}
-
-fn add_next_button(commands: &mut Commands<'_, '_>, asset_server: Res<'_, AssetServer>) {
-    let road_icon = asset_server.load("x.png");
-    commands.spawn((
-        Node {
-            width: Val::Percent(100.0),
-            height: Val::Percent(100.0),
-            align_items: AlignItems::End,
-            justify_content: JustifyContent::End,
-            ..default()
-        },
-        children![(
-            ImageNode::new(road_icon),
-            Node {
-                left: Val::Px(-5.),
-                width: Val::Px(20.0),
-                height: Val::Px(20.0),
-                border: UiRect::all(Val::Px(1.)),
-                top: Val::Px(-4.),
-                ..default()
-            },
-            Button,
-            TextLayout::new_with_justify(JustifyText::Center),
-            NextButton,
-            Outline {
-                width: Val::Px(4.),
-                offset: Val::Px(0.),
-                color: Color::BLACK,
-            },
-            BorderColor(Color::BLACK),
-        ),],
-    ));
+    turn_ui::setup_dice(commands);
 }
