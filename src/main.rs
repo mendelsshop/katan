@@ -8,30 +8,26 @@
 
 mod colors;
 mod dice;
+mod resources;
 mod turn_ui;
 use std::{
     mem::swap,
-    ops::{Add, AddAssign, Div, Mul, Sub, SubAssign},
+    ops::{Add, Div},
 };
 
 use bevy::{ecs::query::QueryData, prelude::*};
-const CITY_RESOURCES: Resources = Resources {
-    wood: 0,
-    brick: 0,
-    sheep: 0,
-    wheat: 2,
-    ore: 3,
-};
 use itertools::Itertools;
-use rand::seq::{IteratorRandom, SliceRandom};
+use rand::seq::SliceRandom;
 
 use crate::{
     colors::{CatanColor, ColorIterator, CurrentColor, CurrentSetupColor, SetupColorIterator},
+    resources::{
+        CITY_RESOURCES, DEVELOPMENT_CARD_RESOURCES, ROAD_RESOURCES, Resources, TOWN_RESOURCES,
+    },
     turn_ui::DevelopmentCardButton,
 };
 
 fn main() {
-    println!("Hello, world!");
     let mut app = App::new();
     app.add_plugins((DefaultPlugins,));
     app.init_state::<GameState>();
@@ -71,7 +67,6 @@ fn main() {
         turn_ui::turn_ui_road_interaction.run_if(in_state(GameState::Turn)),
     );
 
-    app.add_systems(Update, show_resources);
     app.add_systems(
         Update,
         turn_ui::turn_ui_town_interaction.run_if(in_state(GameState::Turn)),
@@ -370,123 +365,6 @@ impl Hexagon {
     }
 }
 
-#[derive(Debug, Component, Resource, Clone, Copy, Default)]
-pub struct Resources {
-    wood: u8,
-    brick: u8,
-    sheep: u8,
-    wheat: u8,
-    ore: u8,
-}
-
-impl Sub for Resources {
-    type Output = Self;
-
-    fn sub(self, rhs: Self) -> Self::Output {
-        Self {
-            wood: self.wood - rhs.wood,
-            brick: self.brick - rhs.brick,
-            sheep: self.sheep - rhs.sheep,
-            wheat: self.wheat - rhs.wheat,
-            ore: self.ore - rhs.ore,
-        }
-    }
-}
-impl Mul<u8> for Resources {
-    type Output = Self;
-
-    fn mul(self, rhs: u8) -> Self::Output {
-        Self {
-            wood: self.wood * rhs,
-            brick: self.brick * rhs,
-            sheep: self.sheep * rhs,
-            wheat: self.wheat * rhs,
-            ore: self.ore * rhs,
-        }
-    }
-}
-impl SubAssign for Resources {
-    fn sub_assign(&mut self, rhs: Self) {
-        self.wood -= rhs.wood;
-        self.brick -= rhs.brick;
-        self.sheep -= rhs.sheep;
-        self.wheat -= rhs.wheat;
-        self.ore -= rhs.ore;
-    }
-}
-impl AddAssign for Resources {
-    fn add_assign(&mut self, rhs: Self) {
-        self.wood += rhs.wood;
-        self.brick += rhs.brick;
-        self.sheep += rhs.sheep;
-        self.wheat += rhs.wheat;
-        self.ore += rhs.ore;
-    }
-}
-impl Add for Resources {
-    type Output = Self;
-
-    fn add(self, rhs: Self) -> Self::Output {
-        Self {
-            wood: self.wood + rhs.wood,
-            brick: self.brick + rhs.brick,
-            sheep: self.sheep + rhs.sheep,
-            wheat: self.wheat + rhs.wheat,
-            ore: self.ore + rhs.ore,
-        }
-    }
-}
-
-impl Resources {
-    fn checked_sub(self, rhs: Self) -> Option<Self> {
-        // applicative would be really nice for this no need for deep nesting
-        self.wood.checked_sub(rhs.wood).and_then(|wood| {
-            self.brick.checked_sub(rhs.brick).and_then(|brick| {
-                self.sheep.checked_sub(rhs.sheep).and_then(|sheep| {
-                    self.ore.checked_sub(rhs.ore).and_then(|ore| {
-                        self.wheat.checked_sub(rhs.wheat).map(|wheat| Self {
-                            wood,
-                            brick,
-                            sheep,
-                            wheat,
-                            ore,
-                        })
-                    })
-                })
-            })
-        })
-    }
-    const fn count(self) -> u8 {
-        self.wood + self.brick + self.sheep + self.wheat + self.ore
-    }
-    #[must_use]
-    pub const fn contains(self, rhs: Self) -> bool {
-        self.wood >= rhs.wood
-            && self.brick >= rhs.brick
-            && self.sheep >= rhs.sheep
-            && self.wheat >= rhs.wheat
-            && self.ore >= rhs.ore
-    }
-    #[must_use]
-    pub const fn new_player() -> Self {
-        Self::new(0, 0, 0, 0, 0)
-    }
-    #[must_use]
-    pub const fn new_game() -> Self {
-        Self::new(19, 19, 19, 19, 19)
-    }
-    #[must_use]
-    pub const fn new(wood: u8, brick: u8, sheep: u8, wheat: u8, ore: u8) -> Self {
-        Self {
-            wood,
-            brick,
-            sheep,
-            wheat,
-            ore,
-        }
-    }
-}
-
 const fn place_robber() {
     // show ui to place robber
     // on every hex besides for current robber hex
@@ -498,53 +376,7 @@ const fn place_robber() {
 const fn place_robber_interaction() {}
 const fn choose_player_to_take_from() {}
 const fn choose_player_to_take_from_interaction() {}
-/// assumption: other player has at least on resource
-fn take_resource(current_color_resource: &mut Resources, other_color_resources: &mut Resources) {
-    let possible_resources_to_take = [
-        Resources {
-            wood: 1,
-            brick: 0,
-            sheep: 0,
-            wheat: 0,
-            ore: 0,
-        },
-        Resources {
-            wood: 0,
-            brick: 1,
-            sheep: 0,
-            wheat: 0,
-            ore: 0,
-        },
-        Resources {
-            wood: 0,
-            brick: 0,
-            sheep: 1,
-            wheat: 0,
-            ore: 0,
-        },
-        Resources {
-            wood: 0,
-            brick: 0,
-            sheep: 0,
-            wheat: 1,
-            ore: 0,
-        },
-        Resources {
-            wood: 0,
-            brick: 0,
-            sheep: 0,
-            wheat: 0,
-            ore: 1,
-        },
-    ]
-    .into_iter()
-    // verifiing that the player has the resources we are trying to take randomly
-    .filter(|r| other_color_resources.checked_sub(*r).is_some())
-    .choose(&mut rand::rng());
-    let resources_to_take = possible_resources_to_take.unwrap();
-    *other_color_resources -= resources_to_take;
-    *current_color_resource += resources_to_take;
-}
+
 #[derive(Debug, Component, Clone, Copy, Default)]
 #[require(Building)]
 struct Town;
@@ -839,13 +671,7 @@ fn buy_development_card_interaction(
                     commands.entity(card.0).insert(color_r.0);
                 }
 
-                let required_resources = Resources {
-                    wood: 0,
-                    brick: 0,
-                    sheep: 1,
-                    wheat: 1,
-                    ore: 1,
-                };
+                let required_resources = DEVELOPMENT_CARD_RESOURCES;
                 let player_resources = player_resources.iter_mut().find(|x| x.1 == &color_r.0);
                 if let Some((mut resources, _)) = player_resources {
                     *resources -= required_resources;
@@ -901,13 +727,7 @@ impl UI for RoadUI {
     }
 
     fn resources() -> Resources {
-        Resources {
-            wood: 1,
-            brick: 1,
-            sheep: 0,
-            wheat: 0,
-            ore: 0,
-        }
+        ROAD_RESOURCES
     }
 }
 struct TownUI;
@@ -930,13 +750,7 @@ impl UI for TownUI {
     }
 
     fn resources() -> Resources {
-        Resources {
-            wood: 1,
-            brick: 1,
-            sheep: 1,
-            wheat: 1,
-            ore: 0,
-        }
+        TOWN_RESOURCES
     }
 }
 // should interaction be doing the ui update for showing the roads/towns
@@ -982,11 +796,7 @@ fn place_normal_interaction<
                 button.set_changed();
 
                 commands.spawn((Kind::default(), current_color, *entity));
-                let kind_left = kind_free_q.iter_mut().find(|x| {
-                    println!("--{x:?}");
-                    x.1 == &current_color
-                });
-                println!("{kind_left:?}");
+                let kind_left = kind_free_q.iter_mut().find(|x| x.1 == &current_color);
                 if let Some((_, _, mut left)) = kind_left {
                     *left = Left(left.0 - 1);
                 }
@@ -1041,6 +851,7 @@ fn place_setup_road(
     road_q: Query<'_, '_, RoadQuery>,
     mut game_state: ResMut<'_, NextState<GameState>>,
 ) {
+    // TODO: only show road if town can placed near it
     let count = get_setup_road_placements(size_r, road_q)
         .filter_map(|p| {
             let (x, y) = p.positon_to_pixel_coordinates();
@@ -1102,7 +913,6 @@ fn place_normal_road(
     let (current_color_roads, _): (Vec<_>, Vec<_>) =
         road_q.into_iter().partition(|r| *r.1 == color_r.0);
 
-    println!("current new roads");
     // we don't check current color roads is empty b/c by iterating over them we are essentially
     // doing that already
     // roads are between two hexes (if one coordiante is the same
@@ -1115,17 +925,11 @@ fn place_normal_road(
     let possibles_roads = current_color_roads
         .into_iter()
         .flat_map(|RoadQueryItem(_, _, road)| {
-            println!("original road {road:?}");
             match road {
                 RoadPostion::Both(p1, p2, _) => {
                     let (p3, p4) = road.neighboring_two(Some(size_r.0));
-                    println!("p3 {p3:?} p4 {p4:?}");
                     let make_road_pos = |p, option_p1: Option<_>, p2: &Position| {
                         option_p1.and_then(|p1| {
-                            println!(
-                                "non filtered roads {p:?}-{p1:?} = {:?}",
-                                RoadPostion::new(p, p1, Some(size_r.0))
-                            );
                             RoadPostion::new(p, p1, Some(size_r.0)).map(|r| (*p2, r))
                         })
                     };
@@ -1145,10 +949,8 @@ fn place_normal_road(
             }
         });
 
-    println!("filtering out neighboring roads");
     // 2) make sure that there is no road already there (whether that color or not)
-    let possible_roads = possibles_roads
-        .inspect(|r| println!("{:?}", r.1));
+    let possible_roads =
         possibles_roads.filter(|(_, r)| !road_q.iter().any(|RoadQueryItem(_, _, r1)| r == r1));
 
     // 3) make sure there is no differeent color town at the three itersection
@@ -1406,9 +1208,7 @@ fn get_possible_town_placements(
             }
         };
 
-    possibles_towns
-        .inspect(|p| println!("possible town {p:?}"))
-        .filter(move |r| filter_by_building(r, building_q))
+    possibles_towns.filter(move |r| filter_by_building(r, building_q))
 }
 
 fn buildings_on_roads(
@@ -1438,7 +1238,6 @@ fn draw_board(
         let mesh = meshes.add(RegularPolygon::new(25.0, 6));
         let mesh1 = meshes.add(Circle::new(13.0));
         let (x, y) = FPosition::hex_to_pixel(q.0.into());
-                println!("{q:?} {}, {}",  x, y);
         commands.spawn((
             Mesh2d(mesh),
             MeshMaterial2d(materials.add(q.1.color())),
@@ -1457,45 +1256,6 @@ fn draw_board(
                 TextLayout::new_with_justify(text_justification),
                 Transform::from_xyz(x * 28.0, y * 28., 0.0),
             ));
-        }
-    }
-}
-#[derive(Component, PartialEq, Debug, Clone, Copy)]
-enum PiecePostion {
-    None,
-    Position(Position),
-}
-impl From<Option<Position>> for PiecePostion {
-    fn from(value: Option<Position>) -> Self {
-        value.map_or(Self::None, Self::Position)
-    }
-}
-impl PiecePostion {
-    fn map(self, f: impl FnOnce(Position) -> Position) -> Self {
-        match self {
-            Self::None => Self::None,
-            Self::Position(position) => Self::Position(f(position)),
-        }
-    }
-
-    fn map_option<T>(self, f: impl FnOnce(Position) -> T) -> Option<T> {
-        match self {
-            Self::None => None,
-            Self::Position(position) => Some(f(position)),
-        }
-    }
-
-    fn and_then(self, f: impl FnOnce(Position) -> Self) -> Self {
-        match self {
-            Self::None => Self::None,
-            Self::Position(position) => f(position),
-        }
-    }
-
-    fn and_then_option<T>(self, f: impl FnOnce(Position) -> Option<T>) -> Option<T> {
-        match self {
-            Self::None => None,
-            Self::Position(position) => f(position),
         }
     }
 }
@@ -1560,9 +1320,14 @@ impl RoadPostion {
         match self {
             Self::Both(position, position1, coordinate) => {
                 let fposition: FPosition = (*position).into();
-                fposition
-                    .interesect_with_coordinate((*position1).into(), *coordinate)
-                    .hex_to_pixel()
+                let fposition1: FPosition = (*position1).into();
+                let fposition2 = (fposition1 + fposition) / 2.;
+                // maybe issue is you cant do math like this and expect pixel to hex to still work?
+
+                fposition2.hex_to_pixel()
+                // fposition
+                //     .interesect_with_coordinate((*position1).into(), *coordinate)
+                //     .hex_to_pixel()
             }
         }
     }
