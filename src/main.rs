@@ -6,16 +6,15 @@
     clippy::missing_panics_doc
 )]
 
+mod colors;
 mod dice;
 mod turn_ui;
 use std::{
-    iter::{Chain, Cycle, Rev},
     mem::swap,
     ops::{Add, AddAssign, Div, Mul, Sub, SubAssign},
-    vec::IntoIter,
 };
 
-use bevy::{color, ecs::query::QueryData, prelude::*};
+use bevy::{ecs::query::QueryData, prelude::*};
 const CITY_RESOURCES: Resources = Resources {
     wood: 0,
     brick: 0,
@@ -26,7 +25,10 @@ const CITY_RESOURCES: Resources = Resources {
 use itertools::Itertools;
 use rand::seq::{IteratorRandom, SliceRandom};
 
-use crate::turn_ui::DevelopmentCardButton;
+use crate::{
+    colors::{CatanColor, ColorIterator, CurrentColor, CurrentSetupColor, SetupColorIterator},
+    turn_ui::DevelopmentCardButton,
+};
 
 fn main() {
     println!("Hello, world!");
@@ -88,8 +90,8 @@ fn main() {
         // TODO: if in turn or place state
         turn_ui::turn_ui_next_interaction,
     );
-    app.add_systems(OnEnter(GameState::SetupRoad), set_setup_color);
-    app.add_systems(OnEnter(GameState::Roll), set_color);
+    app.add_systems(OnEnter(GameState::SetupRoad), colors::set_setup_color);
+    app.add_systems(OnEnter(GameState::Roll), colors::set_color);
     app.add_systems(
         Update,
         place_normal_interaction::<Road, RoadPostion, RoadUI, CurrentSetupColor>
@@ -122,34 +124,6 @@ fn main() {
     app.run();
 }
 
-#[derive(Resource, Debug)]
-struct ColorIterator(Cycle<IntoIter<CatanColor>>);
-
-#[derive(Resource, Debug)]
-struct SetupColorIterator(Chain<IntoIter<CatanColor>, Rev<IntoIter<CatanColor>>>);
-fn set_color(mut color_r: ResMut<'_, CurrentColor>, color_rotation: ResMut<'_, ColorIterator>) {
-    *color_r = CurrentColor(color_rotation.into_inner().0.next().unwrap());
-}
-#[derive(Resource, Debug, Clone, Copy)]
-struct CurrentSetupColor(CatanColor);
-impl From<CurrentSetupColor> for CatanColor {
-    fn from(value: CurrentSetupColor) -> Self {
-        value.0
-    }
-}
-fn set_setup_color(
-    mut game_state: ResMut<'_, NextState<GameState>>,
-    mut color_r: ResMut<'_, CurrentSetupColor>,
-    color_rotation: ResMut<'_, SetupColorIterator>,
-) {
-    if let Some(color) = color_rotation.into_inner().0.next() {
-        *color_r = CurrentSetupColor(color);
-    } else {
-        // TODO: will this happen fast enough so that the last player wont have option to do it a
-        // 3rd time
-        game_state.set(GameState::Roll);
-    }
-}
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default, States)]
 enum GameState {
     #[default]
@@ -392,31 +366,6 @@ impl Hexagon {
             Self::Water => Color::srgb_u8(0, 0, 255),
             Self::Port => Color::srgb_u8(0, 0, 255),
             Self::Empty => Color::BLACK.with_alpha(-1.),
-        }
-    }
-}
-#[derive(Debug, Resource, Clone, Copy)]
-// TODO: what about before turn order decided
-struct CurrentColor(CatanColor);
-impl From<CurrentColor> for CatanColor {
-    fn from(value: CurrentColor) -> Self {
-        value.0
-    }
-}
-#[derive(Debug, Component, Clone, Copy, PartialEq)]
-enum CatanColor {
-    Red,
-    Green,
-    Blue,
-    White,
-}
-impl CatanColor {
-    fn to_bevy_color(self) -> Color {
-        match self {
-            Self::Red => color::palettes::basic::RED.into(),
-            Self::Green => color::palettes::basic::GREEN.into(),
-            Self::Blue => color::palettes::basic::BLUE.into(),
-            Self::White => color::palettes::basic::WHITE.into(),
         }
     }
 }
