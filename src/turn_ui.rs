@@ -22,65 +22,6 @@ pub struct DieButton;
 
 #[derive(Component, PartialEq, Eq, Default, Clone, Copy)]
 pub struct NextButton;
-pub fn setup_dice(mut commands: Commands<'_, '_>) {
-    commands.spawn((
-        Node {
-            width: Val::Percent(100.0),
-            height: Val::Percent(100.0),
-            align_items: AlignItems::End,
-            justify_content: JustifyContent::End,
-            ..default()
-        },
-        children![
-            (
-                Node {
-                    left: Val::Px(-44.2),
-                    width: Val::Px(20.0),
-                    height: Val::Px(20.0),
-                    border: UiRect::all(Val::Px(1.)),
-                    top: Val::Px(-4.),
-                    ..default()
-                },
-                Button,
-                Text::new("0"),
-                BorderColor(Color::BLACK),
-                TextColor(Color::BLACK),
-                TextLayout::new_with_justify(JustifyText::Center),
-                BackgroundColor(Color::WHITE),
-                Outline {
-                    width: Val::Px(4.),
-                    offset: Val::Px(0.),
-                    color: Color::BLACK,
-                },
-                DieButton,
-            ),
-            (
-                Node {
-                    left: Val::Px(-35.),
-                    top: Val::Px(-4.),
-
-                    width: Val::Px(20.),
-                    height: Val::Px(20.0),
-
-                    border: UiRect::all(Val::Px(1.)),
-                    ..default()
-                },
-                Outline {
-                    width: Val::Px(4.),
-                    offset: Val::Px(0.),
-                    color: Color::BLACK,
-                },
-                BorderColor(Color::BLACK),
-                BackgroundColor(Color::WHITE),
-                TextLayout::new_with_justify(JustifyText::Center),
-                TextColor(Color::BLACK),
-                Button,
-                Text::new("0"),
-                DieButton,
-            )
-        ],
-    ));
-}
 pub fn turn_ui_roll_interaction(
     mut game_state: ResMut<'_, NextState<GameState>>,
     mut interaction_query: Query<
@@ -140,38 +81,7 @@ pub fn turn_ui_next_interaction(
     }
     // }
 }
-pub fn add_next_button(commands: &mut Commands<'_, '_>, asset_server: Res<'_, AssetServer>) {
-    let road_icon = asset_server.load("x.png");
-    commands.spawn((
-        Node {
-            width: Val::Percent(100.0),
-            height: Val::Percent(100.0),
-            align_items: AlignItems::End,
-            justify_content: JustifyContent::End,
-            ..default()
-        },
-        children![(
-            ImageNode::new(road_icon),
-            Node {
-                left: Val::Px(-5.),
-                width: Val::Px(20.0),
-                height: Val::Px(20.0),
-                border: UiRect::all(Val::Px(1.)),
-                top: Val::Px(-4.),
-                ..default()
-            },
-            Button,
-            TextLayout::new_with_justify(JustifyText::Center),
-            NextButton,
-            Outline {
-                width: Val::Px(4.),
-                offset: Val::Px(0.),
-                color: Color::BLACK,
-            },
-            BorderColor(Color::BLACK),
-        ),],
-    ));
-}
+
 // TODO: combine with turn_ui_road_interaction
 pub fn turn_ui_city_interaction(
     mut game_state: ResMut<'_, NextState<GameState>>,
@@ -276,7 +186,9 @@ pub fn show_turn_ui(mut commands: Commands<'_, '_>, asset_server: Res<'_, AssetS
     let road_icon = asset_server.load("road.png");
     let town_icon: Handle<Image> = asset_server.load("house.png");
     let city_icon = asset_server.load("city.png");
-    let development_card_back = asset_server.load("development_card_back.png");
+    let development_card_back_icon = asset_server.load("development_card_back.png");
+    let next_turn_icon = asset_server.load("x.png");
+    // TODO: better way to do ui layouting
     commands.spawn((
         Node {
             width: Val::Percent(100.0),
@@ -327,9 +239,77 @@ pub fn show_turn_ui(mut commands: Commands<'_, '_>, asset_server: Res<'_, AssetS
                     ..default()
                 },
                 Button,
-                ImageNode::new(development_card_back),
+                ImageNode::new(development_card_back_icon),
                 DevelopmentCardButton,
             ),
+            (
+                Node {
+                    position_type: PositionType::Absolute,
+                    right: Val::Px(65.),
+                    width: Val::Px(20.0),
+                    height: Val::Px(20.0),
+                    border: UiRect::all(Val::Px(1.)),
+                    bottom: Val::Px(4.),
+                    ..default()
+                },
+                Button,
+                Text::new("0"),
+                BorderColor(Color::BLACK),
+                TextColor(Color::BLACK),
+                TextLayout::new_with_justify(JustifyText::Center),
+                BackgroundColor(Color::WHITE),
+                Outline {
+                    width: Val::Px(4.),
+                    offset: Val::Px(0.),
+                    color: Color::BLACK,
+                },
+                DieButton,
+            ),
+            (
+                Node {
+                    right: Val::Px(35.),
+                    bottom: Val::Px(4.),
+
+                    position_type: PositionType::Absolute,
+                    width: Val::Px(20.),
+                    height: Val::Px(20.0),
+
+                    border: UiRect::all(Val::Px(1.)),
+                    ..default()
+                },
+                Outline {
+                    width: Val::Px(4.),
+                    offset: Val::Px(0.),
+                    color: Color::BLACK,
+                },
+                BorderColor(Color::BLACK),
+                BackgroundColor(Color::WHITE),
+                TextLayout::new_with_justify(JustifyText::Center),
+                TextColor(Color::BLACK),
+                Button,
+                Text::new("0"),
+                DieButton,
+            ),
+            (
+                ImageNode::new(next_turn_icon),
+                Node {
+                    position_type: PositionType::Absolute,
+                    right: Val::Px(4.),
+                    width: Val::Px(20.0),
+                    height: Val::Px(20.0),
+                    border: UiRect::all(Val::Px(1.)),
+                    bottom: Val::Px(4.),
+                    ..default()
+                },
+                Button,
+                NextButton,
+                Outline {
+                    width: Val::Px(4.),
+                    offset: Val::Px(0.),
+                    color: Color::BLACK,
+                },
+                BorderColor(Color::BLACK),
+            )
         ],
     ));
 }

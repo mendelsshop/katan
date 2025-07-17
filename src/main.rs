@@ -54,7 +54,15 @@ fn main() {
     app.add_systems(OnEnter(GameState::PlaceRoad), place_normal_road);
     app.add_systems(OnEnter(GameState::PlaceTown), place_normal_town);
     app.add_systems(OnEnter(GameState::PlaceCity), place_normal_city);
-    app.add_systems(OnEnter(GameState::Turn), turn_ui::show_turn_ui);
+    app.add_systems(
+        OnTransition {
+            // you might think, that we would do this after the last town (with SetupTown), but due
+            // to how the color/player changing logic for setup its not acutally so
+            exited: GameState::SetupRoad,
+            entered: GameState::Roll,
+        },
+        turn_ui::show_turn_ui,
+    );
 
     app.add_systems(
         Update,
@@ -1705,8 +1713,6 @@ fn setup(
     generate_pieces(&mut commands);
     next_state.set(GameState::SetupRoad);
 
-    turn_ui::add_next_button(&mut commands, asset_server);
-
     // this has to be set dynamically
     commands.insert_resource(ColorIterator(
         vec![
@@ -1737,5 +1743,4 @@ fn setup(
             .rev(),
         ),
     ));
-    turn_ui::setup_dice(commands);
 }
