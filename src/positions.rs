@@ -1,3 +1,4 @@
+use itertools::Itertools;
 use std::ops::{Add, Div};
 
 use bevy::prelude::*;
@@ -7,6 +8,24 @@ pub struct Position {
     pub r: i8,
     pub s: i8,
 }
+pub fn generate_postions_ring(n: i8) -> impl Iterator<Item = Position> {
+    let has_big_coordinate: _ = move |i: i8| i == -n || i == n;
+    generate_postions(n + 1).filter(move |q| {
+        has_big_coordinate(q.q) || has_big_coordinate(q.r) || has_big_coordinate(q.s)
+    })
+}
+pub fn generate_postions(n: i8) -> impl Iterator<Item = Position> {
+    (0..3)
+        .map(|_| -n + 1..n)
+        .multi_cartesian_product()
+        .filter(|q| q[0] + q[1] + q[2] == 0)
+        .map(|i| Position {
+            q: i[0],
+            r: i[1],
+            s: i[2],
+        })
+}
+
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub struct FPosition {
     pub q: f32,

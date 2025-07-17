@@ -39,7 +39,7 @@ pub fn turn_ui_roll_interaction(
     robber: Res<'_, Robber>,
     mut die_q: Query<'_, '_, &mut Text, With<DieButton>>,
 ) {
-    for (entity, interaction, mut button) in &mut interaction_query {
+    for (_, interaction, mut button) in &mut interaction_query {
         match *interaction {
             Interaction::Pressed => {
                 button.set_changed();
@@ -97,7 +97,7 @@ pub fn turn_ui_city_interaction(
 ) {
     let player_resources = player_resources.iter().find(|x| x.1 == &color_r.0);
     if let Some((resources, _)) = player_resources {
-        for (entity, interaction, mut button) in &mut interaction_query {
+        for (_, interaction, mut button) in &mut interaction_query {
             if resources.contains(CITY_RESOURCES) {
                 match *interaction {
                     Interaction::Pressed => {
@@ -130,7 +130,7 @@ pub fn turn_ui_town_interaction(
 ) {
     let player_resources = player_resources.iter().find(|x| x.1 == &color_r.0);
     if let Some((resources, _)) = player_resources {
-        for (entity, interaction, mut button) in &mut interaction_query {
+        for (_, interaction, mut button) in &mut interaction_query {
             if resources.contains(TownUI::resources()) {
                 match *interaction {
                     Interaction::Pressed => {
@@ -163,7 +163,7 @@ pub fn turn_ui_road_interaction(
 ) {
     let player_resources = player_resources.iter().find(|x| x.1 == &color_r.0);
     if let Some((resources, _)) = player_resources {
-        for (entity, interaction, mut button) in &mut interaction_query {
+        for (_, interaction, mut button) in &mut interaction_query {
             if resources.contains(RoadUI::resources()) {
                 match *interaction {
                     Interaction::Pressed => {

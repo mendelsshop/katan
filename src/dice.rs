@@ -118,7 +118,7 @@ fn distribute_resources<'a>(
             Hexagon::Empty => todo!(),
         }
     }
-    for (b, color, hex) in on_board_with_hex(board.clone(), towns) {
+    for (_, color, hex) in on_board_with_hex(board.clone(), towns) {
         let player_resources = get_by_color(&color, player_resources.iter_mut());
         if let Some(player_resources) = player_resources {
             let gained = hexagon_to_resources(hex);
@@ -126,15 +126,12 @@ fn distribute_resources<'a>(
             *resources -= gained;
         }
     }
-    for (b, color, hex) in on_board_with_hex(board, cities) {
+    for (_, color, hex) in on_board_with_hex(board, cities) {
         let player_resources = get_by_color(&color, player_resources.iter_mut());
         if let Some(player_resources) = player_resources {
             let gained = hexagon_to_resources(hex) * 2;
             **player_resources += gained;
             *resources -= gained;
         }
-    }
-    for resources in player_resources {
-        println!("{resources:?}");
     }
 }
