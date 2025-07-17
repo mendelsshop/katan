@@ -7,13 +7,12 @@
 )]
 
 mod colors;
+mod development_cards;
 mod dice;
+mod positions;
 mod resources;
 mod turn_ui;
-use std::{
-    mem::swap,
-    ops::{Add, Div},
-};
+use std::mem::swap;
 
 use bevy::{ecs::query::QueryData, prelude::*};
 use itertools::Itertools;
@@ -21,6 +20,7 @@ use rand::seq::SliceRandom;
 
 use crate::{
     colors::{CatanColor, ColorIterator, CurrentColor, CurrentSetupColor, SetupColorIterator},
+    positions::{BuildingPosition, Coordinate, FPosition, Position, RoadPosition},
     resources::{
         CITY_RESOURCES, DEVELOPMENT_CARD_RESOURCES, ROAD_RESOURCES, Resources, TOWN_RESOURCES,
     },
@@ -43,9 +43,9 @@ fn main() {
     app.add_systems(OnEnter(GameState::SetupRoad), place_setup_road);
     app.add_systems(OnEnter(GameState::SetupTown), place_setup_town);
 
-    app.add_systems(OnExit(GameState::SetupRoad), cleanup::<RoadPostion>);
+    app.add_systems(OnExit(GameState::SetupRoad), cleanup::<RoadPosition>);
     app.add_systems(OnExit(GameState::SetupTown), cleanup::<BuildingPosition>);
-    app.add_systems(OnExit(GameState::PlaceRoad), cleanup::<RoadPostion>);
+    app.add_systems(OnExit(GameState::PlaceRoad), cleanup::<RoadPosition>);
     app.add_systems(OnExit(GameState::PlaceTown), cleanup::<BuildingPosition>);
     app.add_systems(OnExit(GameState::PlaceCity), cleanup::<BuildingPosition>);
 
@@ -89,7 +89,7 @@ fn main() {
     app.add_systems(OnEnter(GameState::Roll), colors::set_color);
     app.add_systems(
         Update,
-        place_normal_interaction::<Road, RoadPostion, RoadUI, CurrentSetupColor>
+        place_normal_interaction::<Road, RoadPosition, RoadUI, CurrentSetupColor>
             .run_if(in_state(GameState::SetupRoad)),
     );
     app.add_systems(
@@ -103,7 +103,7 @@ fn main() {
     );
     app.add_systems(
         Update,
-        place_normal_interaction::<Road, RoadPostion, RoadUI, CurrentColor>
+        place_normal_interaction::<Road, RoadPosition, RoadUI, CurrentColor>
             .run_if(in_state(GameState::PlaceRoad)),
     );
     app.add_systems(
@@ -137,189 +137,7 @@ enum Number {
     Number(u8),
     None,
 }
-#[derive(Component, Debug, PartialEq, Clone, Copy)]
-struct Position {
-    q: i8,
-    r: i8,
-    s: i8,
-}
-#[derive(Debug, PartialEq, Clone, Copy)]
-struct FPosition {
-    q: f32,
-    r: f32,
-    s: f32,
-}
-impl From<Position> for FPosition {
-    fn from(Position { q, r, s }: Position) -> Self {
-        Self {
-            q: f32::from(q),
-            r: f32::from(r),
-            s: f32::from(s),
-        }
-    }
-}
-impl FPosition {
-    const fn filter_coordinate(mut self, coordinate: Coordinate) -> Self {
-        match coordinate {
-            Coordinate::Q => self.q = 0.,
-            Coordinate::R => self.r = 0.,
-            Coordinate::S => self.s = 0.,
-        }
-        self
-    }
-    const fn get_shared_coordinate(&self, other: &Self) -> Option<Coordinate> {
-        if self.q == other.q {
-            Some(Coordinate::Q)
-        } else if self.r == other.r {
-            Some(Coordinate::R)
-        } else if self.s == other.s {
-            Some(Coordinate::S)
-        } else {
-            None
-        }
-    }
-    pub fn intersect(self, other: Self) -> Option<Self> {
-        self.get_shared_coordinate(&other)
-            .map(|shared_coordinate| self.interesect_with_coordinate(other, shared_coordinate))
-    }
 
-    const fn interesect_with_coordinate(
-        self,
-        Self {
-            q: q1,
-            r: r1,
-            s: s1,
-        }: Self,
-        shared_coordinate: Coordinate,
-    ) -> Self {
-        let Self { q, r, s } = self;
-        match shared_coordinate {
-            Coordinate::Q => {
-                // ideas is that the midpoint will be here the road is between two hexes
-                // doesn't seem to be working
-                Self {
-                    q,
-                    r: f32::midpoint(r, r1),
-                    s: f32::midpoint(s, s1),
-                }
-            }
-            Coordinate::R => {
-                // ideas is that the midpoint will be here the road is between two hexes
-                // doesn't seem to be working
-                Self {
-                    r,
-                    q: f32::midpoint(q, q1),
-                    s: f32::midpoint(s, s1),
-                }
-            }
-            Coordinate::S => {
-                // ideas is that the midpoint will be here the road is between two hexes
-                // doesn't seem to be working
-                Self {
-                    s,
-                    r: f32::midpoint(r, r1),
-                    q: f32::midpoint(q, q1),
-                }
-            }
-        }
-    }
-    fn hex_to_pixel(self) -> (f32, f32) {
-        // let x = 3f32.sqrt().mul_add(self.q, 3f32.sqrt() / 2. * self.r);
-        let y = -((3. / 2.) * self.r);
-        let x = 3f32.sqrt().mul_add(self.q, (3f32.sqrt() / 2.) * self.r);
-        (x, y)
-    }
-}
-// maybe do size const generics?
-impl Position {
-    const DIRECTION_VECTORS: [Self; 6] = [
-        Self { q: 1, r: 0, s: -1 },
-        Self { q: 1, r: -1, s: 0 },
-        Self { q: 0, r: -1, s: 1 },
-        Self { q: -1, r: 0, s: 1 },
-        Self { q: -1, r: 1, s: 0 },
-        Self { q: 0, r: 1, s: -1 },
-    ];
-    fn rotate_right(&self) -> Self {
-        let Self { q, r, s } = self;
-        Self {
-            q: -r,
-            r: -s,
-            s: -q,
-        }
-    }
-    fn building_positions_around(&self) -> [BuildingPosition; 6] {
-        Self::DIRECTION_VECTORS.map(|p| {
-            let p1 = p.rotate_right();
-            BuildingPosition::All(*self, p + *self, p1 + *self)
-        })
-    }
-    fn all_points_are(&self, mut f: impl FnMut(i8) -> bool) -> bool {
-        f(self.q) && f(self.r) && f(self.s)
-    }
-    fn any_points_is(&self, mut f: impl FnMut(i8) -> bool) -> bool {
-        f(self.q) || f(self.r) || f(self.s)
-    }
-    const fn get_shared_coordinate(&self, other: &Self) -> Option<Coordinate> {
-        if self.q == other.q {
-            Some(Coordinate::Q)
-        } else if self.r == other.r {
-            Some(Coordinate::R)
-        } else if self.s == other.s {
-            Some(Coordinate::S)
-        } else {
-            None
-        }
-    }
-
-    // TODO: maybe this should be a result as their are two possiblities for failure
-    // 1) it doesn't add uo to 0
-    // 2) its out of the board
-    pub fn new(q: i8, r: i8, s: i8, size: Option<u8>) -> Option<Self> {
-        const fn in_between(bound: u8, point: i8) -> bool {
-            let bound = (bound) as i8;
-            -bound <= point && point <= bound
-        }
-        (q + r + s == 0
-            && size.is_none_or(|size| {
-                in_between(size, q) && in_between(size, r) && in_between(size, s)
-            }))
-        .then_some(Self { q, r, s })
-    }
-}
-impl Add for Position {
-    type Output = Self;
-
-    fn add(self, rhs: Self) -> Self::Output {
-        Self {
-            q: self.q + rhs.q,
-            r: self.r + rhs.r,
-            s: self.s + rhs.s,
-        }
-    }
-}
-impl Div<f32> for FPosition {
-    type Output = Self;
-
-    fn div(self, rhs: f32) -> Self::Output {
-        Self {
-            q: self.q / rhs,
-            r: self.r / rhs,
-            s: self.s / rhs,
-        }
-    }
-}
-impl Add for FPosition {
-    type Output = Self;
-
-    fn add(self, rhs: Self) -> Self::Output {
-        Self {
-            q: self.q + rhs.q,
-            r: self.r + rhs.r,
-            s: self.s + rhs.s,
-        }
-    }
-}
 #[derive(Debug, Component, Clone, Copy)]
 // our hexagons are pointy
 enum Hexagon {
@@ -702,7 +520,7 @@ pub trait UI {
 }
 struct RoadUI;
 impl UI for RoadUI {
-    type Pos = RoadPostion;
+    type Pos = RoadPosition;
 
     fn bundle(
         pos: Self::Pos,
@@ -835,13 +653,13 @@ fn place_normal_interaction<
 fn get_setup_road_placements(
     size_r: Res<'_, BoardSize>,
     road_q: Query<'_, '_, RoadQuery>,
-) -> impl Iterator<Item = RoadPostion> {
+) -> impl Iterator<Item = RoadPosition> {
     // generate all road possobilties
 
     // generate the ring around it for edge roads
     generate_postions(4)
         .array_combinations::<2>()
-        .filter_map(move |[p1, p2]| RoadPostion::new(p1, p2, Some(size_r.0)))
+        .filter_map(move |[p1, p2]| RoadPosition::new(p1, p2, Some(size_r.0)))
         // filter out ones that are already placed
         .filter(move |road| !road_q.iter().map(|r| r.2).contains(road))
 }
@@ -926,11 +744,11 @@ fn place_normal_road(
         .into_iter()
         .flat_map(|RoadQueryItem(_, _, road)| {
             match road {
-                RoadPostion::Both(p1, p2, _) => {
+                RoadPosition::Both(p1, p2, _) => {
                     let (p3, p4) = road.neighboring_two(Some(size_r.0));
                     let make_road_pos = |p, option_p1: Option<_>, p2: &Position| {
                         option_p1.and_then(|p1| {
-                            RoadPostion::new(p, p1, Some(size_r.0)).map(|r| (*p2, r))
+                            RoadPosition::new(p, p1, Some(size_r.0)).map(|r| (*p2, r))
                         })
                     };
                     [
@@ -956,11 +774,11 @@ fn place_normal_road(
     // 3) make sure there is no differeent color town at the three itersection
     // partition into other color used towns with single partiton
     fn filter_by_building<'a>(
-        (road1, road2): &(Position, RoadPostion),
+        (road1, road2): &(Position, RoadPosition),
         mut building_q: impl Iterator<Item = &'a BuildingPosition>,
     ) -> bool {
         let road_intersection = match road2 {
-            RoadPostion::Both(position, position1, _) => {
+            RoadPosition::Both(position, position1, _) => {
                 BuildingPosition::All(*road1, *position, *position1)
             }
         };
@@ -1196,9 +1014,9 @@ fn get_possible_town_placements(
             match position {
                 BuildingPosition::All(position, position1, position2) => !buildings_on_roads(
                     [
-                        RoadPostion::new(*position, *position1, Some(size_r.0)),
-                        RoadPostion::new(*position, *position2, Some(size_r.0)),
-                        RoadPostion::new(*position1, *position2, Some(size_r.0)),
+                        RoadPosition::new(*position, *position1, Some(size_r.0)),
+                        RoadPosition::new(*position, *position2, Some(size_r.0)),
+                        RoadPosition::new(*position1, *position2, Some(size_r.0)),
                     ]
                     .into_iter()
                     .flatten(),
@@ -1212,11 +1030,11 @@ fn get_possible_town_placements(
 }
 
 fn buildings_on_roads(
-    current_color_roads: impl Iterator<Item = RoadPostion>,
+    current_color_roads: impl Iterator<Item = RoadPosition>,
     size_r: BoardSize,
 ) -> impl Iterator<Item = BuildingPosition> {
     current_color_roads.flat_map(move |road| match road {
-        RoadPostion::Both(p1, p2, _) => {
+        RoadPosition::Both(p1, p2, _) => {
             let (p3, p4) = road.neighboring_two(Some(size_r.0));
             let make_town_pos = |p, option_p1: Option<_>, p2| {
                 option_p1.and_then(|p1| BuildingPosition::new(p, p1, p2, Some(size_r.0)))
@@ -1261,131 +1079,13 @@ fn draw_board(
 }
 #[derive(Component, PartialEq, Eq, Debug)]
 struct Left(pub u8);
-#[derive(Component, Clone, Copy, Debug)]
-enum RoadPostion {
-    /// Dont use this constructor use `Self::new`
-    Both(Position, Position, Coordinate),
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum Coordinate {
-    Q,
-    R,
-    S,
-}
-impl RoadPostion {
-    // for creating none edge roads
-    fn new(p1: Position, p2: Position, size: Option<u8>) -> Option<Self> {
-        let not_off_board = size.is_none_or(|size| {
-            p1.all_points_are(|p| -(size as i8) < p && p < size as i8)
-                || p2.all_points_are(|p| -(size as i8) < p && p < size as i8)
-        });
-        // veifies that the two roads boredering each other
-        let c = p1.get_shared_coordinate(&p2).filter(|c|
-           match c {
-            Coordinate::Q => p1.r.abs_diff(p2.r) <= 1 &&p1.s.abs_diff(p2.s) <= 1,
-            Coordinate::R => p1.q.abs_diff(p2.q) <= 1 &&p1.s.abs_diff(p2.s) <= 1,
-            Coordinate::S => p1.r.abs_diff(p2.r) <= 1 &&p1.q.abs_diff(p2.q) <= 1,
-        } &&
-            not_off_board);
-        c.map(|c| Self::Both(p1, p2, c))
-    }
-    fn neighboring_two(&self, size: Option<u8>) -> (Option<Position>, Option<Position>) {
-        match self {
-            Self::Both(p1, p2, coordinate) => {
-                // maybe just do permutations of two other point that add up to 0
-                match coordinate {
-                    Coordinate::Q => (
-                        Position::new(p1.q + 1, p1.r.min(p2.r), p1.s.min(p2.s), size),
-                        Position::new(p1.q - 1, p1.r.max(p2.r), p1.s.max(p2.s), size),
-                    ),
-                    Coordinate::R => (
-                        Position::new(p1.q.min(p2.q), p1.r + 1, p1.s.min(p2.s), size),
-                        Position::new(p1.q.max(p2.q), p1.r - 1, p1.s.max(p2.s), size),
-                    ),
-                    Coordinate::S => (
-                        Position::new(p1.q.min(p2.q), p1.r.min(p2.r), p1.s + 1, size),
-                        Position::new(p1.q.max(p2.q), p1.r.max(p2.r), p1.s - 1, size),
-                    ),
-                }
-            }
-        }
-    }
-    const fn shared_coordinate(&self) -> Coordinate {
-        match self {
-            Self::Both(_, _, coordinate) => *coordinate,
-        }
-    }
-    fn positon_to_pixel_coordinates(&self) -> (f32, f32) {
-        match self {
-            Self::Both(position, position1, coordinate) => {
-                let fposition: FPosition = (*position).into();
-                let fposition1: FPosition = (*position1).into();
-                let fposition2 = (fposition1 + fposition) / 2.;
-                // maybe issue is you cant do math like this and expect pixel to hex to still work?
-
-                fposition2.hex_to_pixel()
-                // fposition
-                //     .interesect_with_coordinate((*position1).into(), *coordinate)
-                //     .hex_to_pixel()
-            }
-        }
-    }
-}
-
-impl PartialEq for RoadPostion {
-    fn eq(&self, other: &Self) -> bool {
-        match (self, other) {
-            (Self::Both(l0, l1, l2), Self::Both(r0, r1, r2)) => {
-                ((l0 == r0 && l1 == r1) || (l0 == r1 && l1 == r0)) && l2 == r2
-            }
-            _ => false,
-        }
-    }
-}
 
 // town city "enherit" from building make some quries easier
 // i think right way to do it with is with `[require(..)]`
 #[derive(Component, PartialEq, Default, Clone, Copy)]
 struct Building;
-#[derive(Component, Clone, Copy, Debug)]
-enum BuildingPosition {
-    All(Position, Position, Position),
-}
 
-impl BuildingPosition {
-    const fn new(p1: Position, p2: Position, p3: Position, size: Option<u8>) -> Option<Self> {
-        Some(Self::All(p1, p2, p3))
-    }
-
-    fn positon_to_pixel_coordinates(&self) -> (f32, f32) {
-        match self {
-            Self::All(position, position1, position2) => {
-                let fposition: FPosition = (*position).into();
-                let fposition1: FPosition = (*position1).into();
-                let fposition2: FPosition = (*position2).into();
-                ((fposition + fposition1 + fposition2) / 3.).hex_to_pixel()
-            }
-        }
-    }
-}
-
-impl PartialEq for BuildingPosition {
-    fn eq(&self, other: &Self) -> bool {
-        match (self, other) {
-            (Self::All(l0, l1, l2), Self::All(r0, r1, r2)) => {
-                l0 == r0 && l1 == r1 && l2 == r2
-                    || l0 == r0 && l1 == r2 && l2 == r1
-                    || l0 == r1 && l1 == r0 && l2 == r2
-                    || l0 == r1 && l1 == r2 && l2 == r0
-                    || l0 == r2 && l1 == r0 && l2 == r1
-                    || l0 == r2 && l1 == r1 && l2 == r0
-            }
-            _ => false,
-        }
-    }
-}
-#[derive(Resource, PartialEq, Clone, Copy, Debug)]
+#[derive(Resource, PartialEq, Eq, Clone, Copy, Debug)]
 pub struct Robber(Position);
 impl Default for Robber {
     fn default() -> Self {
@@ -1408,7 +1108,7 @@ fn generate_pieces(commands: &mut Commands<'_, '_>) {
 
 #[derive(QueryData, Debug, Clone, Copy)]
 
-pub struct RoadQuery(&'static Road, &'static CatanColor, &'static RoadPostion);
+pub struct RoadQuery(&'static Road, &'static CatanColor, &'static RoadPosition);
 fn setup(
     mut next_state: ResMut<'_, NextState<GameState>>,
     mut commands: Commands<'_, '_>,
