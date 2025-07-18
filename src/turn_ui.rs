@@ -74,7 +74,6 @@ pub fn turn_ui_next_interaction(
     match *interaction {
         Interaction::Pressed => {
             game_state.set(GameState::Roll);
-            // TODO: change color
             button.set_changed();
         }
         Interaction::Hovered => {
