@@ -6,6 +6,7 @@ use crate::{
     colors::{CatanColor, CurrentColor, NORMAL_BUTTON},
     positions::{self, BuildingPosition, Coordinate, Position, RoadPosition},
     resources::{ROAD_RESOURCES, Resources},
+    towns::{buildings_on_road, check_no_touching_buildings},
 };
 
 #[derive(QueryData, Debug, Clone, Copy)]
@@ -140,24 +141,30 @@ pub fn place_normal_road(
 fn get_setup_road_placements(
     size_r: Res<'_, BoardSize>,
     road_q: Query<'_, '_, RoadQuery>,
-) -> impl Iterator<Item = RoadPosition> {
-    // generate all road possobilties
 
+    building_q: Query<'_, '_, (&'_ Building, &CatanColor, &'_ BuildingPosition)>,
+) -> impl Iterator<Item = RoadPosition> {
+    let size = BoardSize(size_r.0);
+    // generate all road possobilties
     // generate the ring around it for edge roads
     positions::generate_postions(4)
         .array_combinations::<2>()
         .filter_map(move |[p1, p2]| RoadPosition::new(p1, p2, Some(size_r.0)))
         // filter out ones that are already placed
         .filter(move |road| !road_q.iter().map(|r| r.2).contains(road))
+        // only show road if town can placed near it
+        .filter(move |r| {
+            buildings_on_road(size, *r).any(|b| check_no_touching_buildings(&b, building_q, size.0))
+        })
 }
 pub fn place_setup_road(
     mut commands: Commands<'_, '_>,
     size_r: Res<'_, BoardSize>,
     road_q: Query<'_, '_, RoadQuery>,
+    building_q: Query<'_, '_, (&'_ Building, &CatanColor, &'_ BuildingPosition)>,
     mut game_state: ResMut<'_, NextState<GameState>>,
 ) {
-    // TODO: only show road if town can placed near it
-    let count = get_setup_road_placements(size_r, road_q)
+    let count = get_setup_road_placements(size_r, road_q, building_q)
         .filter_map(|p| {
             let (x, y) = p.positon_to_pixel_coordinates();
             (x != 0. || y != 0.).then_some((x, y, p))

@@ -128,31 +128,40 @@ fn get_possible_town_placements(
         BoardSize(size_r.0),
     );
 
-    let filter_by_building =
-        move |position: &BuildingPosition,
-              building_q: Query<'_, '_, (&_, &CatanColor, &BuildingPosition)>| {
-            match position {
-                BuildingPosition::All(position, position1, position2) => !buildings_on_roads(
-                    [
-                        RoadPosition::new(*position, *position1, Some(size_r.0)),
-                        RoadPosition::new(*position, *position2, Some(size_r.0)),
-                        RoadPosition::new(*position1, *position2, Some(size_r.0)),
-                    ]
-                    .into_iter()
-                    .flatten(),
-                    BoardSize(size_r.0),
-                )
-                .any(|p| building_q.iter().any(|(_, _, place_b)| &p == place_b)),
-            }
-        };
-
-    possibles_towns.filter(move |r| filter_by_building(r, building_q))
+    possibles_towns.filter(move |r| check_no_touching_buildings(r, building_q, size_r.0))
+}
+/// verifies that there is no buildings with in one road of this building
+pub fn check_no_touching_buildings(
+    position: &BuildingPosition,
+    building_q: Query<'_, '_, (&Building, &CatanColor, &BuildingPosition)>,
+    size_r_0: u8,
+) -> bool {
+    match position {
+        BuildingPosition::All(position, position1, position2) => !buildings_on_roads(
+            [
+                RoadPosition::new(*position, *position1, Some(size_r_0)),
+                RoadPosition::new(*position, *position2, Some(size_r_0)),
+                RoadPosition::new(*position1, *position2, Some(size_r_0)),
+            ]
+            .into_iter()
+            .flatten(),
+            BoardSize(size_r_0),
+        )
+        .any(|p| building_q.iter().any(|(_, _, place_b)| &p == place_b)),
+    }
 }
 fn buildings_on_roads(
     current_color_roads: impl Iterator<Item = RoadPosition>,
     size_r: BoardSize,
 ) -> impl Iterator<Item = BuildingPosition> {
-    current_color_roads.flat_map(move |road| match road {
+    current_color_roads.flat_map(move |road| buildings_on_road(size_r, road))
+}
+
+pub fn buildings_on_road(
+    size_r: BoardSize,
+    road: RoadPosition,
+) -> impl Iterator<Item = BuildingPosition> {
+    match road {
         RoadPosition::Both(p1, p2, _) => {
             let (p3, p4) = road.neighboring_two(Some(size_r.0));
             let make_town_pos = |p, option_p1: Option<_>, p2| {
@@ -162,7 +171,7 @@ fn buildings_on_roads(
                 .into_iter()
                 .flatten()
         }
-    })
+    }
 }
 pub struct TownUI;
 impl UI for TownUI {
