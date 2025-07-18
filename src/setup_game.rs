@@ -3,8 +3,10 @@
 use std::mem::swap;
 
 use crate::{
-    City, DevelopmentCard, Hexagon, Left, Number, Road, Robber, Town,
+    Hexagon, Left, Number, Road, Robber, Town,
+    cities::City,
     colors::CatanColor,
+    development_cards::DevelopmentCard,
     draw_board,
     positions::{self, Position},
     resources::Resources,

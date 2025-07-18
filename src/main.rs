@@ -6,24 +6,30 @@
     clippy::missing_panics_doc
 )]
 
+mod cities;
 mod colors;
 mod development_cards;
 mod dice;
 mod positions;
 mod resources;
+mod roads;
+mod robber;
 mod setup_game;
+mod towns;
 mod turn_ui;
 
-use bevy::{ecs::query::QueryData, prelude::*};
-use itertools::Itertools;
+use bevy::prelude::*;
 
 use crate::{
-    colors::{CatanColor, ColorIterator, CurrentColor, CurrentSetupColor, SetupColorIterator},
-    positions::{BuildingPosition, Coordinate, FPosition, Position, RoadPosition},
-    resources::{
-        CITY_RESOURCES, DEVELOPMENT_CARD_RESOURCES, ROAD_RESOURCES, Resources, TOWN_RESOURCES,
+    colors::{
+        CatanColor, ColorIterator, CurrentColor, CurrentSetupColor, HOVERED_BUTTON, NORMAL_BUTTON,
+        PRESSED_BUTTON, SetupColorIterator,
     },
-    turn_ui::DevelopmentCardButton,
+    positions::{BuildingPosition, FPosition, Position, RoadPosition},
+    resources::Resources,
+    roads::{Road, RoadUI},
+    robber::Robber,
+    towns::{Town, TownUI},
 };
 
 fn main() {
@@ -39,8 +45,8 @@ fn main() {
     app.insert_resource(CurrentSetupColor(CatanColor::White));
     app.add_systems(Startup, setup);
 
-    app.add_systems(OnEnter(GameState::SetupRoad), place_setup_road);
-    app.add_systems(OnEnter(GameState::SetupTown), place_setup_town);
+    app.add_systems(OnEnter(GameState::SetupRoad), roads::place_setup_road);
+    app.add_systems(OnEnter(GameState::SetupTown), towns::place_setup_town);
 
     app.add_systems(OnExit(GameState::SetupRoad), cleanup::<RoadPosition>);
     app.add_systems(OnExit(GameState::SetupTown), cleanup::<BuildingPosition>);
@@ -48,9 +54,9 @@ fn main() {
     app.add_systems(OnExit(GameState::PlaceTown), cleanup::<BuildingPosition>);
     app.add_systems(OnExit(GameState::PlaceCity), cleanup::<BuildingPosition>);
 
-    app.add_systems(OnEnter(GameState::PlaceRoad), place_normal_road);
-    app.add_systems(OnEnter(GameState::PlaceTown), place_normal_town);
-    app.add_systems(OnEnter(GameState::PlaceCity), place_normal_city);
+    app.add_systems(OnEnter(GameState::PlaceRoad), roads::place_normal_road);
+    app.add_systems(OnEnter(GameState::PlaceTown), towns::place_normal_town);
+    app.add_systems(OnEnter(GameState::PlaceCity), cities::place_normal_city);
     app.add_systems(
         OnTransition {
             // you might think, that we would do this after the last town (with SetupTown), but due
@@ -93,7 +99,7 @@ fn main() {
     );
     app.add_systems(
         Update,
-        buy_development_card_interaction.run_if(in_state(GameState::Turn)),
+        development_cards::buy_development_card_interaction.run_if(in_state(GameState::Turn)),
     );
     app.add_systems(
         Update,
@@ -113,7 +119,7 @@ fn main() {
 
     app.add_systems(
         Update,
-        place_normal_city_interaction.run_if(in_state(GameState::PlaceCity)),
+        cities::place_normal_city_interaction.run_if(in_state(GameState::PlaceCity)),
     );
     app.run();
 }
@@ -181,44 +187,10 @@ impl Hexagon {
         }
     }
 }
-
-const fn place_robber() {
-    // show ui to place robber
-    // on every hex besides for current robber hex
-    // the make interaction function, that when clicked:
-    // 1) moves the robber there, set the robber postion
-    // 2) tries to take a resource from other player, or show ui to choose which player to pick
-    //    from
-}
-const fn place_robber_interaction() {}
-const fn choose_player_to_take_from() {}
-const fn choose_player_to_take_from_interaction() {}
-
-#[derive(Debug, Component, Clone, Copy, Default)]
-#[require(Building)]
-struct Town;
-#[derive(Debug, Component, Clone, Copy)]
-#[require(Building)]
-struct City;
-#[derive(Debug, Component, Clone, Copy, Default)]
-struct Road;
-#[derive(Debug, Component, Clone, Copy)]
-enum DevelopmentCard {
-    Knight,
-    Monopoly,
-    YearOfPlenty,
-    RoadBuilding,
-    VictoryPoint,
-}
-
 #[derive(Debug)]
 enum Port {}
 #[derive(Resource, Clone, Copy)]
 struct BoardSize(u8);
-
-const NORMAL_BUTTON: Color = Color::srgb(0.15, 0.15, 0.15);
-const HOVERED_BUTTON: Color = Color::srgb(0.25, 0.25, 0.25);
-const PRESSED_BUTTON: Color = Color::srgb(0.35, 0.75, 0.35);
 
 fn cleanup<T: Component>(
     mut commands: Commands<'_, '_>,
@@ -229,130 +201,6 @@ fn cleanup<T: Component>(
     }
 }
 
-fn place_normal_city_interaction(
-    mut commands: Commands<'_, '_>,
-    mut meshes: ResMut<'_, Assets<Mesh>>,
-    mut materials: ResMut<'_, Assets<ColorMaterial>>,
-    mut game_state: ResMut<'_, NextState<GameState>>,
-    color_r: Res<'_, CurrentColor>,
-    mut town_free_q: Query<'_, '_, (&Town, &CatanColor, &mut Left), Without<City>>,
-    town_q: Query<'_, '_, (Entity, &Town, &CatanColor, &BuildingPosition)>,
-    mut city_free_q: Query<'_, '_, (&City, &CatanColor, &mut Left), Without<Town>>,
-    mut resources: ResMut<'_, Resources>,
-    mut player_resources: Query<'_, '_, (&mut Resources, &CatanColor)>,
-    mut interaction_query: Query<
-        '_,
-        '_,
-        (
-            &BuildingPosition,
-            &Interaction,
-            &mut BackgroundColor,
-            &mut Button,
-            &Resources,
-        ),
-        (Changed<Interaction>, Without<CatanColor>),
-    >,
-) {
-    for (entity, interaction, mut color, mut button, required_resources) in &mut interaction_query {
-        match *interaction {
-            Interaction::Pressed => {
-                *color = PRESSED_BUTTON.into();
-
-                button.set_changed();
-
-                let town_to_be_replaced =
-                    town_q
-                        .iter()
-                        .find(|(_, _, catan_color, building_position)| {
-                            **catan_color == color_r.0 && *building_position == entity
-                        });
-                if let Some((entity1, _, _, _)) = town_to_be_replaced {
-                    commands.entity(entity1).remove::<Town>().insert(City);
-                }
-                let towns_left = town_free_q.iter_mut().find(|x| x.1 == &color_r.0);
-                if let Some((_, _, mut left)) = towns_left {
-                    *left = Left(left.0 + 1);
-                }
-                let city_left = city_free_q.iter_mut().find(|x| x.1 == &color_r.0);
-                if let Some((_, _, mut left)) = city_left {
-                    *left = Left(left.0 - 1);
-                }
-
-                let player_resources = player_resources.iter_mut().find(|x| x.1 == &color_r.0);
-                if let Some((mut resources, _)) = player_resources {
-                    *resources -= *required_resources;
-                }
-                *resources += *required_resources;
-
-                game_state.set(GameState::Turn);
-                let (x, y) = entity.positon_to_pixel_coordinates();
-
-                let mesh1 = meshes.add(Rectangle::new(13.0, 13.));
-                commands.spawn((
-                    Mesh2d(mesh1),
-                    MeshMaterial2d(materials.add(color_r.0.to_bevy_color())),
-                    Transform::from_xyz(x * 28.0, y * 28., 0.0),
-                ));
-
-                button.set_changed();
-            }
-            Interaction::Hovered => {
-                *color = HOVERED_BUTTON.into();
-                button.set_changed();
-            }
-            Interaction::None => {
-                *color = NORMAL_BUTTON.into();
-            }
-        }
-    }
-}
-fn buy_development_card_interaction(
-    mut commands: Commands<'_, '_>,
-    color_r: Res<'_, CurrentColor>,
-    mut free_dev_cards: Query<'_, '_, (Entity, &DevelopmentCard), Without<CatanColor>>,
-    mut player_resources: Query<'_, '_, (&mut Resources, &CatanColor)>,
-    mut resources: ResMut<'_, Resources>,
-    interaction_query: Query<
-        '_,
-        '_,
-        (
-            &DevelopmentCardButton,
-            &Interaction,
-            &mut BackgroundColor,
-            &mut Button,
-        ),
-        Changed<Interaction>,
-    >,
-) {
-    for (_, interaction, mut color, mut button) in interaction_query {
-        match *interaction {
-            Interaction::Pressed => {
-                *color = PRESSED_BUTTON.into();
-
-                button.set_changed();
-                if let Some(card) = free_dev_cards.iter_mut().next() {
-                    commands.entity(card.0).insert(color_r.0);
-                }
-
-                let required_resources = DEVELOPMENT_CARD_RESOURCES;
-                let player_resources = player_resources.iter_mut().find(|x| x.1 == &color_r.0);
-                if let Some((mut resources, _)) = player_resources {
-                    *resources -= required_resources;
-                }
-                *resources += required_resources;
-
-                button.set_changed();
-            }
-            Interaction::Hovered => {
-                *color = HOVERED_BUTTON.into();
-                button.set_changed();
-            }
-            Interaction::None => {
-                *color = NORMAL_BUTTON.into();
-            }
-        }
-    }
-}
 pub trait UI {
     type Pos;
     fn bundle(
@@ -362,59 +210,6 @@ pub trait UI {
         color: CatanColor,
     ) -> impl Bundle;
     fn resources() -> Resources;
-}
-struct RoadUI;
-impl UI for RoadUI {
-    type Pos = RoadPosition;
-
-    fn bundle(
-        pos: Self::Pos,
-        meshes: &mut ResMut<'_, Assets<Mesh>>,
-        materials: &mut ResMut<'_, Assets<ColorMaterial>>,
-        color: CatanColor,
-    ) -> impl Bundle {
-        let (x, y) = pos.positon_to_pixel_coordinates();
-        let mesh1 = meshes.add(Rectangle::new(7.0, 20.));
-        (
-            Mesh2d(mesh1),
-            MeshMaterial2d(materials.add(color.to_bevy_color())),
-            Transform::from_xyz(x * 28.0, y * 28., 0.0).with_rotation(Quat::from_rotation_z(
-                match pos.shared_coordinate() {
-                    Coordinate::R => 0f32,
-                    Coordinate::Q => -60f32,
-                    Coordinate::S => 60f32,
-                }
-                .to_radians(),
-            )),
-        )
-    }
-
-    fn resources() -> Resources {
-        ROAD_RESOURCES
-    }
-}
-struct TownUI;
-impl UI for TownUI {
-    type Pos = BuildingPosition;
-
-    fn bundle(
-        pos: Self::Pos,
-        meshes: &mut ResMut<'_, Assets<Mesh>>,
-        materials: &mut ResMut<'_, Assets<ColorMaterial>>,
-        color: CatanColor,
-    ) -> impl Bundle {
-        let (x, y) = pos.positon_to_pixel_coordinates();
-        let mesh1 = meshes.add(RegularPolygon::new(7.0, 3));
-        (
-            Mesh2d(mesh1),
-            MeshMaterial2d(materials.add(color.to_bevy_color())),
-            Transform::from_xyz(x * 28.0, y * 28., 0.0),
-        )
-    }
-
-    fn resources() -> Resources {
-        TOWN_RESOURCES
-    }
 }
 // should interaction be doing the ui update for showing the roads/towns
 fn place_normal_interaction<
@@ -495,401 +290,10 @@ fn place_normal_interaction<
     }
 }
 
-fn get_setup_road_placements(
-    size_r: Res<'_, BoardSize>,
-    road_q: Query<'_, '_, RoadQuery>,
-) -> impl Iterator<Item = RoadPosition> {
-    // generate all road possobilties
-
-    // generate the ring around it for edge roads
-    positions::generate_postions(4)
-        .array_combinations::<2>()
-        .filter_map(move |[p1, p2]| RoadPosition::new(p1, p2, Some(size_r.0)))
-        // filter out ones that are already placed
-        .filter(move |road| !road_q.iter().map(|r| r.2).contains(road))
-}
-fn place_setup_road(
-    mut commands: Commands<'_, '_>,
-    size_r: Res<'_, BoardSize>,
-    road_q: Query<'_, '_, RoadQuery>,
-    mut game_state: ResMut<'_, NextState<GameState>>,
-) {
-    // TODO: only show road if town can placed near it
-    let count = get_setup_road_placements(size_r, road_q)
-        .filter_map(|p| {
-            let (x, y) = p.positon_to_pixel_coordinates();
-            (x != 0. || y != 0.).then_some((x, y, p))
-        })
-        .map(|(x, y, p)| {
-            (
-                Node {
-                    width: Val::Percent(100.0),
-                    height: Val::Percent(100.0),
-                    align_items: AlignItems::Center,
-                    justify_content: JustifyContent::Center,
-                    ..default()
-                },
-                children![(
-                    Button,
-                    Node {
-                        position_type: PositionType::Relative,
-                        width: Val::Px(15.0),
-                        height: Val::Px(15.0),
-                        left: Val::Px(x * 28.),
-                        bottom: Val::Px(y * 28.),
-                        ..default()
-                    },
-                    p,
-                    Resources::default(),
-                    BorderRadius::MAX,
-                    BackgroundColor(NORMAL_BUTTON),
-                )],
-            )
-        })
-        .map(|b| {
-            commands.spawn(b);
-        })
-        .count();
-    if count == 0 {
-        game_state.set(GameState::Turn);
-    }
-}
 // not for initial game setup where the are no roads yet
 // TODO: maybe we should impose an order on postions for stuff like roads so that comparing them is
 // easeier (i.e. first postion is smallest ....)
-fn place_normal_road(
-    mut commands: Commands<'_, '_>,
-    color_r: Res<'_, CurrentColor>,
-    size_r: Res<'_, BoardSize>,
-    road_free_q: Query<'_, '_, (&Road, &CatanColor, &Left)>,
-    road_q: Query<'_, '_, RoadQuery>,
-    building_q: Query<'_, '_, (&'_ Building, &CatanColor, &'_ BuildingPosition)>,
-    mut game_state: ResMut<'_, NextState<GameState>>,
-) {
-    let unplaced_roads_correct_color = road_free_q.iter().find(|r| r.1 == &color_r.0);
 
-    // no roads to place
-    let Some(_) = unplaced_roads_correct_color.filter(|r| r.2.0 > 0) else {
-        return;
-    };
-
-    let (current_color_roads, _): (Vec<_>, Vec<_>) =
-        road_q.into_iter().partition(|r| *r.1 == color_r.0);
-
-    // we don't check current color roads is empty b/c by iterating over them we are essentially
-    // doing that already
-    // roads are between two hexes (if one coordiante is the same
-    // if q same then its flat (assuming hex is flat)
-    // if r is same then its diagonol like '\'
-    // if s is same then its diagonol like '/'
-    // if there is a new place to put road down
-    // 1) the new hex has to share one coordianate with one hex and another differenet one with the
-    //    other hex (more constraint (i.e cannot be 50 square of in another direction)
-    let possibles_roads = current_color_roads
-        .into_iter()
-        .flat_map(|RoadQueryItem(_, _, road)| {
-            match road {
-                RoadPosition::Both(p1, p2, _) => {
-                    let (p3, p4) = road.neighboring_two(Some(size_r.0));
-                    let make_road_pos = |p, option_p1: Option<_>, p2: &Position| {
-                        option_p1.and_then(|p1| {
-                            RoadPosition::new(p, p1, Some(size_r.0)).map(|r| (*p2, r))
-                        })
-                    };
-                    [
-                        (
-                            // the other point (used to check for towns/cities)
-                            // the postion of the road
-                            make_road_pos(*p2, p3, p1)
-                        ),
-                        (make_road_pos(*p2, p4, p1)),
-                        (make_road_pos(*p1, p3, p2)),
-                        (make_road_pos(*p1, p4, p2)),
-                    ]
-                    .into_iter()
-                    .flatten()
-                }
-            }
-        });
-
-    // 2) make sure that there is no road already there (whether that color or not)
-    let possible_roads =
-        possibles_roads.filter(|(_, r)| !road_q.iter().any(|RoadQueryItem(_, _, r1)| r == r1));
-
-    // 3) make sure there is no differeent color town at the three itersection
-    // partition into other color used towns with single partiton
-    fn filter_by_building<'a>(
-        (road1, road2): &(Position, RoadPosition),
-        mut building_q: impl Iterator<Item = &'a BuildingPosition>,
-    ) -> bool {
-        let road_intersection = match road2 {
-            RoadPosition::Both(position, position1, _) => {
-                BuildingPosition::All(*road1, *position, *position1)
-            }
-        };
-        !building_q.any(|bp| &road_intersection == bp)
-    }
-    let possible_roads = possible_roads.filter(|r| {
-        filter_by_building(
-            r,
-            building_q
-                .iter()
-                .filter_map(|(_, color, pos)| Some(pos).filter(|_| *color != color_r.0)),
-        )
-    });
-
-    let count = possible_roads
-        .filter_map(|p| {
-            let (x, y) = p.1.positon_to_pixel_coordinates();
-            (x != 0. || y != 0.).then_some((x, y, p.1))
-        })
-        .map(|(x, y, p)| {
-            (
-                Node {
-                    width: Val::Percent(100.0),
-                    height: Val::Percent(100.0),
-                    align_items: AlignItems::Center,
-                    justify_content: JustifyContent::Center,
-                    ..default()
-                },
-                children![(
-                    Button,
-                    Node {
-                        position_type: PositionType::Relative,
-                        width: Val::Px(15.0),
-                        height: Val::Px(15.0),
-                        left: Val::Px(x * 28.),
-                        bottom: Val::Px(y * 28.),
-                        ..default()
-                    },
-                    p,
-                    RoadUI::resources(),
-                    BorderRadius::MAX,
-                    BackgroundColor(NORMAL_BUTTON),
-                )],
-            )
-        })
-        .map(|b| {
-            commands.spawn(b);
-        })
-        .count();
-    if count == 0 {
-        game_state.set(GameState::Turn);
-    }
-}
-
-fn place_normal_city(
-    mut commands: Commands<'_, '_>,
-    color_r: Res<'_, CurrentColor>,
-    city_free_q: Query<'_, '_, (&City, &CatanColor, &Left)>,
-    town_q: Query<'_, '_, (&'_ Town, &'_ CatanColor, &'_ BuildingPosition)>,
-    mut game_state: ResMut<'_, NextState<GameState>>,
-) {
-    let unplaced_city_correct_color = city_free_q.iter().find(|r| r.1 == &color_r.0);
-
-    // no cites to place
-    let Some(_) = unplaced_city_correct_color.filter(|r| r.2.0 > 0) else {
-        return;
-    };
-
-    let current_color_towns = town_q.into_iter().filter(|r| *r.1 == color_r.0);
-
-    let possibles_cities = current_color_towns.into_iter().map(|(_, _, p)| *p);
-
-    let count = possibles_cities
-        .filter_map(|p| {
-            let (x, y) = p.positon_to_pixel_coordinates();
-            (x != 0. || y != 0.).then_some((x, y, p))
-        })
-        .map(|(x, y, p)| {
-            (
-                Node {
-                    width: Val::Percent(100.0),
-                    height: Val::Percent(100.0),
-                    align_items: AlignItems::Center,
-                    justify_content: JustifyContent::Center,
-                    ..default()
-                },
-                children![(
-                    Button,
-                    Node {
-                        position_type: PositionType::Relative,
-                        width: Val::Px(15.0),
-                        height: Val::Px(15.0),
-                        left: Val::Px(x * 28.),
-                        bottom: Val::Px(y * 28.),
-                        ..default()
-                    },
-                    p,
-                    CITY_RESOURCES,
-                    BorderRadius::MAX,
-                    BackgroundColor(NORMAL_BUTTON),
-                )],
-            )
-        })
-        .map(|b| {
-            commands.spawn(b);
-        })
-        .count();
-    if count == 0 {
-        game_state.set(GameState::Turn);
-    }
-}
-fn place_setup_town(
-    mut commands: Commands<'_, '_>,
-    color_r: Res<'_, CurrentSetupColor>,
-    size_r: Res<'_, BoardSize>,
-    road_q: Query<'_, '_, RoadQuery>,
-    building_q: Query<'_, '_, (&'_ Building, &'_ CatanColor, &'_ BuildingPosition)>,
-) {
-    let possible_towns =
-        get_possible_town_placements(color_r.0, BoardSize(size_r.0), road_q, building_q);
-    possible_towns
-        .filter_map(|p| {
-            let (x, y) = p.positon_to_pixel_coordinates();
-            (x != 0. || y != 0.).then_some((x, y, p))
-        })
-        .map(|(x, y, p)| {
-            (
-                Node {
-                    width: Val::Percent(100.0),
-                    height: Val::Percent(100.0),
-                    align_items: AlignItems::Center,
-                    justify_content: JustifyContent::Center,
-                    ..default()
-                },
-                children![(
-                    Button,
-                    Node {
-                        position_type: PositionType::Relative,
-                        width: Val::Px(15.0),
-                        height: Val::Px(15.0),
-                        left: Val::Px(x * 28.),
-                        bottom: Val::Px(y * 28.),
-                        ..default()
-                    },
-                    p,
-                    Resources::default(),
-                    BorderRadius::MAX,
-                    BackgroundColor(NORMAL_BUTTON),
-                )],
-            )
-        })
-        .for_each(|b| {
-            commands.spawn(b);
-        });
-}
-fn place_normal_town(
-    mut commands: Commands<'_, '_>,
-    color_r: Res<'_, CurrentColor>,
-    size_r: Res<'_, BoardSize>,
-    town_free_q: Query<'_, '_, (&Town, &CatanColor, &Left)>,
-    road_q: Query<'_, '_, RoadQuery>,
-    building_q: Query<'_, '_, (&'_ Building, &'_ CatanColor, &'_ BuildingPosition)>,
-    mut game_state: ResMut<'_, NextState<GameState>>,
-) {
-    let unplaced_towns_correct_color = town_free_q.iter().find(|r| r.1 == &color_r.0);
-
-    // no towns to place
-    let Some(_) = unplaced_towns_correct_color.filter(|r| r.2.0 > 0) else {
-        return;
-    };
-
-    let possible_towns =
-        get_possible_town_placements(color_r.0, BoardSize(size_r.0), road_q, building_q);
-    let count = possible_towns
-        .filter_map(|p| {
-            let (x, y) = p.positon_to_pixel_coordinates();
-            (x != 0. || y != 0.).then_some((x, y, p))
-        })
-        .map(|(x, y, p)| {
-            (
-                Node {
-                    width: Val::Percent(100.0),
-                    height: Val::Percent(100.0),
-                    align_items: AlignItems::Center,
-                    justify_content: JustifyContent::Center,
-                    ..default()
-                },
-                children![(
-                    Button,
-                    Node {
-                        position_type: PositionType::Relative,
-                        width: Val::Px(15.0),
-                        height: Val::Px(15.0),
-                        left: Val::Px(x * 28.),
-                        bottom: Val::Px(y * 28.),
-                        ..default()
-                    },
-                    p,
-                    TownUI::resources(),
-                    BorderRadius::MAX,
-                    BackgroundColor(NORMAL_BUTTON),
-                )],
-            )
-        })
-        .map(|b| {
-            commands.spawn(b);
-        })
-        .count();
-    if count == 0 {
-        game_state.set(GameState::Turn);
-    }
-}
-
-fn get_possible_town_placements(
-    color_r: CatanColor,
-    size_r: BoardSize,
-    road_q: Query<'_, '_, RoadQuery>,
-    building_q: Query<'_, '_, (&Building, &CatanColor, &BuildingPosition)>,
-) -> impl Iterator<Item = BuildingPosition> {
-    let (current_color_roads, _): (Vec<_>, Vec<_>) =
-        road_q.into_iter().partition(|r| *r.1 == color_r);
-
-    let possibles_towns = buildings_on_roads(
-        current_color_roads
-            .into_iter()
-            .map(|RoadQueryItem(_, _, road)| *road),
-        BoardSize(size_r.0),
-    );
-
-    let filter_by_building =
-        move |position: &BuildingPosition,
-              building_q: Query<'_, '_, (&_, &CatanColor, &BuildingPosition)>| {
-            match position {
-                BuildingPosition::All(position, position1, position2) => !buildings_on_roads(
-                    [
-                        RoadPosition::new(*position, *position1, Some(size_r.0)),
-                        RoadPosition::new(*position, *position2, Some(size_r.0)),
-                        RoadPosition::new(*position1, *position2, Some(size_r.0)),
-                    ]
-                    .into_iter()
-                    .flatten(),
-                    BoardSize(size_r.0),
-                )
-                .any(|p| building_q.iter().any(|(_, _, place_b)| &p == place_b)),
-            }
-        };
-
-    possibles_towns.filter(move |r| filter_by_building(r, building_q))
-}
-
-fn buildings_on_roads(
-    current_color_roads: impl Iterator<Item = RoadPosition>,
-    size_r: BoardSize,
-) -> impl Iterator<Item = BuildingPosition> {
-    current_color_roads.flat_map(move |road| match road {
-        RoadPosition::Both(p1, p2, _) => {
-            let (p3, p4) = road.neighboring_two(Some(size_r.0));
-            let make_town_pos = |p, option_p1: Option<_>, p2| {
-                option_p1.and_then(|p1| BuildingPosition::new(p, p1, p2, Some(size_r.0)))
-            };
-            [(make_town_pos(p1, p3, p2)), (make_town_pos(p1, p4, p2))]
-                .into_iter()
-                .flatten()
-        }
-    })
-}
 fn draw_board(
     q: impl Iterator<Item = (Position, Hexagon, Number)>,
     mut materials: ResMut<'_, Assets<ColorMaterial>>,
@@ -930,17 +334,6 @@ struct Left(pub u8);
 #[derive(Component, PartialEq, Default, Clone, Copy)]
 struct Building;
 
-#[derive(Resource, PartialEq, Eq, Clone, Copy, Debug)]
-pub struct Robber(Position);
-impl Default for Robber {
-    fn default() -> Self {
-        Self(Position { q: 0, r: 0, s: 0 })
-    }
-}
-
-#[derive(QueryData, Debug, Clone, Copy)]
-
-pub struct RoadQuery(&'static Road, &'static CatanColor, &'static RoadPosition);
 fn setup(
     mut next_state: ResMut<'_, NextState<GameState>>,
     mut commands: Commands<'_, '_>,

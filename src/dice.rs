@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 
 use crate::{
-    BuildingPosition, CatanColor, City, Hexagon, Number, Position, Resources, Robber, Town,
+    BuildingPosition, CatanColor, Hexagon, Number, Position, Resources, Robber, Town, cities::City,
     turn_ui::DieButton,
 };
 use itertools::Itertools;

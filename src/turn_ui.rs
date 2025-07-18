@@ -1,9 +1,11 @@
 use bevy::prelude::*;
 
 use crate::{
-    CITY_RESOURCES, CatanColor, City, CurrentColor, GameState, Hexagon, Number, Resources, RoadUI,
-    Robber, Town, TownUI, UI,
+    CatanColor, CurrentColor, GameState, Hexagon, Number, Resources, RoadUI, Robber, Town, TownUI,
+    UI,
+    cities::City,
     positions::{BuildingPosition, Position},
+    resources::CITY_RESOURCES,
 };
 #[derive(Component, PartialEq, Eq, Debug, Clone, Copy)]
 // button in game to start road placement ui
