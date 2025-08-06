@@ -117,7 +117,7 @@ impl Resources {
             })
         })
     }
-    const fn count(self) -> u8 {
+    pub const fn count(self) -> u8 {
         self.wood + self.brick + self.sheep + self.wheat + self.ore
     }
     #[must_use]
