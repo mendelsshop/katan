@@ -307,6 +307,13 @@ impl BuildingPosition {
             }
         }
     }
+    pub fn contains(&self, pos: &Position) -> bool {
+        match self {
+            Self::All(position, position1, position2) => {
+                position == pos || position1 == pos || position2 == pos
+            }
+        }
+    }
 }
 
 impl PartialEq for BuildingPosition {

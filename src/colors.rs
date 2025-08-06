@@ -29,7 +29,7 @@ impl From<CurrentSetupColor> for CatanColor {
         value.0
     }
 }
-#[derive(Debug, Component, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Component, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum CatanColor {
     Red,
     Green,
