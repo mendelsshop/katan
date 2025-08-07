@@ -40,23 +40,27 @@ pub fn turn_ui_roll_interaction(
     mut resources: ResMut<'_, Resources>,
     robber: Res<'_, Robber>,
     mut die_q: Query<'_, '_, &mut Text, With<DieButton>>,
+    commands: Commands<'_, '_>,
 ) {
     for (_, interaction, mut button) in &mut interaction_query {
         match *interaction {
             Interaction::Pressed => {
                 button.set_changed();
 
-                game_state.set(GameState::Turn);
                 crate::dice::full_roll_dice(
                     &board,
                     &towns,
                     &cities,
                     &mut player_resources,
                     &mut resources,
-                    &robber,
+                    robber,
                     &mut die_q,
+                    commands,
                 );
+                // robber handling happens in robber state
+                game_state.set(GameState::Turn);
                 button.set_changed();
+                break;
             }
             Interaction::Hovered => {
                 button.set_changed();

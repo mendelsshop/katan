@@ -2,7 +2,7 @@ use bevy::prelude::*;
 use itertools::Itertools;
 
 use crate::{
-    Building,
+    Building, GameState,
     colors::{CatanColor, CurrentColor, HOVERED_BUTTON, NORMAL_BUTTON, PRESSED_BUTTON},
     positions::{BuildingPosition, FPosition, Position, generate_postions},
     resources::{Resources, take_resource},
@@ -61,7 +61,7 @@ pub fn place_robber(mut commands: Commands<'_, '_>, robber: Res<'_, Robber>) {
     // 2) tries to take a resource from other player, or show ui to choose which player to pick
     //    from
 }
-fn place_robber_interaction(
+pub fn place_robber_interaction(
     mut robber_places_query: Query<
         '_,
         '_,
@@ -73,6 +73,7 @@ fn place_robber_interaction(
     mut robber: ResMut<'_, Robber>,
     mut player_resources: Query<'_, '_, (&CatanColor, &mut Resources)>,
     mut commands: Commands<'_, '_>,
+    mut state: ResMut<'_, NextState<GameState>>,
 ) {
     for (interaction, position, mut button, mut color) in &mut robber_places_query {
         match *interaction {
@@ -86,6 +87,7 @@ fn place_robber_interaction(
                     building_q.into_iter(),
                     &mut player_resources,
                     &mut commands,
+                    &mut state,
                 );
             }
             Interaction::Hovered => {
@@ -106,6 +108,7 @@ fn choose_player_to_take_from<'a>(
     used_buildings: impl Iterator<Item = (&'a CatanColor, &'a BuildingPosition)> + Clone,
     resources: &mut Query<'_, '_, (&CatanColor, &mut Resources)>,
     commands: &mut Commands<'_, '_>,
+    state: &mut ResMut<'_, NextState<GameState>>,
 ) {
     let mut colors = used_buildings
         .filter_map(|(c, b)| (c != &color.0 && b.contains(position)).then_some(c))
@@ -120,14 +123,42 @@ fn choose_player_to_take_from<'a>(
             let mut current_resources = find_with_color(&color.0, resources.iter_mut()).unwrap();
             put_resources(&mut current_resources.1);
         }
+
+        // either we are coming from roll(7) or in middle of turn(dev card) but we always go back to
+        // turn
+        state.set(GameState::Turn);
     } else {
         // show options of how to pick from
-        for color in &colors {
+        for (i, color) in colors.iter().enumerate() {
             let resources = find_with_color(color, resources.iter()).unwrap().1;
             if resources.count() > 0 {
-                commands.spawn((RobberChooseColorButton, **color));
+                commands.spawn((
+                    Node {
+                        width: Val::Percent(100.0),
+                        height: Val::Percent(100.0),
+                        align_items: AlignItems::Center,
+                        justify_content: JustifyContent::Center,
+                        ..default()
+                    },
+                    children![(
+                        Button,
+                        Node {
+                            position_type: PositionType::Relative,
+                            width: Val::Px(15.0),
+                            height: Val::Px(15.0),
+                            bottom: Val::Px(25.),
+                            right: Val::Px((i * 5) as f32),
+                            ..default()
+                        },
+                        RobberChooseColorButton,
+                        **color,
+                        BorderRadius::MAX,
+                        BackgroundColor(NORMAL_BUTTON),
+                    )],
+                ));
             }
         }
+        state.set(GameState::RobberPickColor);
     }
 }
 fn find_with_color<'a, T>(
@@ -136,7 +167,7 @@ fn find_with_color<'a, T>(
 ) -> Option<(&'a CatanColor, T)> {
     resources.find(|r| r.0 == c)
 }
-fn choose_player_to_take_from_interaction(
+pub fn choose_player_to_take_from_interaction(
     current_color: Res<'_, CurrentColor>,
     mut player_resources: Query<'_, '_, (&CatanColor, &mut Resources)>,
     mut robber_taking_query: Query<
@@ -145,6 +176,7 @@ fn choose_player_to_take_from_interaction(
         (&Interaction, &CatanColor, &mut Button, &mut BackgroundColor),
         (Changed<Interaction>, With<RobberChooseColorButton>),
     >,
+    mut state: ResMut<'_, NextState<GameState>>,
 ) {
     for (interaction, color, mut button, mut button_color) in &mut robber_taking_query {
         match *interaction {
@@ -157,6 +189,9 @@ fn choose_player_to_take_from_interaction(
                 let mut current_resources =
                     find_with_color(&current_color.0, player_resources.iter_mut()).unwrap();
                 put_resources(&mut current_resources.1);
+                // either we are coming from roll(7) or in middle of turn(dev card) but we always go back to
+                // turn
+                state.set(GameState::Turn);
                 break;
             }
             Interaction::Hovered => {

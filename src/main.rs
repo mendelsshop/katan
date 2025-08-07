@@ -28,7 +28,7 @@ use crate::{
     positions::{BuildingPosition, FPosition, Position, RoadPosition},
     resources::Resources,
     roads::{Road, RoadUI},
-    robber::Robber,
+    robber::{Robber, RobberButton, RobberChooseColorButton},
     towns::{Town, TownUI},
 };
 
@@ -54,6 +54,11 @@ fn main() {
     app.add_systems(OnExit(GameState::PlaceTown), cleanup::<BuildingPosition>);
     app.add_systems(OnExit(GameState::PlaceCity), cleanup::<BuildingPosition>);
 
+    app.add_systems(OnExit(GameState::PlaceRobber), cleanup::<RobberButton>);
+    app.add_systems(
+        OnExit(GameState::RobberPickColor),
+        cleanup::<RobberChooseColorButton>,
+    );
     app.add_systems(OnEnter(GameState::PlaceRoad), roads::place_normal_road);
     app.add_systems(OnEnter(GameState::PlaceTown), towns::place_normal_town);
     app.add_systems(OnEnter(GameState::PlaceCity), cities::place_normal_city);
@@ -85,6 +90,14 @@ fn main() {
         turn_ui::turn_ui_roll_interaction.run_if(in_state(GameState::Roll)),
     );
 
+    app.add_systems(
+        Update,
+        robber::choose_player_to_take_from_interaction.run_if(in_state(GameState::RobberPickColor)),
+    );
+    app.add_systems(
+        Update,
+        robber::place_robber_interaction.run_if(in_state(GameState::PlaceRobber)),
+    );
     app.add_systems(
         Update,
         // TODO: if in turn or place state
@@ -136,6 +149,10 @@ enum GameState {
     PlaceCity,
     SetupRoad,
     SetupTown,
+    // picking which color to pick from
+    RobberPickColor,
+    // picking which place to put robber on
+    PlaceRobber,
 }
 #[derive(Component, PartialEq, Debug, Clone, Copy)]
 enum Number {
@@ -264,7 +281,12 @@ fn place_normal_interaction<
                 }
                 *resources += *required_resources;
                 match *game_state.get() {
-                    GameState::Nothing | GameState::Start | GameState::Roll | GameState::Turn => {}
+                    GameState::Nothing
+                    | GameState::Start
+                    | GameState::Roll
+                    | GameState::Turn
+                    | GameState::PlaceRobber
+                    | GameState::RobberPickColor => {}
                     GameState::PlaceRoad | GameState::PlaceTown | GameState::PlaceCity => {
                         game_state_mut.set(GameState::Turn);
                     }
