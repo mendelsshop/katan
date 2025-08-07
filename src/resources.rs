@@ -148,10 +148,7 @@ impl Resources {
     }
 }
 /// assumption: other player has at least on resource
-pub fn take_resource(
-    current_color_resource: &mut Resources,
-    other_color_resources: &mut Resources,
-) {
+pub fn take_resource(other_color_resources: &mut Resources) -> impl FnOnce(&mut Resources) + use<> {
     let possible_resources_to_take = [
         Resources {
             wood: 1,
@@ -195,5 +192,5 @@ pub fn take_resource(
     .choose(&mut rand::rng());
     let resources_to_take = possible_resources_to_take.unwrap();
     *other_color_resources -= resources_to_take;
-    *current_color_resource += resources_to_take;
+    move |current_color_resource: &mut Resources| *current_color_resource += resources_to_take
 }

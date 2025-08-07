@@ -72,6 +72,7 @@ fn place_robber_interaction(
     current_color: Res<'_, CurrentColor>,
     mut robber: ResMut<'_, Robber>,
     mut player_resources: Query<'_, '_, (&CatanColor, &mut Resources)>,
+    mut commands: Commands<'_, '_>,
 ) {
     for (interaction, position, mut button, mut color) in &mut robber_places_query {
         match *interaction {
@@ -84,6 +85,7 @@ fn place_robber_interaction(
                     *current_color,
                     building_q.into_iter(),
                     &mut player_resources,
+                    &mut commands,
                 );
             }
             Interaction::Hovered => {
@@ -96,34 +98,74 @@ fn place_robber_interaction(
         }
     }
 }
+#[derive(Component)]
+pub struct RobberChooseColorButton;
 fn choose_player_to_take_from<'a>(
     position: &Position,
     color: CurrentColor,
     used_buildings: impl Iterator<Item = (&'a CatanColor, &'a BuildingPosition)> + Clone,
     resources: &mut Query<'_, '_, (&CatanColor, &mut Resources)>,
+    commands: &mut Commands<'_, '_>,
 ) {
     let mut colors = used_buildings
         .filter_map(|(c, b)| (c != &color.0 && b.contains(position)).then_some(c))
         .unique()
         .collect_vec();
-    let (used_resources, other_resources): (Vec<_>, Vec<_>) =
-        resources.iter_mut().partition(|r| colors.contains(&r.0));
     if colors.len() == 1 {
         let other_color = colors.remove(0);
         let (_, mut other_color_resources) =
-            find_with(other_color, used_resources.into_iter()).unwrap();
+            find_with_color(other_color, resources.iter_mut()).unwrap();
         if other_color_resources.count() > 0 {
-            let (_, mut resources) = find_with(&color.0, other_resources.into_iter()).unwrap();
-            take_resource(&mut resources, &mut other_color_resources);
+            let put_resources = take_resource(&mut other_color_resources);
+            let mut current_resources = find_with_color(&color.0, resources.iter_mut()).unwrap();
+            put_resources(&mut current_resources.1);
         }
     } else {
         // show options of how to pick from
+        for color in &colors {
+            let resources = find_with_color(color, resources.iter()).unwrap().1;
+            if resources.count() > 0 {
+                commands.spawn((RobberChooseColorButton, **color));
+            }
+        }
     }
 }
-fn find_with<'a>(
+fn find_with_color<'a, T>(
     c: &CatanColor,
-    mut resources: impl Iterator<Item = (&'a CatanColor, Mut<'a, Resources>)>,
-) -> Option<(&'a CatanColor, Mut<'a, Resources>)> {
+    mut resources: impl Iterator<Item = (&'a CatanColor, T)>,
+) -> Option<(&'a CatanColor, T)> {
     resources.find(|r| r.0 == c)
 }
-const fn choose_player_to_take_from_interaction() {}
+fn choose_player_to_take_from_interaction(
+    current_color: Res<'_, CurrentColor>,
+    mut player_resources: Query<'_, '_, (&CatanColor, &mut Resources)>,
+    mut robber_taking_query: Query<
+        '_,
+        '_,
+        (&Interaction, &CatanColor, &mut Button, &mut BackgroundColor),
+        (Changed<Interaction>, With<RobberChooseColorButton>),
+    >,
+) {
+    for (interaction, color, mut button, mut button_color) in &mut robber_taking_query {
+        match *interaction {
+            Interaction::Pressed => {
+                *button_color = PRESSED_BUTTON.into();
+                button.set_changed();
+                let mut other_resources =
+                    find_with_color(color, player_resources.iter_mut()).unwrap();
+                let put_resources = take_resource(&mut other_resources.1);
+                let mut current_resources =
+                    find_with_color(&current_color.0, player_resources.iter_mut()).unwrap();
+                put_resources(&mut current_resources.1);
+                break;
+            }
+            Interaction::Hovered => {
+                *button_color = HOVERED_BUTTON.into();
+                button.set_changed();
+            }
+            Interaction::None => {
+                *button_color = NORMAL_BUTTON.into();
+            }
+        }
+    }
+}
