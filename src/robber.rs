@@ -1,4 +1,8 @@
-use bevy::prelude::*;
+use bevy::{
+    prelude::*,
+    render::{camera::RenderTarget, view::RenderLayers},
+    window::WindowRef,
+};
 use itertools::Itertools;
 
 use crate::{
@@ -203,4 +207,47 @@ pub fn choose_player_to_take_from_interaction(
             }
         }
     }
+}
+
+#[derive(Component)]
+pub struct CameraID(Entity);
+
+#[derive(Bundle)]
+pub struct ResourceDiscarder {
+    camera_window: CameraID,
+    color: CatanColor,
+    resources: Resources, // doesnt change
+    changed_resources: Resources,
+}
+fn take_extra_resources(
+    commands: &mut Commands<'_, '_>,
+    player_resources: Query<'_, '_, (&CatanColor, &Resources)>,
+) {
+    player_resources
+        .iter()
+        .filter(|resources| resources.1.count() > 7)
+        .for_each(|r| {
+            let window = commands
+                .spawn(Window {
+                    title: format!("{:?}", r.0),
+                    ..default()
+                })
+                .id();
+            let camera = commands
+                .spawn((
+                    Camera2d,
+                    Camera {
+                        target: RenderTarget::Window(WindowRef::Entity(window)),
+                        ..default()
+                    },
+                    RenderLayers::layer(1),
+                ))
+                .id();
+            commands.spawn(ResourceDiscarder {
+                camera_window: CameraID(camera),
+                color: *r.0,
+                resources: *r.1,
+                changed_resources: *r.1,
+            });
+        });
 }
