@@ -113,7 +113,17 @@ fn main() {
     app.add_systems(
         Update,
         // TODO: if in turn or place state
-        turn_ui::turn_ui_next_interaction,
+        turn_ui::turn_ui_next_interaction.run_if({
+            move |current_state: Option<Res<'_, State<GameState>>>| match current_state {
+                Some(current_state) => ![
+                    GameState::PlaceRobber,
+                    GameState::RobberPickColor,
+                    GameState::Roll,
+                ]
+                .contains(&current_state),
+                None => true,
+            }
+        }),
     );
     app.add_systems(OnEnter(GameState::SetupRoad), colors::set_setup_color);
     app.add_systems(OnEnter(GameState::Roll), colors::set_color);

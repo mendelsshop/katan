@@ -121,18 +121,25 @@ fn choose_player_to_take_from<'a>(
     state: &mut ResMut<'_, NextState<GameState>>,
 ) {
     let mut colors = used_buildings
-        .filter_map(|(c, b)| (c != &color.0 && b.contains(position)).then_some(c))
+        .filter_map(|(c, b)| {
+            (c != &color.0
+                && b.contains(position)
+                // we check that are enough resources to steal instead of later on, becuase if
+                // there are no one to steal from them we need to go back to turn, and its much
+                // easer to check that here than later on espicially if there are mutlitple players
+                // surrounding the hex
+                && find_with_color(c, resources.iter()).is_some_and(|r| r.1.count() > 0))
+            .then_some(c)
+        })
         .unique()
         .collect_vec();
     if colors.len() == 1 {
         let other_color = colors.remove(0);
         let (_, mut other_color_resources) =
             find_with_color(other_color, resources.iter_mut()).unwrap();
-        if other_color_resources.count() > 0 {
-            let put_resources = take_resource(&mut other_color_resources);
-            let mut current_resources = find_with_color(&color.0, resources.iter_mut()).unwrap();
-            put_resources(&mut current_resources.1);
-        }
+        let put_resources = take_resource(&mut other_color_resources);
+        let mut current_resources = find_with_color(&color.0, resources.iter_mut()).unwrap();
+        put_resources(&mut current_resources.1);
 
         // either we are coming from roll(7) or in middle of turn(dev card) but we always go back to
         // turn
@@ -146,33 +153,29 @@ fn choose_player_to_take_from<'a>(
     } else {
         // show options of how to pick from
         for (i, color) in colors.iter().enumerate() {
-            let resources = find_with_color(color, resources.iter()).unwrap().1;
-            if resources.count() > 0 {
-                commands.spawn((
+            commands.spawn((
+                Node {
+                    width: Val::Percent(100.0),
+                    height: Val::Percent(100.0),
+                    align_items: AlignItems::End,
+                    justify_content: JustifyContent::Center,
+                    ..default()
+                },
+                children![(
+                    Button,
                     Node {
-                        width: Val::Percent(100.0),
-                        height: Val::Percent(100.0),
-                        align_items: AlignItems::Center,
-                        justify_content: JustifyContent::Center,
+                        width: Val::Px(25.0),
+                        height: Val::Px(25.0),
+                        bottom: Val::Px(35.),
+                        left: Val::Px((i * 30) as f32),
                         ..default()
                     },
-                    children![(
-                        Button,
-                        Node {
-                            position_type: PositionType::Relative,
-                            width: Val::Px(15.0),
-                            height: Val::Px(15.0),
-                            bottom: Val::Px(25.),
-                            right: Val::Px((i * 5) as f32),
-                            ..default()
-                        },
-                        RobberChooseColorButton,
-                        **color,
-                        BorderRadius::MAX,
-                        BackgroundColor(NORMAL_BUTTON),
-                    )],
-                ));
-            }
+                    RobberChooseColorButton,
+                    **color,
+                    BorderRadius::MAX,
+                    BackgroundColor(color.to_bevy_color()),
+                )],
+            ));
         }
         state.set(GameState::RobberPickColor);
     }
@@ -197,7 +200,6 @@ pub fn choose_player_to_take_from_interaction(
     for (interaction, color, mut button, mut button_color) in &mut robber_taking_query {
         match *interaction {
             Interaction::Pressed => {
-                *button_color = PRESSED_BUTTON.into();
                 button.set_changed();
                 let mut other_resources =
                     find_with_color(color, player_resources.iter_mut()).unwrap();
@@ -211,11 +213,17 @@ pub fn choose_player_to_take_from_interaction(
                 break;
             }
             Interaction::Hovered => {
-                *button_color = HOVERED_BUTTON.into();
+                *button_color = (if color == &CatanColor::White {
+                    color.to_bevy_color().darker(0.2)
+                } else {
+                    color.to_bevy_color().lighter(0.1)
+                })
+                .into();
+
                 button.set_changed();
             }
             Interaction::None => {
-                *button_color = NORMAL_BUTTON.into();
+                *button_color = color.to_bevy_color().into();
             }
         }
     }
