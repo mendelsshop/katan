@@ -58,9 +58,8 @@ pub fn turn_ui_roll_interaction(
                     robber,
                     &mut die_q,
                     commands,
+                    &mut game_state,
                 );
-                // robber handling happens in robber state
-                game_state.set(GameState::Turn);
                 button.set_changed();
                 break;
             }

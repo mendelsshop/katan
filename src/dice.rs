@@ -1,8 +1,8 @@
 use bevy::prelude::*;
 
 use crate::{
-    BuildingPosition, CatanColor, Hexagon, Number, Position, Resources, Robber, Town, cities::City,
-    robber, turn_ui::DieButton,
+    BuildingPosition, CatanColor, GameState, Hexagon, Number, Position, Resources, Robber, Town,
+    cities::City, robber, turn_ui::DieButton,
 };
 use itertools::Itertools;
 fn roll_dice() -> (u8, u8, u8) {
@@ -19,6 +19,7 @@ pub fn full_roll_dice(
     robber: Res<'_, Robber>,
     die_q: &mut Query<'_, '_, &mut Text, With<DieButton>>,
     commands: Commands<'_, '_>,
+    game_state: &mut ResMut<'_, NextState<GameState>>,
 ) {
     let (roll, d1, d2) = roll_dice();
     // assumes two dice
@@ -31,8 +32,11 @@ pub fn full_roll_dice(
 
     // TODO: what happens when 7 rolled
     if roll == 7 {
-        robber::place_robber(commands, robber);
+        robber::place_robber(commands, robber, game_state);
     } else {
+        // we only do this if no robber
+        // if there is robber there a bunch of other states that me must go through
+        game_state.set(GameState::Turn);
         distribute_resources(
             roll,
             board.iter().map(|(h, n, p)| (*h, *n, *p)),

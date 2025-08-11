@@ -22,14 +22,18 @@ impl Default for Robber {
 
 #[derive(Component, PartialEq, Eq, Clone, Copy, Debug)]
 pub struct RobberButton;
-pub fn place_robber(mut commands: Commands<'_, '_>, robber: Res<'_, Robber>) {
+pub fn place_robber(
+    mut commands: Commands<'_, '_>,
+    robber: Res<'_, Robber>,
+    state: &mut ResMut<'_, NextState<GameState>>,
+) {
     generate_postions(3)
         // TODO: skip current robber pos
         .filter(|p| *p != robber.0)
-        .filter_map(|p| {
+        .map(|p| {
             let pos: FPosition = p.into();
             let (x, y) = pos.hex_to_pixel();
-            (x != 0. || y != 0.).then_some((x, y, p))
+            (x, y, p)
         })
         .for_each(|(x, y, p)| {
             // add button with positonn and RobberPosition struct
@@ -58,6 +62,8 @@ pub fn place_robber(mut commands: Commands<'_, '_>, robber: Res<'_, Robber>) {
                 )],
             ));
         });
+
+    state.set(GameState::PlaceRobber);
     // show ui to place robber
     // on every hex besides for current robber hex
     // the make interaction function, that when clicked:
@@ -127,6 +133,12 @@ fn choose_player_to_take_from<'a>(
             let mut current_resources = find_with_color(&color.0, resources.iter_mut()).unwrap();
             put_resources(&mut current_resources.1);
         }
+
+        // either we are coming from roll(7) or in middle of turn(dev card) but we always go back to
+        // turn
+        state.set(GameState::Turn);
+    } else if colors.is_empty() {
+        // if no one to steal from go to turn
 
         // either we are coming from roll(7) or in middle of turn(dev card) but we always go back to
         // turn

@@ -48,16 +48,28 @@ fn main() {
     app.add_systems(OnEnter(GameState::SetupRoad), roads::place_setup_road);
     app.add_systems(OnEnter(GameState::SetupTown), towns::place_setup_town);
 
-    app.add_systems(OnExit(GameState::SetupRoad), cleanup::<RoadPosition>);
-    app.add_systems(OnExit(GameState::SetupTown), cleanup::<BuildingPosition>);
-    app.add_systems(OnExit(GameState::PlaceRoad), cleanup::<RoadPosition>);
-    app.add_systems(OnExit(GameState::PlaceTown), cleanup::<BuildingPosition>);
-    app.add_systems(OnExit(GameState::PlaceCity), cleanup::<BuildingPosition>);
+    app.add_systems(OnExit(GameState::SetupRoad), cleanup_button::<RoadPosition>);
+    app.add_systems(
+        OnExit(GameState::SetupTown),
+        cleanup_button::<BuildingPosition>,
+    );
+    app.add_systems(OnExit(GameState::PlaceRoad), cleanup_button::<RoadPosition>);
+    app.add_systems(
+        OnExit(GameState::PlaceTown),
+        cleanup_button::<BuildingPosition>,
+    );
+    app.add_systems(
+        OnExit(GameState::PlaceCity),
+        cleanup_button::<BuildingPosition>,
+    );
 
-    app.add_systems(OnExit(GameState::PlaceRobber), cleanup::<RobberButton>);
+    app.add_systems(
+        OnExit(GameState::PlaceRobber),
+        cleanup_button::<RobberButton>,
+    );
     app.add_systems(
         OnExit(GameState::RobberPickColor),
-        cleanup::<RobberChooseColorButton>,
+        cleanup_button::<RobberChooseColorButton>,
     );
     app.add_systems(OnEnter(GameState::PlaceRoad), roads::place_normal_road);
     app.add_systems(OnEnter(GameState::PlaceTown), towns::place_normal_town);
@@ -209,7 +221,7 @@ enum Port {}
 #[derive(Resource, Clone, Copy)]
 struct BoardSize(u8);
 
-fn cleanup<T: Component>(
+fn cleanup_button<T: Component>(
     mut commands: Commands<'_, '_>,
     mut interaction_query: Query<'_, '_, Entity, (With<T>, With<Button>)>,
 ) {
