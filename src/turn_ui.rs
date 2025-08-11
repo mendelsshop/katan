@@ -25,6 +25,8 @@ pub struct DieButton;
 
 #[derive(Component, PartialEq, Eq, Default, Clone, Copy)]
 pub struct NextButton;
+// for roll there are two dice so it cannot be a single (its probably possible to have on dice
+// thing which looks like two dice)
 pub fn turn_ui_roll_interaction(
     mut game_state: ResMut<'_, NextState<GameState>>,
     mut interaction_query: Query<
@@ -91,100 +93,82 @@ pub fn turn_ui_next_interaction(
 // TODO: combine with turn_ui_road_interaction
 pub fn turn_ui_city_interaction(
     mut game_state: ResMut<'_, NextState<GameState>>,
-    mut interaction_query: Query<
-        '_,
-        '_,
-        (&CityButton, &Interaction, &mut Button),
-        Changed<Interaction>,
-    >,
+    interaction_query: Single<'_, (&CityButton, &Interaction, &mut Button), Changed<Interaction>>,
     player_resources: Query<'_, '_, (&Resources, &CatanColor)>,
     color_r: Res<'_, CurrentColor>,
 ) {
     let player_resources = player_resources.iter().find(|x| x.1 == &color_r.0);
     if let Some((resources, _)) = player_resources {
-        for (_, interaction, mut button) in &mut interaction_query {
-            if resources.contains(CITY_RESOURCES) {
-                match *interaction {
-                    Interaction::Pressed => {
-                        button.set_changed();
+        let (_, interaction, mut button) = interaction_query.into_inner();
+        if resources.contains(CITY_RESOURCES) {
+            match *interaction {
+                Interaction::Pressed => {
+                    button.set_changed();
 
-                        game_state.set(GameState::PlaceCity);
-                        button.set_changed();
-                    }
-                    Interaction::Hovered => {
-                        button.set_changed();
-                    }
-                    Interaction::None => {}
+                    game_state.set(GameState::PlaceCity);
+                    button.set_changed();
                 }
-            } else {
-                // TODO: grey out
+                Interaction::Hovered => {
+                    button.set_changed();
+                }
+                Interaction::None => {}
             }
+        } else {
+            // TODO: grey out
         }
     }
 }
 pub fn turn_ui_town_interaction(
     mut game_state: ResMut<'_, NextState<GameState>>,
-    mut interaction_query: Query<
-        '_,
-        '_,
-        (&TownButton, &Interaction, &mut Button),
-        Changed<Interaction>,
-    >,
+    interaction_query: Single<'_, (&TownButton, &Interaction, &mut Button), Changed<Interaction>>,
     player_resources: Query<'_, '_, (&Resources, &CatanColor)>,
     color_r: Res<'_, CurrentColor>,
 ) {
     let player_resources = player_resources.iter().find(|x| x.1 == &color_r.0);
     if let Some((resources, _)) = player_resources {
-        for (_, interaction, mut button) in &mut interaction_query {
-            if resources.contains(TownUI::resources()) {
-                match *interaction {
-                    Interaction::Pressed => {
-                        button.set_changed();
+        let (_, interaction, mut button) = interaction_query.into_inner();
+        if resources.contains(TownUI::resources()) {
+            match *interaction {
+                Interaction::Pressed => {
+                    button.set_changed();
 
-                        game_state.set(GameState::PlaceTown);
-                        button.set_changed();
-                    }
-                    Interaction::Hovered => {
-                        button.set_changed();
-                    }
-                    Interaction::None => {}
+                    game_state.set(GameState::PlaceTown);
+                    button.set_changed();
                 }
-            } else {
-                // TODO: grey out
+                Interaction::Hovered => {
+                    button.set_changed();
+                }
+                Interaction::None => {}
             }
+        } else {
+            // TODO: grey out
         }
     }
 }
 pub fn turn_ui_road_interaction(
     mut game_state: ResMut<'_, NextState<GameState>>,
-    mut interaction_query: Query<
-        '_,
-        '_,
-        (&RoadButton, &Interaction, &mut Button),
-        Changed<Interaction>,
-    >,
+    interaction_query: Single<'_, (&RoadButton, &Interaction, &mut Button), Changed<Interaction>>,
     player_resources: Query<'_, '_, (&Resources, &CatanColor)>,
     color_r: Res<'_, CurrentColor>,
 ) {
     let player_resources = player_resources.iter().find(|x| x.1 == &color_r.0);
     if let Some((resources, _)) = player_resources {
-        for (_, interaction, mut button) in &mut interaction_query {
-            if resources.contains(RoadUI::resources()) {
-                match *interaction {
-                    Interaction::Pressed => {
-                        button.set_changed();
+        let (_, interaction, mut button) = interaction_query.into_inner();
+        if resources.contains(RoadUI::resources()) {
+            match *interaction {
+                Interaction::Pressed => {
+                    button.set_changed();
 
-                        game_state.set(GameState::PlaceRoad);
-                        button.set_changed();
-                    }
-                    Interaction::Hovered => {
-                        button.set_changed();
-                    }
-                    Interaction::None => {}
+                    game_state.set(GameState::PlaceRoad);
+                    button.set_changed();
                 }
-            } else {
-                // TODO: grey out
+                Interaction::Hovered => {
+                    button.set_changed();
+                }
+                Interaction::None => {}
             }
+        } else {
+            // TODO: grey out
         }
     }
 }

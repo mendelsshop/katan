@@ -9,7 +9,7 @@ pub struct Position {
     pub s: i8,
 }
 pub fn generate_postions_ring(n: i8) -> impl Iterator<Item = Position> {
-    let has_big_coordinate: _ = move |i: i8| i == -n || i == n;
+    let has_big_coordinate = move |i: i8| i == -n || i == n;
     generate_postions(n + 1).filter(move |q| {
         has_big_coordinate(q.q) || has_big_coordinate(q.r) || has_big_coordinate(q.s)
     })
