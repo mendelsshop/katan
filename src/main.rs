@@ -28,7 +28,7 @@ use crate::{
     positions::{BuildingPosition, FPosition, Position, RoadPosition},
     resources::Resources,
     roads::{Road, RoadUI},
-    robber::{Robber, RobberButton, RobberChooseColorButton},
+    robber::{PreRobberDiscardLeft, Robber, RobberButton, RobberChooseColorButton},
     towns::{Town, TownUI},
 };
 
@@ -41,6 +41,7 @@ fn main() {
     app.insert_resource(Resources::new_game());
     // TODO: is there way to init resource
     // without giving a value
+    app.insert_resource(PreRobberDiscardLeft(0));
     app.insert_resource(CurrentColor(CatanColor::White));
     app.insert_resource(CurrentSetupColor(CatanColor::White));
     app.add_systems(Startup, setup);
@@ -48,6 +49,11 @@ fn main() {
     app.add_systems(OnEnter(GameState::SetupRoad), roads::place_setup_road);
     app.add_systems(OnEnter(GameState::SetupTown), towns::place_setup_town);
 
+    app.add_systems(OnEnter(GameState::PlaceRobber), robber::place_robber);
+    app.add_systems(
+        OnEnter(GameState::RobberDiscardResources),
+        robber::take_extra_resources,
+    );
     app.add_systems(OnExit(GameState::SetupRoad), cleanup_button::<RoadPosition>);
     app.add_systems(
         OnExit(GameState::SetupTown),
@@ -119,6 +125,7 @@ fn main() {
                     GameState::PlaceRobber,
                     GameState::RobberPickColor,
                     GameState::Roll,
+                    GameState::RobberDiscardResources,
                 ]
                 .contains(&current_state),
                 None => true,
@@ -151,6 +158,16 @@ fn main() {
         place_normal_interaction::<Town, BuildingPosition, TownUI, CurrentColor>
             .run_if(in_state(GameState::PlaceTown)),
     );
+    app.add_systems(
+        Update,
+        (
+            robber::counter_up_interaction,
+            robber::counter_down_interaction,
+            robber::counter_sumbit_interaction,
+            robber::counter_text_update,
+        )
+            .run_if(in_state(GameState::RobberDiscardResources)),
+    );
 
     app.add_systems(
         Update,
@@ -162,6 +179,7 @@ fn main() {
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default, States)]
 enum GameState {
     #[default]
+    RobberDiscardResources,
     Nothing,
     Start,
     PlaceRoad,
@@ -308,6 +326,7 @@ fn place_normal_interaction<
                     | GameState::Roll
                     | GameState::Turn
                     | GameState::PlaceRobber
+                    | GameState::RobberDiscardResources
                     | GameState::RobberPickColor => {}
                     GameState::PlaceRoad | GameState::PlaceTown | GameState::PlaceCity => {
                         game_state_mut.set(GameState::Turn);

@@ -42,7 +42,6 @@ pub fn turn_ui_roll_interaction(
     mut resources: ResMut<'_, Resources>,
     robber: Res<'_, Robber>,
     mut die_q: Query<'_, '_, &mut Text, With<DieButton>>,
-    commands: Commands<'_, '_>,
 ) {
     for (_, interaction, mut button) in &mut interaction_query {
         match *interaction {
@@ -57,7 +56,6 @@ pub fn turn_ui_roll_interaction(
                     &mut resources,
                     robber,
                     &mut die_q,
-                    commands,
                     &mut game_state,
                 );
                 button.set_changed();

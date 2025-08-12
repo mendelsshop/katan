@@ -1,7 +1,7 @@
 use bevy::{
     prelude::*,
     render::{camera::RenderTarget, view::RenderLayers},
-    window::WindowRef,
+    window,
 };
 use itertools::Itertools;
 
@@ -22,11 +22,7 @@ impl Default for Robber {
 
 #[derive(Component, PartialEq, Eq, Clone, Copy, Debug)]
 pub struct RobberButton;
-pub fn place_robber(
-    mut commands: Commands<'_, '_>,
-    robber: Res<'_, Robber>,
-    state: &mut ResMut<'_, NextState<GameState>>,
-) {
+pub fn place_robber(mut commands: Commands<'_, '_>, robber: Res<'_, Robber>) {
     generate_postions(3)
         // TODO: skip current robber pos
         .filter(|p| *p != robber.0)
@@ -63,7 +59,6 @@ pub fn place_robber(
             ));
         });
 
-    state.set(GameState::PlaceRobber);
     // show ui to place robber
     // on every hex besides for current robber hex
     // the make interaction function, that when clicked:
@@ -230,23 +225,31 @@ pub fn choose_player_to_take_from_interaction(
 }
 
 #[derive(Component)]
-pub struct CameraID(Entity);
+pub struct CameraRef(Entity);
+
+#[derive(Component)]
+pub struct WindowRef(Entity);
+#[derive(Component)]
+pub struct ExactResourcesNeeded(u8);
 
 #[derive(Bundle)]
 pub struct ResourceDiscarder {
-    camera_window: CameraID,
+    camera_window: CameraRef,
     color: CatanColor,
-    resources: Resources, // doesnt change
-    changed_resources: Resources,
+    // resources: Resources, // doesnt change
+    // changed_resources: Resources,
+    resources_needed: ExactResourcesNeeded,
 }
-fn take_extra_resources(
-    commands: &mut Commands<'_, '_>,
-    player_resources: Query<'_, '_, (&CatanColor, &Resources)>,
+pub fn take_extra_resources(
+    mut commands: Commands<'_, '_>,
+    player_resources: Query<'_, '_, (&CatanColor, &mut Resources)>,
+    mut left: ResMut<'_, PreRobberDiscardLeft>,
 ) {
     player_resources
         .iter()
         .filter(|resources| resources.1.count() > 7)
         .for_each(|r| {
+            left.0 += 1;
             let window = commands
                 .spawn(Window {
                     title: format!("{:?}", r.0),
@@ -257,17 +260,231 @@ fn take_extra_resources(
                 .spawn((
                     Camera2d,
                     Camera {
-                        target: RenderTarget::Window(WindowRef::Entity(window)),
+                        target: RenderTarget::Window(window::WindowRef::Entity(window)),
                         ..default()
                     },
                     RenderLayers::layer(1),
                 ))
                 .id();
-            commands.spawn(ResourceDiscarder {
-                camera_window: CameraID(camera),
-                color: *r.0,
-                resources: *r.1,
-                changed_resources: *r.1,
-            });
+            commands.spawn((
+                ResourceDiscarder {
+                    camera_window: CameraRef(camera),
+                    color: *r.0,
+                    // resources: *r.1,
+                    // changed_resources: *r.1,
+                    resources_needed: ExactResourcesNeeded(r.1.count() / 2),
+                },
+                children![],
+            ));
+            setup_take_extra_resources(&mut commands, camera, window);
         });
+}
+
+pub fn counter_text_update(
+    mut interaction_query: Query<'_, '_, (&mut Text, &CounterRef), With<Value>>,
+    counter_query: Query<'_, '_, &Counter>,
+) {
+    for (mut text, counter) in &mut interaction_query {
+        if let Ok(counter) = counter_query.get(counter.0) {
+            **text = counter.0.to_string();
+        }
+    }
+}
+pub fn counter_up_interaction(
+    mut interaction_query: Query<
+        '_,
+        '_,
+        (&Interaction, &mut Button, &mut BackgroundColor, &CounterRef),
+        (Changed<Interaction>, With<UpButton>),
+    >,
+
+    mut counter_query: Query<'_, '_, &mut Counter>,
+) {
+    for (interaction, mut button, mut color, counter) in &mut interaction_query {
+        match *interaction {
+            Interaction::Pressed => {
+                *color = PRESSED_BUTTON.into();
+                if let Ok(mut counter) = counter_query.get_mut(counter.0) {
+                    counter.0 += 1;
+                }
+                button.set_changed();
+            }
+            Interaction::Hovered => {
+                *color = HOVERED_BUTTON.into();
+                button.set_changed();
+            }
+            Interaction::None => {
+                *color = NORMAL_BUTTON.into();
+                button.set_changed();
+            }
+        }
+    }
+}
+
+#[derive(Resource)]
+pub struct PreRobberDiscardLeft(pub u8);
+pub fn counter_sumbit_interaction(
+    mut interaction_query: Query<
+        '_,
+        '_,
+        (&Interaction, &mut Button, &mut BackgroundColor, &WindowRef),
+        (Changed<Interaction>, With<SumbitButton>),
+    >,
+    mut commands: Commands<'_, '_>,
+    mut left: ResMut<'_, PreRobberDiscardLeft>,
+    mut state: ResMut<'_, NextState<GameState>>,
+) {
+    for (interaction, mut button, mut color, window) in &mut interaction_query {
+        match *interaction {
+            Interaction::Pressed => {
+                *color = PRESSED_BUTTON.into();
+                commands.entity(window.0).despawn();
+                left.0 -= 1;
+                if left.0 == 0 {
+                    state.set(GameState::PlaceRobber);
+                }
+                button.set_changed();
+            }
+            Interaction::Hovered => {
+                *color = HOVERED_BUTTON.into();
+                button.set_changed();
+            }
+            Interaction::None => {
+                *color = NORMAL_BUTTON.into();
+                button.set_changed();
+            }
+        }
+    }
+}
+pub fn counter_down_interaction(
+    mut interaction_query: Query<
+        '_,
+        '_,
+        (&Interaction, &mut Button, &mut BackgroundColor, &CounterRef),
+        (Changed<Interaction>, With<DownButton>),
+    >,
+    mut counter_query: Query<'_, '_, &mut Counter>,
+) {
+    for (interaction, mut button, mut color, counter) in &mut interaction_query {
+        match *interaction {
+            Interaction::Pressed => {
+                *color = PRESSED_BUTTON.into();
+                if let Ok(mut counter) = counter_query.get_mut(counter.0) {
+                    counter.0 -= 1;
+                }
+                button.set_changed();
+            }
+            Interaction::Hovered => {
+                *color = HOVERED_BUTTON.into();
+                button.set_changed();
+            }
+            Interaction::None => {
+                *color = NORMAL_BUTTON.into();
+                button.set_changed();
+            }
+        }
+    }
+}
+fn setup_take_extra_resources(commands: &mut Commands<'_, '_>, camera: Entity, window: Entity) {
+    commands
+        .spawn((
+            UiTargetCamera(camera),
+            Node {
+                display: Display::Grid,
+                grid_template_columns: vec![
+                    GridTrack::min_content(),
+                    GridTrack::min_content(),
+                    GridTrack::min_content(),
+                    GridTrack::min_content(),
+                    GridTrack::min_content(),
+                    GridTrack::flex(1.),
+                ],
+
+                ..default()
+            },
+        ))
+        .with_children(|builder: &mut ChildSpawnerCommands<'_>| {
+            slider_bundle(builder);
+            slider_bundle(builder);
+            slider_bundle(builder);
+            slider_bundle(builder);
+            slider_bundle(builder);
+            builder.spawn((
+                Node {
+                    display: Display::Grid,
+                    align_self: AlignSelf::Center,
+                    border: UiRect::all(Val::Px(3.0)),
+                    ..default()
+                },
+                Button,
+                SumbitButton,
+                BackgroundColor(NORMAL_BUTTON),
+                BorderColor(Color::BLACK),
+                WindowRef(window),
+                Text::new("confirm".to_string()),
+            ));
+        });
+}
+#[derive(Component)]
+pub struct SumbitButton;
+#[derive(Component)]
+pub struct UpButton;
+#[derive(Component)]
+pub struct DownButton;
+#[derive(Component)]
+pub struct Value;
+
+#[derive(Component)]
+pub struct CounterRef(Entity);
+#[derive(Component)]
+pub struct Counter(u32);
+fn slider_bundle(builder: &mut ChildSpawnerCommands<'_>) {
+    let counter = builder.spawn(Counter(0)).id();
+
+    builder.spawn((
+        Node {
+            display: Display::Grid,
+            margin: UiRect::all(Val::Px(3.0)),
+            grid_template_rows: vec![GridTrack::auto(), GridTrack::auto(), GridTrack::auto()],
+            border: UiRect::all(Val::Px(3.0)),
+            ..default()
+        },
+        BorderColor(Color::BLACK),
+        children![
+            (
+                UpButton,
+                Node {
+                    display: Display::Grid,
+                    margin: UiRect::all(Val::Px(3.0)),
+                    ..default()
+                },
+                Button,
+                BackgroundColor(NORMAL_BUTTON),
+                Text::new("+".to_string()),
+                CounterRef(counter),
+            ),
+            (
+                Node {
+                    justify_self: JustifySelf::Center,
+                    display: Display::Grid,
+                    ..default()
+                },
+                Value,
+                Text::new("0".to_string()),
+                CounterRef(counter),
+            ),
+            (
+                DownButton,
+                Node {
+                    display: Display::Grid,
+                    margin: UiRect::all(Val::Px(3.0)),
+                    ..default()
+                },
+                Button,
+                BackgroundColor(NORMAL_BUTTON),
+                Text::new("-".to_string()),
+                CounterRef(counter),
+            )
+        ],
+    ));
 }
