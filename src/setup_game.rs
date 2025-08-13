@@ -6,7 +6,7 @@ use crate::{
     Hexagon, Left, Number, Road, Robber, Town,
     cities::City,
     colors::CatanColor,
-    development_cards::DevelopmentCard,
+    development_cards::{DevelopmentCard, DevelopmentCards},
     draw_board,
     positions::{self, Position},
     resources::Resources,
@@ -163,6 +163,7 @@ fn generate_pieces(commands: &mut Commands<'_, '_>) {
         commands.spawn((City, color, Left(4)));
         commands.spawn((Road, color, Left(15)));
         commands.spawn((Resources::new_player(), color));
+        commands.spawn((DevelopmentCards::new_player(), color));
     }
 }
 pub fn setup(

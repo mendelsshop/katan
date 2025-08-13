@@ -438,3 +438,9 @@ fn setup(
         ),
     ));
 }
+pub fn find_with_color<'a, T>(
+    c: &CatanColor,
+    mut resources: impl Iterator<Item = (&'a CatanColor, T)>,
+) -> Option<(&'a CatanColor, T)> {
+    resources.find(|r| r.0 == c)
+}

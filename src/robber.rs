@@ -123,7 +123,7 @@ fn choose_player_to_take_from<'a>(
                 // there are no one to steal from them we need to go back to turn, and its much
                 // easer to check that here than later on espicially if there are mutlitple players
                 // surrounding the hex
-                && find_with_color(c, resources.iter()).is_some_and(|r| r.1.count() > 0))
+                && crate::find_with_color(c, resources.iter()).is_some_and(|r| r.1.count() > 0))
             .then_some(c)
         })
         .unique()
@@ -131,9 +131,9 @@ fn choose_player_to_take_from<'a>(
     if colors.len() == 1 {
         let other_color = colors.remove(0);
         let (_, mut other_color_resources) =
-            find_with_color(other_color, resources.iter_mut()).unwrap();
+            crate::find_with_color(other_color, resources.iter_mut()).unwrap();
         let put_resources = take_resource(&mut other_color_resources);
-        let mut current_resources = find_with_color(&color.0, resources.iter_mut()).unwrap();
+        let mut current_resources = crate::find_with_color(&color.0, resources.iter_mut()).unwrap();
         put_resources(&mut current_resources.1);
 
         // either we are coming from roll(7) or in middle of turn(dev card) but we always go back to
@@ -175,12 +175,7 @@ fn choose_player_to_take_from<'a>(
         state.set(GameState::RobberPickColor);
     }
 }
-fn find_with_color<'a, T>(
-    c: &CatanColor,
-    mut resources: impl Iterator<Item = (&'a CatanColor, T)>,
-) -> Option<(&'a CatanColor, T)> {
-    resources.find(|r| r.0 == c)
-}
+
 pub fn choose_player_to_take_from_interaction(
     current_color: Res<'_, CurrentColor>,
     mut player_resources: Query<'_, '_, (&CatanColor, &mut Resources)>,
@@ -197,10 +192,10 @@ pub fn choose_player_to_take_from_interaction(
             Interaction::Pressed => {
                 button.set_changed();
                 let mut other_resources =
-                    find_with_color(color, player_resources.iter_mut()).unwrap();
+                    crate::find_with_color(color, player_resources.iter_mut()).unwrap();
                 let put_resources = take_resource(&mut other_resources.1);
                 let mut current_resources =
-                    find_with_color(&current_color.0, player_resources.iter_mut()).unwrap();
+                    crate::find_with_color(&current_color.0, player_resources.iter_mut()).unwrap();
                 put_resources(&mut current_resources.1);
                 // either we are coming from roll(7) or in middle of turn(dev card) but we always go back to
                 // turn
