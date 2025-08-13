@@ -31,7 +31,7 @@ pub fn full_roll_dice(
 
     // TODO: what happens when 7 rolled
     if roll == 7 {
-        if player_resources.iter().any(|r| true || r.1.count() > 7) {
+        if player_resources.iter().any(|r| r.1.count() > 7) {
             game_state.set(GameState::RobberDiscardResources);
         } else {
             game_state.set(GameState::PlaceRobber);

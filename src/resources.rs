@@ -39,6 +39,14 @@ pub struct Resources {
     pub wheat: u8,
     pub ore: u8,
 }
+#[derive(Debug, Component, Resource, Clone, Copy)]
+pub enum Resource {
+    Wood,
+    Brick,
+    Sheep,
+    Wheat,
+    Ore,
+}
 
 impl Sub for Resources {
     type Output = Self;
@@ -99,6 +107,24 @@ impl Add for Resources {
 }
 
 impl Resources {
+    pub const fn get(&self, selector: Resource) -> u8 {
+        match selector {
+            Resource::Wood => self.wood,
+            Resource::Brick => self.brick,
+            Resource::Sheep => self.sheep,
+            Resource::Wheat => self.wheat,
+            Resource::Ore => self.ore,
+        }
+    }
+    pub const fn get_mut(&mut self, selector: Resource) -> &mut u8 {
+        match selector {
+            Resource::Wood => &mut self.wood,
+            Resource::Brick => &mut self.brick,
+            Resource::Sheep => &mut self.sheep,
+            Resource::Wheat => &mut self.wheat,
+            Resource::Ore => &mut self.ore,
+        }
+    }
     pub fn checked_sub(self, rhs: Self) -> Option<Self> {
         // applicative would be really nice for this no need for deep nesting
         self.wood.checked_sub(rhs.wood).and_then(|wood| {
