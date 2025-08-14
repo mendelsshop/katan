@@ -18,7 +18,8 @@ pub struct RoadQuery(
 
 #[derive(Debug, Component, Clone, Copy, Default)]
 pub struct Road;
-pub fn place_normal_road(
+/// if `RESOURCE_MULTIPLIER` is zero then its free (default is 1, normal price)
+pub fn place_normal_road<const RESOURCE_MULTIPLIER: u8>(
     mut commands: Commands<'_, '_>,
     color_r: Res<'_, CurrentColor>,
     size_r: Res<'_, BoardSize>,
@@ -124,7 +125,7 @@ pub fn place_normal_road(
                         ..default()
                     },
                     p,
-                    RoadUI::resources(),
+                    RoadUI::resources() * RESOURCE_MULTIPLIER,
                     BorderRadius::MAX,
                     BackgroundColor(NORMAL_BUTTON),
                 )],

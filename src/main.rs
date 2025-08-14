@@ -8,6 +8,7 @@
 
 mod cities;
 mod colors;
+mod development_card_actions;
 mod development_cards;
 mod dice;
 mod positions;
@@ -25,6 +26,7 @@ use crate::{
         CatanColor, ColorIterator, CurrentColor, CurrentSetupColor, HOVERED_BUTTON, NORMAL_BUTTON,
         PRESSED_BUTTON, SetupColorIterator,
     },
+    development_card_actions::RoadBuildingState,
     positions::{BuildingPosition, FPosition, Position, RoadPosition},
     resources::Resources,
     roads::{Road, RoadUI},
@@ -55,11 +57,28 @@ fn main() {
         robber::take_extra_resources,
     );
     app.add_systems(OnExit(GameState::SetupRoad), cleanup_button::<RoadPosition>);
+    app.add_systems(OnExit(GameState::SetupRoad), cleanup_button::<RoadPosition>);
     app.add_systems(
         OnExit(GameState::SetupTown),
         cleanup_button::<BuildingPosition>,
     );
     app.add_systems(OnExit(GameState::PlaceRoad), cleanup_button::<RoadPosition>);
+    app.add_systems(
+        OnExit(RoadBuildingState::Road1),
+        (
+            cleanup_button::<RoadPosition>,
+            // will this work if we are also exiting GameState::RoadBuilding
+            (|mut state: ResMut<'_, NextState<GameState>>,
+              mut sub_state: ResMut<'_, NextState<RoadBuildingState>>| {
+                state.set(GameState::RoadBuilding);
+                sub_state.set(RoadBuildingState::Road2)
+            }),
+        ),
+    );
+    app.add_systems(
+        OnExit(RoadBuildingState::Road2),
+        cleanup_button::<RoadPosition>,
+    );
     app.add_systems(
         OnExit(GameState::PlaceTown),
         cleanup_button::<BuildingPosition>,
@@ -77,7 +96,15 @@ fn main() {
         OnExit(GameState::RobberPickColor),
         cleanup_button::<RobberChooseColorButton>,
     );
-    app.add_systems(OnEnter(GameState::PlaceRoad), roads::place_normal_road);
+    app.add_systems(OnEnter(GameState::PlaceRoad), roads::place_normal_road::<1>);
+    app.add_systems(
+        OnEnter(RoadBuildingState::Road1),
+        roads::place_normal_road::<0>,
+    );
+    app.add_systems(
+        OnEnter(RoadBuildingState::Road2),
+        roads::place_normal_road::<0>,
+    );
     app.add_systems(OnEnter(GameState::PlaceTown), towns::place_normal_town);
     app.add_systems(OnEnter(GameState::PlaceCity), cities::place_normal_city);
     app.add_systems(
@@ -126,6 +153,7 @@ fn main() {
                     GameState::RobberPickColor,
                     GameState::Roll,
                     GameState::RobberDiscardResources,
+                    GameState::RoadBuilding,
                 ]
                 .contains(&current_state),
                 None => true,
@@ -151,7 +179,7 @@ fn main() {
     app.add_systems(
         Update,
         place_normal_interaction::<Road, RoadPosition, RoadUI, CurrentColor>
-            .run_if(in_state(GameState::PlaceRoad)),
+            .run_if(in_state(GameState::PlaceRoad).or(in_state(GameState::RoadBuilding))),
     );
     app.add_systems(
         Update,
@@ -189,6 +217,7 @@ enum GameState {
     PlaceCity,
     SetupRoad,
     SetupTown,
+    RoadBuilding, // (dev card)
     // picking which color to pick from
     RobberPickColor,
     // picking which place to put robber on
@@ -324,6 +353,7 @@ fn place_normal_interaction<
                     GameState::Nothing
                     | GameState::Start
                     | GameState::Roll
+                    | GameState::RoadBuilding
                     | GameState::Turn
                     | GameState::PlaceRobber
                     | GameState::RobberDiscardResources
