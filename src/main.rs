@@ -26,7 +26,7 @@ use crate::{
         CatanColor, ColorIterator, CurrentColor, CurrentSetupColor, HOVERED_BUTTON, NORMAL_BUTTON,
         PRESSED_BUTTON, SetupColorIterator,
     },
-    development_card_actions::{MonopolyButton, RoadBuildingState},
+    development_card_actions::{MonopolyButton, RoadBuildingState, YearOfPlentyButton},
     positions::{BuildingPosition, FPosition, Position, RoadPosition},
     resources::Resources,
     roads::{Road, RoadUI},
@@ -71,6 +71,8 @@ fn main() {
             (|mut state: ResMut<'_, NextState<GameState>>,
               mut sub_state: ResMut<'_, NextState<RoadBuildingState>>| {
                 state.set(GameState::RoadBuilding);
+                // because we share the logic with general road placement we have to handle the
+                // state switch seperatly
                 sub_state.set(RoadBuildingState::Road2)
             }),
         ),
@@ -109,6 +111,21 @@ fn main() {
         Update,
         development_card_actions::monopoly_interaction.run_if(in_state(GameState::Monopoly)),
     );
+    app.add_systems(
+        OnExit(GameState::YearOfPlenty),
+        cleanup_button::<YearOfPlentyButton>,
+    );
+    app.add_systems(
+        OnEnter(GameState::YearOfPlenty),
+        development_card_actions::setup_year_of_plenty,
+    );
+
+    app.add_systems(
+        Update,
+        development_card_actions::year_of_plenty_interaction
+            .run_if(in_state(GameState::YearOfPlenty)),
+    );
+
     app.add_systems(OnEnter(GameState::PlaceRoad), roads::place_normal_road::<1>);
     app.add_systems(
         OnEnter(RoadBuildingState::Road1),
@@ -163,6 +180,8 @@ fn main() {
             move |current_state: Option<Res<'_, State<GameState>>>| match current_state {
                 Some(current_state) => ![
                     GameState::PlaceRobber,
+                    GameState::Monopoly,
+                    GameState::YearOfPlenty,
                     GameState::RobberPickColor,
                     GameState::Roll,
                     GameState::RobberDiscardResources,
@@ -231,6 +250,7 @@ enum GameState {
     SetupRoad,
     SetupTown,
     RoadBuilding, // (dev card)
+    YearOfPlenty, // (dev card)
     Monopoly,
     // picking which color to pick from
     RobberPickColor,
@@ -366,6 +386,7 @@ fn place_normal_interaction<
                 match *game_state.get() {
                     GameState::Nothing
                     | GameState::Monopoly
+                    | GameState::YearOfPlenty
                     | GameState::Start
                     | GameState::Roll
                     | GameState::RoadBuilding
