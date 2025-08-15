@@ -26,7 +26,7 @@ use crate::{
         CatanColor, ColorIterator, CurrentColor, CurrentSetupColor, HOVERED_BUTTON, NORMAL_BUTTON,
         PRESSED_BUTTON, SetupColorIterator,
     },
-    development_card_actions::RoadBuildingState,
+    development_card_actions::{MonopolyButton, RoadBuildingState},
     positions::{BuildingPosition, FPosition, Position, RoadPosition},
     resources::Resources,
     roads::{Road, RoadUI},
@@ -95,6 +95,19 @@ fn main() {
     app.add_systems(
         OnExit(GameState::RobberPickColor),
         cleanup_button::<RobberChooseColorButton>,
+    );
+    app.add_systems(
+        OnExit(GameState::Monopoly),
+        cleanup_button::<MonopolyButton>,
+    );
+    app.add_systems(
+        OnEnter(GameState::Monopoly),
+        development_card_actions::monopoly_setup,
+    );
+
+    app.add_systems(
+        Update,
+        development_card_actions::monopoly_interaction.run_if(in_state(GameState::Monopoly)),
     );
     app.add_systems(OnEnter(GameState::PlaceRoad), roads::place_normal_road::<1>);
     app.add_systems(
@@ -218,6 +231,7 @@ enum GameState {
     SetupRoad,
     SetupTown,
     RoadBuilding, // (dev card)
+    Monopoly,
     // picking which color to pick from
     RobberPickColor,
     // picking which place to put robber on
@@ -351,6 +365,7 @@ fn place_normal_interaction<
                 *resources += *required_resources;
                 match *game_state.get() {
                     GameState::Nothing
+                    | GameState::Monopoly
                     | GameState::Start
                     | GameState::Roll
                     | GameState::RoadBuilding

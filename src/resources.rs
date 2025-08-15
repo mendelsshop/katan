@@ -47,7 +47,17 @@ pub enum Resource {
     Wheat,
     Ore,
 }
-
+impl Resource {
+    pub fn color(&self) -> Color {
+        match self {
+            Self::Wood => Color::srgb_u8(161, 102, 47),
+            Self::Brick => Color::srgb_u8(198, 74, 60),
+            Self::Sheep => Color::srgb_u8(0, 255, 0),
+            Self::Wheat => Color::srgb_u8(255, 191, 0),
+            Self::Ore => Color::srgb_u8(67, 67, 65),
+        }
+    }
+}
 impl Sub for Resources {
     type Output = Self;
 
