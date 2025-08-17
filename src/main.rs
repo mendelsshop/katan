@@ -127,6 +127,7 @@ fn main() {
     );
 
     app.add_systems(OnEnter(GameState::PlaceRoad), roads::place_normal_road::<1>);
+    app.add_systems(Update, development_cards::show_dev_cards);
     app.add_systems(
         OnEnter(RoadBuildingState::Road1),
         roads::place_normal_road::<0>,
