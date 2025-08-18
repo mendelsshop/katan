@@ -1,8 +1,8 @@
 use bevy::prelude::*;
 
 use crate::{
-    CatanColor, CurrentColor, GameState, Hexagon, Number, Resources, RoadUI, Robber, Town, TownUI,
-    UI,
+    CatanColor, CurrentColor, GameState, Hexagon, Layout, Number, Resources, RoadUI, Robber, Town,
+    TownUI, UI,
     cities::City,
     positions::{BuildingPosition, Position},
     resources::CITY_RESOURCES,
@@ -169,19 +169,29 @@ pub fn turn_ui_road_interaction(
         }
     }
 }
-pub fn show_turn_ui(mut commands: Commands<'_, '_>, asset_server: Res<'_, AssetServer>) {
+pub fn show_turn_ui(
+    mut commands: Commands<'_, '_>,
+    asset_server: Res<'_, AssetServer>,
+    layout: Res<'_, Layout>,
+) {
     let road_icon = asset_server.load("road.png");
-    let town_icon: Handle<Image> = asset_server.load("house.png");
+    let town_icon = asset_server.load("house.png");
     let city_icon = asset_server.load("city.png");
     let development_card_back_icon = asset_server.load("development_card_back.png");
     let next_turn_icon = asset_server.load("x.png");
-    // TODO: better way to do ui layouting
-    commands.spawn((
+    commands.entity(layout.ui).insert((
         Node {
-            width: Val::Percent(100.0),
-            height: Val::Percent(100.0),
+            grid_template_columns: vec![
+                GridTrack::min_content(),
+                GridTrack::min_content(),
+                GridTrack::min_content(),
+                GridTrack::min_content(),
+                GridTrack::min_content(),
+            ],
+            column_gap: Val::Px(5.),
             align_items: AlignItems::End,
             justify_content: JustifyContent::Center,
+            display: Display::Grid,
             ..default()
         },
         children![
@@ -197,7 +207,6 @@ pub fn show_turn_ui(mut commands: Commands<'_, '_>, asset_server: Res<'_, AssetS
             ),
             (
                 Node {
-                    left: Val::Px(15.),
                     width: Val::Px(25.0),
                     height: Val::Px(25.0),
                     ..default()
@@ -208,7 +217,6 @@ pub fn show_turn_ui(mut commands: Commands<'_, '_>, asset_server: Res<'_, AssetS
             ),
             (
                 Node {
-                    left: Val::Px(25.),
                     width: Val::Px(37.306),
                     height: Val::Px(25.0),
                     ..default()
@@ -222,7 +230,6 @@ pub fn show_turn_ui(mut commands: Commands<'_, '_>, asset_server: Res<'_, AssetS
                 Node {
                     width: Val::Px(17.),
                     height: Val::Px(25.0),
-                    left: Val::Px(35.),
                     ..default()
                 },
                 Button,
@@ -230,62 +237,11 @@ pub fn show_turn_ui(mut commands: Commands<'_, '_>, asset_server: Res<'_, AssetS
                 DevelopmentCardButton,
             ),
             (
-                Node {
-                    position_type: PositionType::Absolute,
-                    right: Val::Px(65.),
-                    width: Val::Px(20.0),
-                    height: Val::Px(20.0),
-                    border: UiRect::all(Val::Px(1.)),
-                    bottom: Val::Px(4.),
-                    ..default()
-                },
-                Button,
-                Text::new("0"),
-                BorderColor(Color::BLACK),
-                TextColor(Color::BLACK),
-                TextLayout::new_with_justify(JustifyText::Center),
-                BackgroundColor(Color::WHITE),
-                Outline {
-                    width: Val::Px(4.),
-                    offset: Val::Px(0.),
-                    color: Color::BLACK,
-                },
-                DieButton,
-            ),
-            (
-                Node {
-                    right: Val::Px(35.),
-                    bottom: Val::Px(4.),
-
-                    position_type: PositionType::Absolute,
-                    width: Val::Px(20.),
-                    height: Val::Px(20.0),
-
-                    border: UiRect::all(Val::Px(1.)),
-                    ..default()
-                },
-                Outline {
-                    width: Val::Px(4.),
-                    offset: Val::Px(0.),
-                    color: Color::BLACK,
-                },
-                BorderColor(Color::BLACK),
-                BackgroundColor(Color::WHITE),
-                TextLayout::new_with_justify(JustifyText::Center),
-                TextColor(Color::BLACK),
-                Button,
-                Text::new("0"),
-                DieButton,
-            ),
-            (
                 ImageNode::new(next_turn_icon),
                 Node {
-                    position_type: PositionType::Absolute,
-                    right: Val::Px(4.),
                     width: Val::Px(20.0),
                     height: Val::Px(20.0),
                     border: UiRect::all(Val::Px(1.)),
-                    bottom: Val::Px(4.),
                     ..default()
                 },
                 Button,
@@ -297,6 +253,66 @@ pub fn show_turn_ui(mut commands: Commands<'_, '_>, asset_server: Res<'_, AssetS
                 },
                 BorderColor(Color::BLACK),
             )
+        ],
+    ));
+    // TODO: better way to do ui layouting
+    commands.entity(layout.board).with_child((
+        Node {
+            align_self: AlignSelf::End,
+            justify_self: JustifySelf::End,
+            right: Val::Percent(25.),
+            bottom: Val::Percent(25.),
+
+            ..default()
+        },
+        children![
+            (
+                Node {
+                    align_self: AlignSelf::End,
+                    justify_self: JustifySelf::End,
+                    width: Val::Px(20.0),
+                    height: Val::Px(20.0),
+                    border: UiRect::all(Val::Px(1.)),
+                    ..default()
+                },
+                Transform::from_rotation(Quat::from_rotation_z(6.)),
+                Button,
+                Text::new("0"),
+                BorderColor(Color::BLACK),
+                TextColor(Color::BLACK),
+                TextLayout::new_with_justify(JustifyText::Center),
+                BackgroundColor(Color::WHITE),
+                Outline {
+                    width: Val::Px(4.),
+                    offset: Val::Px(0.),
+                    color: Color::BLACK,
+                },
+                DieButton,
+            ),
+            (
+                Node {
+                    align_self: AlignSelf::End,
+                    justify_self: JustifySelf::End,
+                    width: Val::Px(20.),
+                    height: Val::Px(20.0),
+
+                    border: UiRect::all(Val::Px(1.)),
+                    ..default()
+                },
+                Transform::from_rotation(Quat::from_rotation_z(-25.)),
+                Outline {
+                    width: Val::Px(4.),
+                    offset: Val::Px(0.),
+                    color: Color::BLACK,
+                },
+                BorderColor(Color::BLACK),
+                BackgroundColor(Color::WHITE),
+                TextLayout::new_with_justify(JustifyText::Center),
+                TextColor(Color::BLACK),
+                Button,
+                Text::new("1"),
+                DieButton,
+            ),
         ],
     ));
 }

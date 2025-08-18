@@ -439,7 +439,10 @@ fn setup(
     materials: ResMut<'_, Assets<ColorMaterial>>,
 ) {
     commands.spawn(Camera2d);
-    setup_game::setup(&mut commands, meshes, materials);
+    let layout = layout(&mut commands);
+    commands.insert_resource(layout);
+
+    setup_game::setup(&mut commands, meshes, materials, layout);
     next_state.set(GameState::SetupRoad);
 
     // this has to be set dynamically
@@ -472,6 +475,135 @@ fn setup(
             .rev(),
         ),
     ));
+}
+
+#[derive(Resource, Debug, Clone, Copy)]
+pub struct Layout {
+    pub player_banner: Entity,
+    pub development_cards: Entity,
+    pub resources: Entity,
+    pub board: Entity,
+    pub ui: Entity,
+    pub chat: Entity,
+}
+fn layout(commands: &mut Commands<'_, '_>) -> Layout {
+    let player_banner_layout = commands
+        .spawn((
+            Node {
+                display: Display::Grid,
+                border: UiRect::all(Val::Px(1.)),
+                ..default()
+            },
+            BorderColor(Color::BLACK),
+            children![Text("banner".to_string()),],
+        ))
+        .id();
+    let development_cards_layout = commands
+        .spawn((
+            Node {
+                display: Display::Grid,
+                border: UiRect::all(Val::Px(1.)),
+                ..default()
+            },
+            BorderColor(Color::BLACK),
+            children![Text("dev".to_string()),],
+        ))
+        .id();
+    let resources_layout = commands
+        .spawn((
+            Node {
+                display: Display::Grid,
+                border: UiRect::all(Val::Px(1.)),
+                ..default()
+            },
+            BorderColor(Color::BLACK),
+            children![Text("res".to_string()),],
+        ))
+        .id();
+    let mut card_layout = commands.spawn((
+        Node {
+            display: Display::Grid,
+            grid_template_rows: vec![GridTrack::percent(85.), GridTrack::percent(15.)],
+            border: UiRect::all(Val::Px(1.)),
+            ..default()
+        },
+        BorderColor(Color::BLACK),
+    ));
+    card_layout.add_children(&[development_cards_layout, resources_layout]);
+    let card_layout = card_layout.id();
+    let board_layout = commands
+        .spawn((
+            Node {
+                display: Display::Grid,
+                border: UiRect::all(Val::Px(1.)),
+                ..default()
+            },
+            BorderColor(Color::BLACK),
+            children![Text("board".to_string()),],
+        ))
+        .id();
+    let ui_layout = commands
+        .spawn((
+            Node {
+                display: Display::Grid,
+                border: UiRect::all(Val::Px(1.)),
+                ..default()
+            },
+            BorderColor(Color::BLACK),
+            children![Text("ui".to_string()),],
+        ))
+        .id();
+    let mut main_ui_layout = commands.spawn((
+        Node {
+            display: Display::Grid,
+            grid_template_rows: vec![GridTrack::percent(90.), GridTrack::percent(10.)],
+            border: UiRect::all(Val::Px(1.)),
+            ..default()
+        },
+        BorderColor(Color::BLACK),
+    ));
+    main_ui_layout.add_children(&[board_layout, ui_layout]);
+    let main_ui_layout = main_ui_layout.id();
+    let chat_layout = commands
+        .spawn((
+            Node {
+                display: Display::Grid,
+                border: UiRect::all(Val::Px(1.)),
+                ..default()
+            },
+            children![Text("chat".to_string()),],
+            BorderColor(Color::BLACK),
+        ))
+        .id();
+    let mut main_layout = commands.spawn((Node {
+        display: Display::Grid,
+        grid_template_columns: vec![
+            GridTrack::percent(25.),
+            GridTrack::percent(50.),
+            GridTrack::percent(50.),
+        ],
+        ..default()
+    },));
+
+    main_layout.add_children(&[card_layout, main_ui_layout, chat_layout]);
+    let main_layout = main_layout.id();
+    let mut layout = commands.spawn((Node {
+        display: Display::Grid,
+
+        width: Val::Percent(100.),
+        height: Val::Percent(100.),
+        grid_template_rows: vec![GridTrack::percent(10.), GridTrack::percent(90.)],
+        ..default()
+    },));
+    layout.add_children(&[player_banner_layout, main_layout]);
+    Layout {
+        player_banner: player_banner_layout,
+        development_cards: development_cards_layout,
+        resources: resources_layout,
+        board: board_layout,
+        ui: ui_layout,
+        chat: chat_layout,
+    }
 }
 pub fn find_with_color<'a, T>(
     c: &CatanColor,

@@ -3,7 +3,7 @@
 use std::mem::swap;
 
 use crate::{
-    Hexagon, Left, Number, Road, Robber, Town,
+    Hexagon, Layout, Left, Number, Road, Robber, Town,
     cities::City,
     colors::CatanColor,
     development_cards::{DevelopmentCard, DevelopmentCards},
@@ -18,6 +18,7 @@ fn draw_board(
     mut materials: ResMut<'_, Assets<ColorMaterial>>,
     mut meshes: ResMut<'_, Assets<Mesh>>,
     commands: &mut Commands<'_, '_>,
+    layout: Layout,
 ) {
     let text_justification = JustifyText::Center;
     // let mut commands = commands.entity(layout.board);
@@ -205,12 +206,14 @@ pub fn setup(
     commands: &mut Commands<'_, '_>,
     meshes: ResMut<'_, Assets<Mesh>>,
     materials: ResMut<'_, Assets<ColorMaterial>>,
+    layout: Layout,
 ) {
     draw_board(
         generate_board(commands).into_iter(),
         materials,
         meshes,
         commands,
+        layout,
     );
     generate_development_cards(commands);
     generate_pieces(commands);
