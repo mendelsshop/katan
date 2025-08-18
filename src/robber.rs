@@ -263,47 +263,6 @@ pub fn counter_text_update(
         }
     }
 }
-pub fn counter_up_interaction(
-    mut interaction_query: Query<
-        '_,
-        '_,
-        (
-            &Interaction,
-            &mut Button,
-            &mut BackgroundColor,
-            &ResourcesRef,
-            &UpButton,
-        ),
-        (Changed<Interaction>,),
-    >,
-
-    mut counter_query: Query<'_, '_, &mut Resources>,
-) {
-    for (interaction, mut button, mut color, resources, max) in &mut interaction_query {
-        if let Ok(resource) = counter_query
-            .get_mut(resources.0)
-            .map(bevy::prelude::Mut::into_inner)
-            .map(|r| r.get_mut(resources.1))
-            && *resource < max.max_individual
-        {
-            match *interaction {
-                Interaction::Pressed => {
-                    *color = PRESSED_BUTTON.into();
-                    *resource += 1;
-                    button.set_changed();
-                }
-                Interaction::Hovered => {
-                    *color = HOVERED_BUTTON.into();
-                    button.set_changed();
-                }
-                Interaction::None => {
-                    *color = NORMAL_BUTTON.into();
-                    button.set_changed();
-                }
-            }
-        }
-    }
-}
 
 #[derive(Resource)]
 pub struct PreRobberDiscardLeft(pub u8);
@@ -351,45 +310,7 @@ pub fn counter_sumbit_interaction(
         }
     }
 }
-pub fn counter_down_interaction(
-    mut interaction_query: Query<
-        '_,
-        '_,
-        (
-            &Interaction,
-            &mut Button,
-            &mut BackgroundColor,
-            &ResourcesRef,
-        ),
-        (Changed<Interaction>, With<DownButton>),
-    >,
-    mut counter_query: Query<'_, '_, &mut Resources>,
-) {
-    for (interaction, mut button, mut color, resources) in &mut interaction_query {
-        if let Ok(resource) = counter_query
-            .get_mut(resources.0)
-            .map(bevy::prelude::Mut::into_inner)
-            .map(|r| r.get_mut(resources.1))
-            && *resource > 0
-        {
-            match *interaction {
-                Interaction::Pressed => {
-                    *color = PRESSED_BUTTON.into();
-                    *resource -= 1;
-                    button.set_changed();
-                }
-                Interaction::Hovered => {
-                    *color = HOVERED_BUTTON.into();
-                    button.set_changed();
-                }
-                Interaction::None => {
-                    *color = NORMAL_BUTTON.into();
-                    button.set_changed();
-                }
-            }
-        }
-    }
-}
+
 fn setup_take_extra_resources(
     commands: &mut Commands<'_, '_>,
     camera: Entity,
@@ -398,55 +319,53 @@ fn setup_take_extra_resources(
     resources_entity: Entity,
     resources_needed: u8,
 ) {
-    commands
-        .spawn((
-            UiTargetCamera(camera),
-            Node {
-                display: Display::Grid,
-                grid_template_columns: vec![
-                    GridTrack::min_content(),
-                    GridTrack::min_content(),
-                    GridTrack::min_content(),
-                    GridTrack::min_content(),
-                    GridTrack::min_content(),
-                    GridTrack::flex(1.),
-                ],
+    commands.spawn((
+        UiTargetCamera(camera),
+        Node {
+            display: Display::Grid,
+            grid_template_columns: vec![
+                GridTrack::min_content(),
+                GridTrack::min_content(),
+                GridTrack::min_content(),
+                GridTrack::min_content(),
+                GridTrack::min_content(),
+                GridTrack::flex(1.),
+            ],
 
-                ..default()
-            },
-        ))
-        .with_children(|builder: &mut ChildSpawnerCommands<'_>| {
-            slider_bundle(
-                builder,
+            ..default()
+        },
+        children![
+            resources_management::slider_bundle(
                 resources.wood,
                 resources_entity,
                 resources::Resource::Wood,
-            );
-            slider_bundle(
-                builder,
+                true,
+            ),
+            resources_management::slider_bundle(
                 resources.brick,
                 resources_entity,
                 resources::Resource::Brick,
-            );
-            slider_bundle(
-                builder,
+                true,
+            ),
+            resources_management::slider_bundle(
                 resources.sheep,
                 resources_entity,
                 resources::Resource::Sheep,
-            );
-            slider_bundle(
-                builder,
+                true,
+            ),
+            resources_management::slider_bundle(
                 resources.wheat,
                 resources_entity,
                 resources::Resource::Wheat,
-            );
-            slider_bundle(
-                builder,
+                true,
+            ),
+            resources_management::slider_bundle(
                 resources.ore,
                 resources_entity,
                 resources::Resource::Ore,
-            );
-            builder.spawn((
+                true,
+            ),
+            (
                 Node {
                     display: Display::Grid,
                     align_self: AlignSelf::Center,
@@ -462,77 +381,12 @@ fn setup_take_extra_resources(
                 BorderColor(Color::BLACK),
                 WindowRef(window),
                 Text::new("confirm".to_string()),
-            ));
-        });
+            ),
+        ],
+    ));
 }
 #[derive(Component)]
 pub struct SumbitButton {
     new_max_resources: u8,
     resource_ref: Entity,
-}
-#[derive(Component)]
-pub struct UpButton {
-    max_individual: u8,
-}
-#[derive(Component)]
-pub struct DownButton;
-#[derive(Component)]
-pub struct Value;
-
-#[derive(Component)]
-pub struct ResourcesRef(Entity, resources::Resource);
-fn slider_bundle(
-    builder: &mut ChildSpawnerCommands<'_>,
-    resource_count: u8,
-    resources: Entity,
-    specific_resource: resources::Resource,
-) {
-    builder.spawn((
-        Node {
-            display: Display::Grid,
-            margin: UiRect::all(Val::Px(3.0)),
-            grid_template_rows: vec![GridTrack::auto(), GridTrack::auto(), GridTrack::auto()],
-            border: UiRect::all(Val::Px(3.0)),
-            ..default()
-        },
-        BorderColor(Color::BLACK),
-        children![
-            (
-                UpButton {
-                    max_individual: resource_count
-                },
-                Node {
-                    display: Display::Grid,
-                    margin: UiRect::all(Val::Px(3.0)),
-                    ..default()
-                },
-                Button,
-                BackgroundColor(NORMAL_BUTTON),
-                Text::new("+".to_string()),
-                ResourcesRef(resources, specific_resource),
-            ),
-            (
-                Node {
-                    justify_self: JustifySelf::Center,
-                    display: Display::Grid,
-                    ..default()
-                },
-                Value,
-                Text::new(resource_count.to_string()),
-                ResourcesRef(resources, specific_resource),
-            ),
-            (
-                DownButton,
-                Node {
-                    display: Display::Grid,
-                    margin: UiRect::all(Val::Px(3.0)),
-                    ..default()
-                },
-                Button,
-                BackgroundColor(NORMAL_BUTTON),
-                Text::new("-".to_string()),
-                ResourcesRef(resources, specific_resource),
-            )
-        ],
-    ));
 }

@@ -13,6 +13,7 @@ mod development_cards;
 mod dice;
 mod positions;
 mod resources;
+mod resources_management;
 mod roads;
 mod robber;
 mod setup_game;
@@ -63,6 +64,15 @@ fn main() {
         cleanup_button::<BuildingPosition>,
     );
     app.add_systems(OnExit(GameState::PlaceRoad), cleanup_button::<RoadPosition>);
+    app.add_systems(
+        OnTransition {
+            // you might think, that we would do this after the last town (with SetupTown), but due
+            // to how the color/player changing logic for setup its not acutally so
+            exited: GameState::SetupRoad,
+            entered: GameState::Roll,
+        },
+        resources_management::setup_players_resources,
+    );
     app.add_systems(
         OnExit(RoadBuildingState::Road1),
         (
@@ -222,12 +232,17 @@ fn main() {
     app.add_systems(
         Update,
         (
-            robber::counter_up_interaction,
-            robber::counter_down_interaction,
-            robber::counter_sumbit_interaction,
-            robber::counter_text_update,
-        )
-            .run_if(in_state(GameState::RobberDiscardResources)),
+            (
+                robber::counter_sumbit_interaction,
+                robber::counter_text_update,
+            )
+                .run_if(in_state(GameState::RobberDiscardResources)),
+            (
+                resources_management::slider_down_interaction,
+                resources_management::slider_up_interaction,
+            )
+                .run_if(in_state(GameState::RobberDiscardResources).or(in_state(GameState::Turn))),
+        ),
     );
 
     app.add_systems(
@@ -481,6 +496,7 @@ fn setup(
 pub struct Layout {
     pub player_banner: Entity,
     pub development_cards: Entity,
+    pub setting_pull_out: Entity,
     pub resources: Entity,
     pub board: Entity,
     pub ui: Entity,
@@ -496,6 +512,17 @@ fn layout(commands: &mut Commands<'_, '_>) -> Layout {
             },
             BorderColor(Color::BLACK),
             children![Text("banner".to_string()),],
+        ))
+        .id();
+    let settings_pull_out_layout = commands
+        .spawn((
+            Node {
+                display: Display::Grid,
+                border: UiRect::all(Val::Px(1.)),
+                ..default()
+            },
+            BorderColor(Color::BLACK),
+            children![Text("settings".to_string()),],
         ))
         .id();
     let development_cards_layout = commands
@@ -523,13 +550,21 @@ fn layout(commands: &mut Commands<'_, '_>) -> Layout {
     let mut card_layout = commands.spawn((
         Node {
             display: Display::Grid,
-            grid_template_rows: vec![GridTrack::percent(85.), GridTrack::percent(15.)],
+            grid_template_rows: vec![
+                GridTrack::percent(60.),
+                GridTrack::percent(20.),
+                GridTrack::percent(20.),
+            ],
             border: UiRect::all(Val::Px(1.)),
             ..default()
         },
         BorderColor(Color::BLACK),
     ));
-    card_layout.add_children(&[development_cards_layout, resources_layout]);
+    card_layout.add_children(&[
+        settings_pull_out_layout,
+        development_cards_layout,
+        resources_layout,
+    ]);
     let card_layout = card_layout.id();
     let board_layout = commands
         .spawn((
@@ -556,7 +591,7 @@ fn layout(commands: &mut Commands<'_, '_>) -> Layout {
     let mut main_ui_layout = commands.spawn((
         Node {
             display: Display::Grid,
-            grid_template_rows: vec![GridTrack::percent(90.), GridTrack::percent(10.)],
+            grid_template_rows: vec![GridTrack::percent(85.), GridTrack::percent(15.)],
             border: UiRect::all(Val::Px(1.)),
             ..default()
         },
@@ -603,6 +638,7 @@ fn layout(commands: &mut Commands<'_, '_>) -> Layout {
         board: board_layout,
         ui: ui_layout,
         chat: chat_layout,
+        setting_pull_out: settings_pull_out_layout,
     }
 }
 pub fn find_with_color<'a, T>(
