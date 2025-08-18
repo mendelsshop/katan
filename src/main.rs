@@ -424,38 +424,6 @@ fn place_normal_interaction<
 // TODO: maybe we should impose an order on postions for stuff like roads so that comparing them is
 // easeier (i.e. first postion is smallest ....)
 
-fn draw_board(
-    q: impl Iterator<Item = (Position, Hexagon, Number)>,
-    mut materials: ResMut<'_, Assets<ColorMaterial>>,
-    mut meshes: ResMut<'_, Assets<Mesh>>,
-    commands: &mut Commands<'_, '_>,
-) {
-    let text_justification = JustifyText::Center;
-    for q in q {
-        let mesh = meshes.add(RegularPolygon::new(25.0, 6));
-        let mesh1 = meshes.add(Circle::new(13.0));
-        let (x, y) = FPosition::hex_to_pixel(q.0.into());
-        commands.spawn((
-            Mesh2d(mesh),
-            MeshMaterial2d(materials.add(q.1.color())),
-            Transform::from_xyz(x * 28.0, y * 28., 0.0),
-        ));
-
-        if let Number::Number(n) = q.2 {
-            let mesh2 = Text2d::new(n.to_string());
-            commands.spawn((
-                Mesh2d(mesh1),
-                MeshMaterial2d(materials.add(Color::BLACK)),
-                Transform::from_xyz(x * 28.0, y * 28., 0.0),
-            ));
-            commands.spawn((
-                mesh2,
-                TextLayout::new_with_justify(text_justification),
-                Transform::from_xyz(x * 28.0, y * 28., 0.0),
-            ));
-        }
-    }
-}
 #[derive(Component, PartialEq, Eq, Debug)]
 struct Left(pub u8);
 

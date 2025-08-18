@@ -7,14 +7,49 @@ use crate::{
     cities::City,
     colors::CatanColor,
     development_cards::{DevelopmentCard, DevelopmentCards},
-    draw_board,
-    positions::{self, Position},
+    positions::{self, FPosition, Position},
     resources::Resources,
 };
 use bevy::prelude::*;
 use itertools::Itertools;
 use rand::seq::SliceRandom;
+fn draw_board(
+    q: impl Iterator<Item = (Position, Hexagon, Number)>,
+    mut materials: ResMut<'_, Assets<ColorMaterial>>,
+    mut meshes: ResMut<'_, Assets<Mesh>>,
+    commands: &mut Commands<'_, '_>,
+) {
+    let text_justification = JustifyText::Center;
+    // let mut commands = commands.entity(layout.board);
+    for q in q {
+        let mesh = meshes.add(RegularPolygon::new(70.0, 6));
+        let mesh1 = meshes.add(Circle::new(30.0));
+        let (x, y) = FPosition::hex_to_pixel(q.0.into());
+        commands.spawn((
+            Mesh2d(mesh),
+            MeshMaterial2d(materials.add(q.1.color())),
+            Transform::from_xyz(x * 77.0, y * 77., 0.0),
+        ));
 
+        if let Number::Number(n) = q.2 {
+            let mesh2 = Text2d::new(n.to_string());
+            commands.spawn((
+                Mesh2d(mesh1),
+                MeshMaterial2d(materials.add(Color::BLACK)),
+                Transform::from_xyz(x * 77.0, y * 77., 0.0),
+            ));
+            commands.spawn((
+                mesh2,
+                TextLayout::new_with_justify(text_justification),
+                TextFont {
+                    font_size: 45.0,
+                    ..Default::default()
+                },
+                Transform::from_xyz(x * 77.0, y * 77., 0.0),
+            ));
+        }
+    }
+}
 fn generate_development_cards(commands: &mut Commands<'_, '_>) {
     let mut development_cards = [
         DevelopmentCard::Knight,

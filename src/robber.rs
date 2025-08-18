@@ -46,10 +46,10 @@ pub fn place_robber(mut commands: Commands<'_, '_>, robber: Res<'_, Robber>) {
                     RobberButton,
                     Node {
                         position_type: PositionType::Relative,
-                        width: Val::Px(15.0),
-                        height: Val::Px(15.0),
-                        left: Val::Px(x * 28.),
-                        bottom: Val::Px(y * 28.),
+                        width: Val::Px(25.0),
+                        height: Val::Px(25.0),
+                        left: Val::Px(x * 77.),
+                        bottom: Val::Px(y * 77.),
                         ..default()
                     },
                     p,

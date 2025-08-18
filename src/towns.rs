@@ -47,10 +47,10 @@ pub fn place_normal_town(
                     Button,
                     Node {
                         position_type: PositionType::Relative,
-                        width: Val::Px(15.0),
-                        height: Val::Px(15.0),
-                        left: Val::Px(x * 28.),
-                        bottom: Val::Px(y * 28.),
+                        width: Val::Px(25.0),
+                        height: Val::Px(25.0),
+                        left: Val::Px(x * 77.),
+                        bottom: Val::Px(y * 77.),
                         ..default()
                     },
                     p,
@@ -95,10 +95,10 @@ pub fn place_setup_town(
                     Button,
                     Node {
                         position_type: PositionType::Relative,
-                        width: Val::Px(15.0),
-                        height: Val::Px(15.0),
-                        left: Val::Px(x * 28.),
-                        bottom: Val::Px(y * 28.),
+                        width: Val::Px(25.0),
+                        height: Val::Px(25.0),
+                        left: Val::Px(x * 77.),
+                        bottom: Val::Px(y * 77.),
                         ..default()
                     },
                     p,
@@ -188,7 +188,7 @@ impl UI for TownUI {
         (
             Mesh2d(mesh1),
             MeshMaterial2d(materials.add(color.to_bevy_color())),
-            Transform::from_xyz(x * 28.0, y * 28., 0.0),
+            Transform::from_xyz(x * 77.0, y * 77., 0.0),
         )
     }
 
