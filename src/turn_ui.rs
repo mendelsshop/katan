@@ -41,7 +41,7 @@ pub fn turn_ui_roll_interaction(
     mut player_resources: Query<'_, '_, (&CatanColor, &mut Resources)>,
     mut resources: ResMut<'_, Resources>,
     robber: Res<'_, Robber>,
-    mut die_q: Query<'_, '_, &mut Text, With<DieButton>>,
+    mut die_q: Query<'_, '_, (&mut Text, &mut Transform), With<DieButton>>,
 ) {
     for (_, interaction, mut button) in &mut interaction_query {
         match *interaction {
@@ -310,7 +310,7 @@ pub fn show_turn_ui(
                 TextLayout::new_with_justify(JustifyText::Center),
                 TextColor(Color::BLACK),
                 Button,
-                Text::new("1"),
+                Text::new("0"),
                 DieButton,
             ),
         ],

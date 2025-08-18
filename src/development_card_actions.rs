@@ -4,7 +4,7 @@ use bevy::prelude::*;
 
 use crate::{
     GameState,
-    colors::{CatanColor, CurrentColor, HOVERED_BUTTON, NORMAL_BUTTON, PRESSED_BUTTON},
+    colors::{CatanColor, CurrentColor, HOVERED_BUTTON, PRESSED_BUTTON},
     find_with_color,
     resources::{self, Resources},
 };

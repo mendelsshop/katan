@@ -169,7 +169,7 @@ pub fn buy_development_card_interaction(
 pub fn show_dev_cards(
     player_dev_cards: Query<'_, '_, (&CatanColor, &DevelopmentCards), Changed<DevelopmentCards>>,
     res: Res<'_, CurrentColor>,
-    mut commands: Commands<'_, '_>,
+    commands: Commands<'_, '_>,
 ) {
     if let Some(dev_cards) = find_with_color(&res.0, player_dev_cards.iter()) {}
 }

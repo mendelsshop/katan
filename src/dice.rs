@@ -17,7 +17,7 @@ pub fn full_roll_dice(
     player_resources: &mut Query<'_, '_, (&CatanColor, &mut Resources)>,
     resources: &mut ResMut<'_, Resources>,
     robber: Res<'_, Robber>,
-    die_q: &mut Query<'_, '_, &mut Text, With<DieButton>>,
+    die_q: &mut Query<'_, '_, (&mut Text, &mut Transform), With<DieButton>>,
     game_state: &mut ResMut<'_, NextState<GameState>>,
 ) {
     let (roll, d1, d2) = roll_dice();
@@ -26,7 +26,12 @@ pub fn full_roll_dice(
         .iter_mut()
         .zip([d1, d2])
         .for_each(|(mut die_ui, new_roll)| {
-            **die_ui = new_roll.to_string();
+            *die_ui.1 = die_ui
+                .1
+                .with_rotation(Quat::from_rotation_z(rand::random_range((-25.)..(4.))));
+            // TODO: maybe make dice move not only rotate
+
+            **die_ui.0 = new_roll.to_string();
         });
 
     // TODO: what happens when 7 rolled

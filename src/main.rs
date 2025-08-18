@@ -27,7 +27,7 @@ use crate::{
         PRESSED_BUTTON, SetupColorIterator,
     },
     development_card_actions::{MonopolyButton, RoadBuildingState, YearOfPlentyButton},
-    positions::{BuildingPosition, FPosition, Position, RoadPosition},
+    positions::{BuildingPosition, Position, RoadPosition},
     resources::Resources,
     roads::{Road, RoadUI},
     robber::{PreRobberDiscardLeft, Robber, RobberButton, RobberChooseColorButton},
