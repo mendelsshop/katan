@@ -23,15 +23,15 @@ pub fn place_normal_road<const RESOURCE_MULTIPLIER: u8>(
     mut commands: Commands<'_, '_>,
     color_r: Res<'_, CurrentColor>,
     size_r: Res<'_, BoardSize>,
-    road_free_q: Query<'_, '_, (&Road, &CatanColor, &Left)>,
+    road_free_q: Query<'_, '_, (&CatanColor, &Left<Road>)>,
     road_q: Query<'_, '_, RoadQuery>,
     building_q: Query<'_, '_, (&'_ Building, &CatanColor, &'_ BuildingPosition)>,
     mut game_state: ResMut<'_, NextState<GameState>>,
 ) {
-    let unplaced_roads_correct_color = road_free_q.iter().find(|r| r.1 == &color_r.0);
+    let unplaced_roads_correct_color = road_free_q.iter().find(|r| r.0 == &color_r.0);
 
     // no roads to place
-    let Some(_) = unplaced_roads_correct_color.filter(|r| r.2.0 > 0) else {
+    let Some(_) = unplaced_roads_correct_color.filter(|r| r.1.0 > 0) else {
         return;
     };
 

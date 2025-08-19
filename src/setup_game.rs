@@ -1,9 +1,9 @@
 //! functions to generate initial game state
 //! like hex placement
-use std::mem::swap;
+use std::{marker::PhantomData, mem::swap};
 
 use crate::{
-    Hexagon, Layout, Left, Number, Road, Robber, Town,
+    Hexagon, Layout, Left, Number, Road, Robber, Town, VictoryPoints,
     cities::City,
     colors::CatanColor,
     development_cards::{DevelopmentCard, DevelopmentCards},
@@ -195,11 +195,15 @@ fn generate_pieces(commands: &mut Commands<'_, '_>) {
         CatanColor::Green,
         CatanColor::White,
     ] {
-        commands.spawn((Town, color, Left(5)));
-        commands.spawn((City, color, Left(4)));
-        commands.spawn((Road, color, Left(15)));
-        commands.spawn((Resources::new_player(), color));
-        commands.spawn((DevelopmentCards::new_player(), color));
+        commands.spawn((
+            color,
+            Left::<Town>(5, PhantomData),
+            Left::<City>(4, PhantomData),
+            Left::<Road>(15, PhantomData),
+            Resources::new_player(),
+            DevelopmentCards::new_player(),
+            VictoryPoints(0),
+        ));
     }
 }
 pub fn setup(

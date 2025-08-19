@@ -20,6 +20,8 @@ mod setup_game;
 mod towns;
 mod turn_ui;
 
+use std::marker::PhantomData;
+
 use bevy::prelude::*;
 
 use crate::{
@@ -367,7 +369,7 @@ fn place_normal_interaction<
     mut commands: Commands<'_, '_>,
     mut meshes: ResMut<'_, Assets<Mesh>>,
     mut materials: ResMut<'_, Assets<ColorMaterial>>,
-    mut kind_free_q: Query<'_, '_, (&Kind, &CatanColor, &mut Left)>,
+    mut kind_free_q: Query<'_, '_, (&CatanColor, &mut Left<Kind>)>,
     mut interaction_query: Query<
         '_,
         '_,
@@ -390,9 +392,9 @@ fn place_normal_interaction<
                 button.set_changed();
 
                 commands.spawn((Kind::default(), current_color, *entity));
-                let kind_left = kind_free_q.iter_mut().find(|x| x.1 == &current_color);
-                if let Some((_, _, mut left)) = kind_left {
-                    *left = Left(left.0 - 1);
+                let kind_left = kind_free_q.iter_mut().find(|x| x.0 == &current_color);
+                if let Some((_, mut left)) = kind_left {
+                    left.0 -= 1;
                 }
                 let player_resources = player_resources.iter_mut().find(|x| x.1 == &current_color);
                 if let Some((mut resources, _)) = player_resources {
@@ -440,13 +442,15 @@ fn place_normal_interaction<
 // easeier (i.e. first postion is smallest ....)
 
 #[derive(Component, PartialEq, Eq, Debug)]
-struct Left(pub u8);
+struct Left<T>(pub u8, PhantomData<T>);
 
 // town city "enherit" from building make some quries easier
 // i think right way to do it with is with `[require(..)]`
 #[derive(Component, PartialEq, Default, Clone, Copy)]
 struct Building;
 
+#[derive(Component, PartialEq, Default, Clone, Copy, Debug)]
+pub struct VictoryPoints(pub u8);
 fn setup(
     mut next_state: ResMut<'_, NextState<GameState>>,
     mut commands: Commands<'_, '_>,

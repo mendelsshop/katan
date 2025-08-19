@@ -150,9 +150,10 @@ pub fn slider_down_interaction(
                 }
                 Interaction::None => {
                     *color = NORMAL_BUTTON.into();
-                    button.set_changed();
                 }
             }
+        } else {
+            *color = NORMAL_BUTTON.into();
         }
     }
 }
@@ -191,9 +192,10 @@ pub fn slider_up_interaction(
                 }
                 Interaction::None => {
                     *color = NORMAL_BUTTON.into();
-                    button.set_changed();
                 }
             }
+        } else {
+            *color = NORMAL_BUTTON.into();
         }
     }
 }
