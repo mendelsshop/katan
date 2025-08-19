@@ -15,7 +15,7 @@ pub fn place_normal_town(
     mut commands: Commands<'_, '_>,
     color_r: Res<'_, CurrentColor>,
     size_r: Res<'_, BoardSize>,
-    town_free_q: Query<'_, '_, (&Left<Town>), With<CatanColor>>,
+    town_free_q: Query<'_, '_, &Left<Town>, With<CatanColor>>,
     road_q: Query<'_, '_, RoadQuery>,
     building_q: Query<'_, '_, (&'_ Building, &'_ CatanColor, &'_ BuildingPosition)>,
     mut game_state: ResMut<'_, NextState<GameState>>,

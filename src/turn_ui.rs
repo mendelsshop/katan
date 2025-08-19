@@ -28,7 +28,7 @@ pub struct NextButton;
 // for roll there are two dice so it cannot be a single (its probably possible to have on dice
 // thing which looks like two dice)
 pub fn turn_ui_roll_interaction(
-    mut game_state: ResMut<'_, NextState<GameState>>,
+    game_state: ResMut<'_, NextState<GameState>>,
     mut interaction_query: Query<
         '_,
         '_,
@@ -36,12 +36,12 @@ pub fn turn_ui_roll_interaction(
         Changed<Interaction>,
     >,
     board: Query<'_, '_, (&Hexagon, &Number, &Position)>,
-    towns: Query<'_, '_, (&Town, &CatanColor, &BuildingPosition)>,
-    cities: Query<'_, '_, (&City, &CatanColor, &BuildingPosition)>,
-    mut player_resources: Query<'_, '_, (&CatanColor, &mut Resources)>,
-    mut resources: ResMut<'_, Resources>,
+    towns: Query<'_, '_, (&ChildOf, &Town, &BuildingPosition), With<CatanColor>>,
+    cities: Query<'_, '_, (&ChildOf, &City, &BuildingPosition), With<CatanColor>>,
+    player_resources: Query<'_, '_, &mut Resources, With<CatanColor>>,
+    resources: ResMut<'_, Resources>,
     robber: Res<'_, Robber>,
-    mut die_q: Query<'_, '_, (&mut Text, &mut Transform), With<DieButton>>,
+    die_q: Query<'_, '_, (&mut Text, &mut Transform), With<DieButton>>,
 ) {
     for (_, interaction, mut button) in &mut interaction_query {
         match *interaction {
@@ -49,15 +49,16 @@ pub fn turn_ui_roll_interaction(
                 button.set_changed();
 
                 crate::dice::full_roll_dice(
-                    &board,
-                    &towns,
-                    &cities,
-                    &mut player_resources,
-                    &mut resources,
+                    board,
+                    towns,
+                    cities,
+                    player_resources,
+                    resources,
                     robber,
-                    &mut die_q,
-                    &mut game_state,
+                    die_q,
+                    game_state,
                 );
+
                 button.set_changed();
                 break;
             }
@@ -95,7 +96,7 @@ pub fn turn_ui_city_interaction(
     color_r: Res<'_, CurrentColor>,
 ) {
     let player_resources = player_resources.get(color_r.0.entity);
-    if let Ok((resources)) = player_resources {
+    if let Ok(resources) = player_resources {
         let (_, interaction, mut button) = interaction_query.into_inner();
         if resources.contains(CITY_RESOURCES) {
             match *interaction {

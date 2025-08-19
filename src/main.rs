@@ -22,12 +22,10 @@ mod turn_ui;
 
 use std::marker::PhantomData;
 
-use bevy::{
-    ecs::query::{QueryData, QueryEntityError},
-    prelude::*,
-};
+use bevy::prelude::*;
 
 use crate::{
+    cities::BuildingRef,
     colors::{
         CatanColor, CatanColorRef, ColorIterator, CurrentColor, CurrentSetupColor, HOVERED_BUTTON,
         NORMAL_BUTTON, PRESSED_BUTTON, SetupColorIterator,
@@ -106,10 +104,7 @@ fn main() {
         OnExit(GameState::PlaceTown),
         cleanup_button::<BuildingPosition>,
     );
-    app.add_systems(
-        OnExit(GameState::PlaceCity),
-        cleanup_button::<BuildingPosition>,
-    );
+    app.add_systems(OnExit(GameState::PlaceCity), cleanup_button::<BuildingRef>);
 
     app.add_systems(
         OnExit(GameState::PlaceRobber),
@@ -407,7 +402,11 @@ fn place_normal_interaction<
 
                 button.set_changed();
 
-                commands.spawn((Kind::default(), current_color, *pos));
+                commands.entity(current_color_entity).with_child((
+                    Kind::default(),
+                    current_color,
+                    *pos,
+                ));
                 let kind_left = kind_free_and_resources_q.get_mut(current_color_entity).ok();
                 if let Some((mut resources, mut left)) = kind_left {
                     *resources -= *required_resources;
@@ -637,9 +636,3 @@ fn layout(commands: &mut Commands<'_, '_>) -> Layout {
 
 // TODO: eventually buildings/roads will be linked to the main player entity, at which point
 // find with color won't be needed
-pub fn find_with_color<'a, T>(
-    c: &CatanColor,
-    mut resources: impl Iterator<Item = (&'a CatanColor, T)>,
-) -> Option<(&'a CatanColor, T)> {
-    resources.find(|r| r.0 == c)
-}

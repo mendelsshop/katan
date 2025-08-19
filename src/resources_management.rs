@@ -6,7 +6,7 @@ use crate::{
     resources::{self, Resources},
 };
 pub fn show_player_resources(
-    player_dev_cards: Query<'_, '_, (&CatanColor, &Resources), Changed<Resources>>,
+    player_resources: Query<'_, '_, (&CatanColor, &Resources), Changed<Resources>>,
     res: Res<'_, CurrentColor>,
     commands: Commands<'_, '_>,
 ) {

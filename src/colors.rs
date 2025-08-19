@@ -21,7 +21,8 @@ impl From<CurrentColor> for CatanColor {
     fn from(value: CurrentColor) -> Self {
         value.0.color
     }
-}impl From<CurrentColor> for Entity {
+}
+impl From<CurrentColor> for Entity {
     fn from(value: CurrentColor) -> Self {
         value.0.entity
     }

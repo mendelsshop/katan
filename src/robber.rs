@@ -7,7 +7,9 @@ use itertools::Itertools;
 
 use crate::{
     Building, GameState,
-    colors::{CatanColor, CurrentColor, HOVERED_BUTTON, NORMAL_BUTTON, PRESSED_BUTTON},
+    colors::{
+        CatanColor, CatanColorRef, CurrentColor, HOVERED_BUTTON, NORMAL_BUTTON, PRESSED_BUTTON,
+    },
     positions::{BuildingPosition, FPosition, Position, generate_postions},
     resources::{self, Resources, take_resource},
     resources_management::{self, ResourcesRef, Value},
@@ -74,12 +76,12 @@ pub fn place_robber_interaction(
         (&Interaction, &Position, &mut Button, &mut BackgroundColor),
         (Changed<Interaction>, With<RobberButton>),
     >,
-    building_q: Query<'_, '_, (&CatanColor, &'_ BuildingPosition), With<Building>>,
+    building_q: Query<'_, '_, (&ChildOf, &CatanColor, &'_ BuildingPosition), With<Building>>,
     current_color: Res<'_, CurrentColor>,
     mut robber: ResMut<'_, Robber>,
-    mut player_resources: Query<'_, '_, (&CatanColor, &mut Resources)>,
-    mut commands: Commands<'_, '_>,
-    mut state: ResMut<'_, NextState<GameState>>,
+    player_resources: Query<'_, '_, (&CatanColor, &mut Resources)>,
+    commands: Commands<'_, '_>,
+    state: ResMut<'_, NextState<GameState>>,
 ) {
     for (interaction, position, mut button, mut color) in &mut robber_places_query {
         match *interaction {
@@ -90,11 +92,12 @@ pub fn place_robber_interaction(
                 choose_player_to_take_from(
                     position,
                     *current_color,
-                    building_q.into_iter(),
-                    &mut player_resources,
-                    &mut commands,
-                    &mut state,
+                    building_q,
+                    player_resources,
+                    commands,
+                    state,
                 );
+                break;
             }
             Interaction::Hovered => {
                 *color = HOVERED_BUTTON.into();
@@ -111,33 +114,35 @@ pub struct RobberChooseColorButton;
 fn choose_player_to_take_from<'a>(
     position: &Position,
     color: CurrentColor,
-    used_buildings: impl Iterator<Item = (&'a CatanColor, &'a BuildingPosition)> + Clone,
-    resources: &mut Query<'_, '_, (&CatanColor, &mut Resources)>,
-    commands: &mut Commands<'_, '_>,
-    state: &mut ResMut<'_, NextState<GameState>>,
+    building_q: Query<'_, '_, (&ChildOf, &CatanColor, &'_ BuildingPosition), With<Building>>,
+    mut player_resources: Query<'_, '_, (&CatanColor, &mut Resources)>,
+    mut commands: Commands<'_, '_>,
+    mut state: ResMut<'_, NextState<GameState>>,
 ) {
     // TODO: eventually buildings/roads will be linked to the main player entity, at which point
     // find with color won't be needed
-    let mut colors = used_buildings
-        .filter_map(|(c, b)| {
+    let mut colors = building_q
+        .iter()
+        .filter_map(|(p, c, b)| {
             (c != &color.0.color
                 && b.contains(position)
                 // we check that are enough resources to steal instead of later on, becuase if
                 // there are no one to steal from them we need to go back to turn, and its much
                 // easer to check that here than later on espicially if there are mutlitple players
                 // surrounding the hex
-                && crate::find_with_color(c, resources.iter()).is_some_and(|r| r.1.count() > 0))
-            .then_some(c)
+                && player_resources.get(p.parent()).ok().is_some_and(|r| r.1.count() > 0))
+            .then_some(CatanColorRef {
+                entity: p.parent(),
+                color: *c,
+            })
         })
         .unique()
         .collect_vec();
     if colors.len() == 1 {
         let other_color = colors.remove(0);
-        let (_, mut other_color_resources) =
-            crate::find_with_color(other_color, resources.iter_mut()).unwrap();
+        let (_, mut other_color_resources) = player_resources.get_mut(other_color.entity).unwrap();
         let put_resources = take_resource(&mut other_color_resources);
-        let mut current_resources =
-            crate::find_with_color(&color.0.color, resources.iter_mut()).unwrap();
+        let mut current_resources = player_resources.get_mut(color.0.entity).unwrap();
         put_resources(&mut current_resources.1);
 
         // either we are coming from roll(7) or in middle of turn(dev card) but we always go back to
@@ -170,7 +175,7 @@ fn choose_player_to_take_from<'a>(
                         ..default()
                     },
                     RobberChooseColorButton,
-                    **color,
+                    *color,
                     BorderRadius::MAX,
                     BackgroundColor(color.to_bevy_color()),
                 )],
@@ -186,7 +191,12 @@ pub fn choose_player_to_take_from_interaction(
     mut robber_taking_query: Query<
         '_,
         '_,
-        (&Interaction, &CatanColor, &mut Button, &mut BackgroundColor),
+        (
+            &Interaction,
+            &CatanColorRef,
+            &mut Button,
+            &mut BackgroundColor,
+        ),
         (Changed<Interaction>, With<RobberChooseColorButton>),
     >,
     mut state: ResMut<'_, NextState<GameState>>,
@@ -195,10 +205,10 @@ pub fn choose_player_to_take_from_interaction(
         match *interaction {
             Interaction::Pressed => {
                 button.set_changed();
-                let mut other_resources =
-                    crate::find_with_color(color, player_resources.iter_mut()).unwrap();
 
-                let put_resources = take_resource(&mut other_resources.1);
+                let (_, mut other_color_resources) =
+                    player_resources.get_mut(color.entity).unwrap();
+                let put_resources = take_resource(&mut other_color_resources);
                 let mut current_resources =
                     player_resources.get_mut(current_color.0.entity).unwrap();
                 put_resources(&mut current_resources.1);
@@ -208,10 +218,10 @@ pub fn choose_player_to_take_from_interaction(
                 break;
             }
             Interaction::Hovered => {
-                *button_color = (if color == &CatanColor::White {
-                    color.to_bevy_color().darker(0.2)
+                *button_color = (if color.color == CatanColor::White {
+                    (*button_color).0.darker(0.2)
                 } else {
-                    color.to_bevy_color().lighter(0.1)
+                    (*button_color).0.lighter(0.1)
                 })
                 .into();
 

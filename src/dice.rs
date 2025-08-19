@@ -4,21 +4,20 @@ use crate::{
     BuildingPosition, CatanColor, GameState, Hexagon, Number, Position, Resources, Robber, Town,
     cities::City, turn_ui::DieButton,
 };
-use itertools::Itertools;
 fn roll_dice() -> (u8, u8, u8) {
     let dice1 = rand::random_range(1..=6);
     let dice2 = rand::random_range(1..=6);
     (dice1 + dice2, dice1, dice2)
 }
 pub fn full_roll_dice(
-    board: &Query<'_, '_, (&Hexagon, &Number, &Position)>,
-    towns: &Query<'_, '_, (&Town, &CatanColor, &BuildingPosition)>,
-    cities: &Query<'_, '_, (&City, &CatanColor, &BuildingPosition)>,
-    player_resources: &mut Query<'_, '_, (&CatanColor, &mut Resources)>,
-    resources: &mut ResMut<'_, Resources>,
+    board: Query<'_, '_, (&Hexagon, &Number, &Position)>,
+    towns: Query<'_, '_, (&ChildOf, &Town, &BuildingPosition), With<CatanColor>>,
+    cities: Query<'_, '_, (&ChildOf, &City, &BuildingPosition), With<CatanColor>>,
+    player_resources: Query<'_, '_, &mut Resources, With<CatanColor>>,
+    resources: ResMut<'_, Resources>,
     robber: Res<'_, Robber>,
-    die_q: &mut Query<'_, '_, (&mut Text, &mut Transform), With<DieButton>>,
-    game_state: &mut ResMut<'_, NextState<GameState>>,
+    mut die_q: Query<'_, '_, (&mut Text, &mut Transform), With<DieButton>>,
+    mut game_state: ResMut<'_, NextState<GameState>>,
 ) {
     let (roll, d1, d2) = roll_dice();
     // assumes two dice
@@ -36,7 +35,7 @@ pub fn full_roll_dice(
 
     // TODO: what happens when 7 rolled
     if roll == 7 {
-        if player_resources.iter().any(|r| r.1.count() > 7) {
+        if player_resources.iter().any(|r| r.count() > 7) {
             game_state.set(GameState::RobberDiscardResources);
         } else {
             game_state.set(GameState::PlaceRobber);
@@ -47,42 +46,46 @@ pub fn full_roll_dice(
         game_state.set(GameState::Turn);
         distribute_resources(
             roll,
-            board.iter().map(|(h, n, p)| (*h, *n, *p)),
-            towns.iter().map(|(b, c, p)| (*b, *c, *p)),
-            cities.iter().map(|(b, c, p)| (*b, *c, *p)),
-            player_resources
-                .iter_mut()
-                .map(|(c, r)| (*c, r.into_inner())),
+            board,
+            towns,
+            cities,
+            player_resources,
             resources,
-            &robber,
+            robber,
         );
     }
 }
 
 fn distribute_resources<'a>(
     roll: u8,
-    board: impl Iterator<Item = (Hexagon, Number, Position)> + Clone,
-    towns: impl Iterator<Item = (Town, CatanColor, BuildingPosition)>,
-    cities: impl Iterator<Item = (City, CatanColor, BuildingPosition)>,
-    player_resources: impl Iterator<Item = (CatanColor, &'a mut Resources)>,
-    resources: &mut Resources,
-    robber: &Robber,
+
+    board: Query<'_, '_, (&Hexagon, &Number, &Position)>,
+    towns: Query<'_, '_, (&ChildOf, &Town, &BuildingPosition), With<CatanColor>>,
+    cities: Query<'_, '_, (&ChildOf, &City, &BuildingPosition), With<CatanColor>>,
+    mut player_resources: Query<'_, '_, &mut Resources, With<CatanColor>>,
+    mut resources: ResMut<'_, Resources>,
+    robber: Res<'_, Robber>,
 ) {
-    let mut player_resources = player_resources.collect_vec();
-    let board = board.filter(|(_, number, p)| {
-        p != &robber.0 && matches!(number, Number::Number(n) if *n == roll)
-    });
-    fn on_board_with_hex<Building>(
-        board: impl Iterator<Item = (Hexagon, Number, Position)> + Clone,
-        buildings: impl Iterator<Item = (Building, CatanColor, BuildingPosition)>,
-    ) -> impl Iterator<Item = (Building, CatanColor, Hexagon)> {
-        buildings.filter_map(move |(b, catan_color, BuildingPosition::All(p1, p2, p3))| {
-            // does this need to be cloned
-            board
-                .clone()
-                .find(|(_, _, pos)| pos == &p1 || pos == &p2 || pos == &p3)
-                .map(|(hex, _, _)| (b, catan_color, hex))
+    // TODO: maybe each placed town/city should have entity pointing to all surrounding hexes
+    let board = board
+        .into_iter()
+        .filter(|(_, number, p)| {
+            p != &&robber.0 && matches!(number, Number::Number(n) if *n == roll)
         })
+        .map(|(h, n, p)| (*h, *n, *p));
+    fn on_board_with_hex<Building: Component + Copy>(
+        board: impl Iterator<Item = (Hexagon, Number, Position)> + Clone,
+        buildings: Query<'_, '_, (&ChildOf, &Building, &BuildingPosition), With<CatanColor>>,
+    ) -> impl Iterator<Item = (Building, Entity, Hexagon)> {
+        buildings.into_iter().filter_map(
+            move |(catan_color_entity, b, BuildingPosition::All(p1, p2, p3))| {
+                // does this need to be cloned
+                board
+                    .clone()
+                    .find(|(_, _, pos)| pos == p1 || pos == p2 || pos == p3)
+                    .map(|(hex, _, _)| (*b, catan_color_entity.parent(), hex))
+            },
+        )
     }
 
     fn hexagon_to_resources(hex: Hexagon) -> Resources {
@@ -129,24 +132,18 @@ fn distribute_resources<'a>(
         }
     }
     for (_, color, hex) in on_board_with_hex(board.clone(), towns) {
-        let player_resources = crate::find_with_color(
-            &color,
-            player_resources.iter_mut().map(|(color, res)| (&*color, res)),
-        );
-        if let Some((_, player_resources)) = player_resources {
+        let player_resources = player_resources.get_mut(color).ok();
+        if let Some(mut player_resources) = player_resources {
             let gained = hexagon_to_resources(hex);
-            **player_resources += gained;
+            *player_resources += gained;
             *resources -= gained;
         }
     }
     for (_, color, hex) in on_board_with_hex(board, cities) {
-        let player_resources = crate::find_with_color(
-            &color,
-            player_resources.iter_mut().map(|(color, res)| (&*color, res)),
-        );
-        if let Some((_, player_resources)) = player_resources {
+        let player_resources = player_resources.get_mut(color).ok();
+        if let Some(mut player_resources) = player_resources {
             let gained = hexagon_to_resources(hex) * 2;
-            **player_resources += gained;
+            *player_resources += gained;
             *resources -= gained;
         }
     }

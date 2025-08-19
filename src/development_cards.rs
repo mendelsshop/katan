@@ -171,5 +171,5 @@ pub fn show_dev_cards(
     res: Res<'_, CurrentColor>,
     commands: Commands<'_, '_>,
 ) {
-    if let Ok((player_dev_cards)) = player_dev_cards.get(res.0.entity) {}
+    if let Ok(player_dev_cards) = player_dev_cards.get(res.0.entity) {}
 }
