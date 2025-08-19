@@ -15,11 +15,11 @@ use crate::GameState;
 #[derive(Debug, Resource, Clone, Copy)]
 
 // TODO: what about before turn order decided
-pub struct CurrentColor(pub CatanColor);
+pub struct CurrentColor(pub CatanColorRef);
 
 impl From<CurrentColor> for CatanColor {
     fn from(value: CurrentColor) -> Self {
-        value.0
+        value.0.color
     }
 }
 #[derive(Resource, Debug, Clone, Copy)]
@@ -36,6 +36,17 @@ pub enum CatanColor {
     Blue,
     White,
 }
+#[derive(Debug, Component, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct CatanColorRef {
+    pub color: CatanColor,
+    pub entity: Entity,
+}
+
+impl CatanColorRef {
+    pub fn to_bevy_color(self) -> Color {
+        self.color.to_bevy_color()
+    }
+}
 impl CatanColor {
     pub fn to_bevy_color(self) -> Color {
         match self {
@@ -47,9 +58,10 @@ impl CatanColor {
     }
 }
 #[derive(Resource, Debug)]
-pub struct ColorIterator(pub Cycle<IntoIter<CatanColor>>);
+pub struct ColorIterator(pub Cycle<IntoIter<CatanColorRef>>);
 
 #[derive(Resource, Debug)]
+// TODO: use color ref
 pub struct SetupColorIterator(pub Chain<IntoIter<CatanColor>, Rev<IntoIter<CatanColor>>>);
 pub fn set_color(mut color_r: ResMut<'_, CurrentColor>, color_rotation: ResMut<'_, ColorIterator>) {
     *color_r = CurrentColor(color_rotation.into_inner().0.next().unwrap());

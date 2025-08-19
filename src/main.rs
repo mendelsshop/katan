@@ -22,12 +22,15 @@ mod turn_ui;
 
 use std::marker::PhantomData;
 
-use bevy::prelude::*;
+use bevy::{
+    ecs::query::{QueryData, QueryEntityError},
+    prelude::*,
+};
 
 use crate::{
     colors::{
-        CatanColor, ColorIterator, CurrentColor, CurrentSetupColor, HOVERED_BUTTON, NORMAL_BUTTON,
-        PRESSED_BUTTON, SetupColorIterator,
+        CatanColor, CatanColorRef, ColorIterator, CurrentColor, CurrentSetupColor, HOVERED_BUTTON,
+        NORMAL_BUTTON, PRESSED_BUTTON, SetupColorIterator,
     },
     development_card_actions::{MonopolyButton, RoadBuildingState, YearOfPlentyButton},
     positions::{BuildingPosition, Position, RoadPosition},
@@ -47,7 +50,10 @@ fn main() {
     // TODO: is there way to init resource
     // without giving a value
     app.insert_resource(PreRobberDiscardLeft(0));
-    app.insert_resource(CurrentColor(CatanColor::White));
+    app.insert_resource(CurrentColor(CatanColorRef {
+        color: CatanColor::White,
+        entity: Entity::PLACEHOLDER,
+    }));
     app.insert_resource(CurrentSetupColor(CatanColor::White));
     app.add_systems(Startup, setup);
 
@@ -460,21 +466,18 @@ fn setup(
     commands.spawn(Camera2d);
     let layout = layout(&mut commands);
     commands.insert_resource(layout);
-
-    setup_game::setup(&mut commands, meshes, materials, layout);
+    // this has to be set dynamically
+    let catan_colors = vec![
+        CatanColor::White,
+        CatanColor::Red,
+        CatanColor::Blue,
+        CatanColor::Green,
+    ]
+    .into_iter();
+    let catan_colors = setup_game::setup(&mut commands, meshes, materials, layout, catan_colors);
     next_state.set(GameState::SetupRoad);
 
-    // this has to be set dynamically
-    commands.insert_resource(ColorIterator(
-        vec![
-            CatanColor::White,
-            CatanColor::Red,
-            CatanColor::Blue,
-            CatanColor::Green,
-        ]
-        .into_iter()
-        .cycle(),
-    ));
+    commands.insert_resource(ColorIterator(catan_colors.cycle()));
     commands.insert_resource(SetupColorIterator(
         vec![
             CatanColor::White,
@@ -645,6 +648,9 @@ fn layout(commands: &mut Commands<'_, '_>) -> Layout {
         setting_pull_out: settings_pull_out_layout,
     }
 }
+
+// TODO: eventually buildings/roads will be linked to the main player entity, at which point
+// find with color won't be needed
 pub fn find_with_color<'a, T>(
     c: &CatanColor,
     mut resources: impl Iterator<Item = (&'a CatanColor, T)>,

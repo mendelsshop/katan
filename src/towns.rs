@@ -15,20 +15,20 @@ pub fn place_normal_town(
     mut commands: Commands<'_, '_>,
     color_r: Res<'_, CurrentColor>,
     size_r: Res<'_, BoardSize>,
-    town_free_q: Query<'_, '_, (&CatanColor, &Left<Town>)>,
+    town_free_q: Query<'_, '_, (&Left<Town>), With<CatanColor>>,
     road_q: Query<'_, '_, RoadQuery>,
     building_q: Query<'_, '_, (&'_ Building, &'_ CatanColor, &'_ BuildingPosition)>,
     mut game_state: ResMut<'_, NextState<GameState>>,
 ) {
-    let unplaced_towns_correct_color = town_free_q.iter().find(|r| r.0 == &color_r.0);
+    let unplaced_towns_correct_color = town_free_q.get(color_r.0.entity);
 
     // no towns to place
-    let Some(_) = unplaced_towns_correct_color.filter(|r| r.1.0 > 0) else {
+    let Some(_) = unplaced_towns_correct_color.ok().filter(|r| r.0 > 0) else {
         return;
     };
 
     let possible_towns =
-        get_possible_town_placements(color_r.0, BoardSize(size_r.0), road_q, building_q);
+        get_possible_town_placements(color_r.0.color, BoardSize(size_r.0), road_q, building_q);
     let count = possible_towns
         .filter_map(|p| {
             let (x, y) = p.positon_to_pixel_coordinates();

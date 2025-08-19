@@ -4,7 +4,6 @@ use bevy::prelude::*;
 
 use crate::{
     colors::{CatanColor, CurrentColor, HOVERED_BUTTON, NORMAL_BUTTON, PRESSED_BUTTON},
-    find_with_color,
     resources::{DEVELOPMENT_CARD_RESOURCES, Resources},
     turn_ui::DevelopmentCardButton,
 };
@@ -119,8 +118,12 @@ pub fn buy_development_card_interaction(
     mut commands: Commands<'_, '_>,
     color_r: Res<'_, CurrentColor>,
     mut free_dev_cards: Query<'_, '_, (Entity, &DevelopmentCard), Without<CatanColor>>,
-    mut player_resources: Query<'_, '_, (&mut Resources, &CatanColor)>,
-    mut player_dev_cards: Query<'_, '_, (&CatanColor, &mut DevelopmentCards)>,
+    mut player_resources_and_dev_cards: Query<
+        '_,
+        '_,
+        (&mut Resources, &mut DevelopmentCards),
+        With<CatanColor>,
+    >,
     mut resources: ResMut<'_, Resources>,
     interaction_query: Single<
         '_,
@@ -133,8 +136,9 @@ pub fn buy_development_card_interaction(
         Changed<Interaction>,
     >,
 ) {
-    let player_resources = player_resources.iter_mut().find(|x| x.1 == &color_r.0);
-    if let Some((mut player_resources, _)) = player_resources {
+    if let Ok((mut player_resources, mut player_dev_cards)) =
+        player_resources_and_dev_cards.get_mut(color_r.0.entity)
+    {
         let required_resources = DEVELOPMENT_CARD_RESOURCES;
         if !player_resources.contains(required_resources) {
             return;
@@ -142,19 +146,15 @@ pub fn buy_development_card_interaction(
         let (_, interaction, mut color, mut button) = interaction_query.into_inner();
         match *interaction {
             Interaction::Pressed => {
-                if let Some(mut dev_cards) =
-                    crate::find_with_color(&color_r.0, player_dev_cards.iter_mut())
-                {
-                    if let Some(card) = free_dev_cards.iter_mut().next() {
-                        *player_resources -= required_resources;
-                        *resources += required_resources;
-                        *dev_cards.1.get_mut(*card.1) += 1;
-                        commands.entity(card.0).despawn();
-                    }
-
-                    *color = PRESSED_BUTTON.into();
-                    button.set_changed();
+                if let Some(card) = free_dev_cards.iter_mut().next() {
+                    *player_resources -= required_resources;
+                    *resources += required_resources;
+                    *player_dev_cards.get_mut(*card.1) += 1;
+                    commands.entity(card.0).despawn();
                 }
+
+                *color = PRESSED_BUTTON.into();
+                button.set_changed();
             }
             Interaction::Hovered => {
                 *color = HOVERED_BUTTON.into();
@@ -171,5 +171,5 @@ pub fn show_dev_cards(
     res: Res<'_, CurrentColor>,
     commands: Commands<'_, '_>,
 ) {
-    if let Some(dev_cards) = find_with_color(&res.0, player_dev_cards.iter()) {}
+    if let Ok((player_dev_cards)) = player_dev_cards.get(res.0.entity) {}
 }

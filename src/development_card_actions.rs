@@ -5,7 +5,6 @@ use bevy::prelude::*;
 use crate::{
     GameState,
     colors::{CatanColor, CurrentColor, HOVERED_BUTTON, PRESSED_BUTTON},
-    find_with_color,
     resources::{self, Resources},
 };
 
@@ -96,8 +95,9 @@ pub(crate) fn monopoly_interaction(
                         taken
                     })
                     .sum::<u8>();
+
                 if let Some((_, mut resources)) =
-                    find_with_color(&current_color.0, player_resources.iter_mut())
+                    player_resources.get_mut(current_color.0.entity).ok()
                 {
                     // we reassign because when we go through the resources we also go through
                     // current color's resources
@@ -180,7 +180,7 @@ pub(crate) fn year_of_plenty_interaction(
     >,
 
     current_color: Res<'_, CurrentColor>,
-    mut player_resources: Query<'_, '_, (&CatanColor, &mut Resources)>,
+    mut player_resources: Query<'_, '_, &mut Resources, With<CatanColor>>,
     mut state: ResMut<'_, NextState<GameState>>,
     mut substate_mut: ResMut<'_, NextState<YearOrPlentyState>>,
     substate: Res<'_, State<YearOrPlentyState>>,
@@ -191,9 +191,7 @@ pub(crate) fn year_of_plenty_interaction(
             Interaction::Pressed => {
                 *color = PRESSED_BUTTON.into();
                 button.set_changed();
-                if let Some((_, mut resources)) =
-                    find_with_color(&current_color.0, player_resources.iter_mut())
-                {
+                if let Some(mut resources) = player_resources.get_mut(current_color.0.entity).ok() {
                     // we reassign because when we go through the resources we also go through
                     // current color's resources
                     *resources.get_mut(kind.0) += 1;

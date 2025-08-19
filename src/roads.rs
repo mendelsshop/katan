@@ -23,20 +23,20 @@ pub fn place_normal_road<const RESOURCE_MULTIPLIER: u8>(
     mut commands: Commands<'_, '_>,
     color_r: Res<'_, CurrentColor>,
     size_r: Res<'_, BoardSize>,
-    road_free_q: Query<'_, '_, (&CatanColor, &Left<Road>)>,
+    road_free_q: Query<'_, '_, &Left<Road>, With<CatanColor>>,
     road_q: Query<'_, '_, RoadQuery>,
     building_q: Query<'_, '_, (&'_ Building, &CatanColor, &'_ BuildingPosition)>,
     mut game_state: ResMut<'_, NextState<GameState>>,
 ) {
-    let unplaced_roads_correct_color = road_free_q.iter().find(|r| r.0 == &color_r.0);
+    let unplaced_roads_correct_color = road_free_q.get(color_r.0.entity).ok();
 
     // no roads to place
-    let Some(_) = unplaced_roads_correct_color.filter(|r| r.1.0 > 0) else {
+    let Some(_) = unplaced_roads_correct_color.filter(|r| r.0 > 0) else {
         return;
     };
 
     let (current_color_roads, _): (Vec<_>, Vec<_>) =
-        road_q.into_iter().partition(|r| *r.1 == color_r.0);
+        road_q.into_iter().partition(|r| *r.1 == color_r.0.color);
 
     // we don't check current color roads is empty b/c by iterating over them we are essentially
     // doing that already
@@ -96,7 +96,7 @@ pub fn place_normal_road<const RESOURCE_MULTIPLIER: u8>(
             r,
             building_q
                 .iter()
-                .filter_map(|(_, color, pos)| Some(pos).filter(|_| *color != color_r.0)),
+                .filter_map(|(_, color, pos)| Some(pos).filter(|_| *color != color_r.0.color)),
         )
     });
 

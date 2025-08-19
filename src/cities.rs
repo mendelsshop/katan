@@ -16,11 +16,10 @@ pub fn place_normal_city_interaction(
     mut materials: ResMut<'_, Assets<ColorMaterial>>,
     mut game_state: ResMut<'_, NextState<GameState>>,
     color_r: Res<'_, CurrentColor>,
-    mut town_free_q: Query<'_, '_, (&CatanColor, &mut Left<Town>), Without<Left<City>>>,
+    mut town_city_free_q: Query<'_, '_, (&mut Left<Town>, &mut Left<City>), With<CatanColor>>,
     town_q: Query<'_, '_, (Entity, &Town, &CatanColor, &BuildingPosition)>,
-    mut city_free_q: Query<'_, '_, (&CatanColor, &mut Left<City>), Without<Left<Town>>>,
     mut resources: ResMut<'_, Resources>,
-    mut player_resources: Query<'_, '_, (&mut Resources, &CatanColor)>,
+    mut player_resources: Query<'_, '_, &mut Resources, With<CatanColor>>,
     mut interaction_query: Query<
         '_,
         '_,
@@ -45,22 +44,19 @@ pub fn place_normal_city_interaction(
                     town_q
                         .iter()
                         .find(|(_, _, catan_color, building_position)| {
-                            **catan_color == color_r.0 && *building_position == entity
+                            **catan_color == color_r.0.color && *building_position == entity
                         });
                 if let Some((entity1, _, _, _)) = town_to_be_replaced {
                     commands.entity(entity1).remove::<Town>().insert(City);
                 }
-                let towns_left = town_free_q.iter_mut().find(|x| x.0 == &color_r.0);
-                if let Some((_, mut left)) = towns_left {
-                    left.0 += 1;
+                let towns_left = town_city_free_q.get_mut(color_r.0.entity).ok();
+                if let Some((mut towns_left, mut cities_left)) = towns_left {
+                    towns_left.0 += 1;
+                    cities_left.0 -= 1;
                 }
-                let city_left = city_free_q.iter_mut().find(|x| x.0 == &color_r.0);
-                if let Some((_, mut left)) = city_left {
-                    left.0 -= 1;
-                }
+                let player_resources = player_resources.get_mut(color_r.0.entity).ok();
 
-                let player_resources = player_resources.iter_mut().find(|x| x.1 == &color_r.0);
-                if let Some((mut resources, _)) = player_resources {
+                if let Some(mut resources) = player_resources {
                     *resources -= *required_resources;
                 }
                 *resources += *required_resources;
@@ -90,18 +86,18 @@ pub fn place_normal_city_interaction(
 pub fn place_normal_city(
     mut commands: Commands<'_, '_>,
     color_r: Res<'_, CurrentColor>,
-    city_free_q: Query<'_, '_, (&CatanColor, &Left<City>)>,
+    city_free_q: Query<'_, '_, &Left<City>, With<CatanColor>>,
     town_q: Query<'_, '_, (&'_ Town, &'_ CatanColor, &'_ BuildingPosition)>,
     mut game_state: ResMut<'_, NextState<GameState>>,
 ) {
-    let unplaced_city_correct_color = city_free_q.iter().find(|r| r.0 == &color_r.0);
+    let unplaced_city_correct_color = city_free_q.get(color_r.0.entity).ok();
 
     // no cites to place
-    let Some(_) = unplaced_city_correct_color.filter(|r| r.1.0 > 0) else {
+    let Some(_) = unplaced_city_correct_color.filter(|r| r.0 > 0) else {
         return;
     };
 
-    let current_color_towns = town_q.into_iter().filter(|r| *r.1 == color_r.0);
+    let current_color_towns = town_q.into_iter().filter(|r| *r.1 == color_r.0.color);
 
     let possibles_cities = current_color_towns.into_iter().map(|(_, _, p)| *p);
 

@@ -10,7 +10,7 @@ pub fn show_player_resources(
     res: Res<'_, CurrentColor>,
     commands: Commands<'_, '_>,
 ) {
-    if let Some(resources) = crate::find_with_color(&res.0, player_dev_cards.iter()) {}
+    if let Some(resources) = player_dev_cards.get(res.0.entity).ok() {}
 }
 pub fn setup_players_resources(mut commands: Commands<'_, '_>, layout: Res<'_, Layout>) {
     let trade_resources = Resources::default();

@@ -10,6 +10,7 @@ use crate::{
     colors::{CatanColor, CurrentColor, HOVERED_BUTTON, NORMAL_BUTTON, PRESSED_BUTTON},
     positions::{BuildingPosition, FPosition, Position, generate_postions},
     resources::{self, Resources, take_resource},
+    resources_management::{self, ResourcesRef, Value},
 };
 
 #[derive(Resource, PartialEq, Eq, Clone, Copy, Debug)]
@@ -115,9 +116,11 @@ fn choose_player_to_take_from<'a>(
     commands: &mut Commands<'_, '_>,
     state: &mut ResMut<'_, NextState<GameState>>,
 ) {
+    // TODO: eventually buildings/roads will be linked to the main player entity, at which point
+    // find with color won't be needed
     let mut colors = used_buildings
         .filter_map(|(c, b)| {
-            (c != &color.0
+            (c != &color.0.color
                 && b.contains(position)
                 // we check that are enough resources to steal instead of later on, becuase if
                 // there are no one to steal from them we need to go back to turn, and its much
@@ -133,7 +136,8 @@ fn choose_player_to_take_from<'a>(
         let (_, mut other_color_resources) =
             crate::find_with_color(other_color, resources.iter_mut()).unwrap();
         let put_resources = take_resource(&mut other_color_resources);
-        let mut current_resources = crate::find_with_color(&color.0, resources.iter_mut()).unwrap();
+        let mut current_resources =
+            crate::find_with_color(&color.0.color, resources.iter_mut()).unwrap();
         put_resources(&mut current_resources.1);
 
         // either we are coming from roll(7) or in middle of turn(dev card) but we always go back to
@@ -193,9 +197,10 @@ pub fn choose_player_to_take_from_interaction(
                 button.set_changed();
                 let mut other_resources =
                     crate::find_with_color(color, player_resources.iter_mut()).unwrap();
+
                 let put_resources = take_resource(&mut other_resources.1);
                 let mut current_resources =
-                    crate::find_with_color(&current_color.0, player_resources.iter_mut()).unwrap();
+                    player_resources.get_mut(current_color.0.entity).unwrap();
                 put_resources(&mut current_resources.1);
                 // either we are coming from roll(7) or in middle of turn(dev card) but we always go back to
                 // turn

@@ -5,7 +5,7 @@ use std::{marker::PhantomData, mem::swap};
 use crate::{
     Hexagon, Layout, Left, Number, Road, Robber, Town, VictoryPoints,
     cities::City,
-    colors::CatanColor,
+    colors::{CatanColor, CatanColorRef},
     development_cards::{DevelopmentCard, DevelopmentCards},
     positions::{self, FPosition, Position},
     resources::Resources,
@@ -188,30 +188,32 @@ fn fix_numbers(
     used.append(&mut normal);
     used
 }
-fn generate_pieces(commands: &mut Commands<'_, '_>) {
-    for color in [
-        CatanColor::Red,
-        CatanColor::Blue,
-        CatanColor::Green,
-        CatanColor::White,
-    ] {
-        commands.spawn((
-            color,
-            Left::<Town>(5, PhantomData),
-            Left::<City>(4, PhantomData),
-            Left::<Road>(15, PhantomData),
-            Resources::new_player(),
-            DevelopmentCards::new_player(),
-            VictoryPoints(0),
-        ));
-    }
+fn generate_pieces(
+    commands: &mut Commands<'_, '_>,
+    colors: vec::IntoIter<CatanColor>,
+) -> impl Iterator<Item = CatanColorRef> {
+    colors.map(|color| CatanColorRef {
+        color,
+        entity: commands
+            .spawn((
+                color,
+                Left::<Town>(5, PhantomData),
+                Left::<City>(4, PhantomData),
+                Left::<Road>(15, PhantomData),
+                Resources::new_player(),
+                DevelopmentCards::new_player(),
+                VictoryPoints(0),
+            ))
+            .id(),
+    })
 }
 pub fn setup(
     commands: &mut Commands<'_, '_>,
     meshes: ResMut<'_, Assets<Mesh>>,
     materials: ResMut<'_, Assets<ColorMaterial>>,
     layout: Layout,
-) {
+    colors: vec::IntoIter<CatanColor>,
+) -> vec::IntoIter<CatanColorRef> {
     draw_board(
         generate_board(commands).into_iter(),
         materials,
@@ -220,5 +222,5 @@ pub fn setup(
         layout,
     );
     generate_development_cards(commands);
-    generate_pieces(commands);
+    generate_pieces(commands, colors).collect_vec().into_iter()
 }

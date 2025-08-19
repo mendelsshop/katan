@@ -91,11 +91,11 @@ pub fn turn_ui_next_interaction(
 pub fn turn_ui_city_interaction(
     mut game_state: ResMut<'_, NextState<GameState>>,
     interaction_query: Single<'_, (&CityButton, &Interaction, &mut Button), Changed<Interaction>>,
-    player_resources: Query<'_, '_, (&Resources, &CatanColor)>,
+    player_resources: Query<'_, '_, &Resources, With<CatanColor>>,
     color_r: Res<'_, CurrentColor>,
 ) {
-    let player_resources = player_resources.iter().find(|x| x.1 == &color_r.0);
-    if let Some((resources, _)) = player_resources {
+    let player_resources = player_resources.get(color_r.0.entity);
+    if let Ok((resources)) = player_resources {
         let (_, interaction, mut button) = interaction_query.into_inner();
         if resources.contains(CITY_RESOURCES) {
             match *interaction {
@@ -118,11 +118,11 @@ pub fn turn_ui_city_interaction(
 pub fn turn_ui_town_interaction(
     mut game_state: ResMut<'_, NextState<GameState>>,
     interaction_query: Single<'_, (&TownButton, &Interaction, &mut Button), Changed<Interaction>>,
-    player_resources: Query<'_, '_, (&Resources, &CatanColor)>,
+    player_resources: Query<'_, '_, &Resources, With<CatanColor>>,
     color_r: Res<'_, CurrentColor>,
 ) {
-    let player_resources = player_resources.iter().find(|x| x.1 == &color_r.0);
-    if let Some((resources, _)) = player_resources {
+    let player_resources = player_resources.get(color_r.0.entity);
+    if let Ok(resources) = player_resources {
         let (_, interaction, mut button) = interaction_query.into_inner();
         if resources.contains(TownUI::resources()) {
             match *interaction {
@@ -145,11 +145,11 @@ pub fn turn_ui_town_interaction(
 pub fn turn_ui_road_interaction(
     mut game_state: ResMut<'_, NextState<GameState>>,
     interaction_query: Single<'_, (&RoadButton, &Interaction, &mut Button), Changed<Interaction>>,
-    player_resources: Query<'_, '_, (&Resources, &CatanColor)>,
+    player_resources: Query<'_, '_, &Resources, With<CatanColor>>,
     color_r: Res<'_, CurrentColor>,
 ) {
-    let player_resources = player_resources.iter().find(|x| x.1 == &color_r.0);
-    if let Some((resources, _)) = player_resources {
+    let player_resources = player_resources.get(color_r.0.entity).ok();
+    if let Some(resources) = player_resources {
         let (_, interaction, mut button) = interaction_query.into_inner();
         if resources.contains(RoadUI::resources()) {
             match *interaction {
