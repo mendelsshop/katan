@@ -84,12 +84,7 @@ fn distribute_resources<'a>(
                 .map(|(hex, _, _)| (b, catan_color, hex))
         })
     }
-    fn get_by_color<'a, T: 'a>(
-        color: &CatanColor,
-        mut things: impl Iterator<Item = &'a mut (CatanColor, T)>,
-    ) -> Option<&'a mut T> {
-        things.find(|(c, _)| c == color).map(|(_, t)| t)
-    }
+
     fn hexagon_to_resources(hex: Hexagon) -> Resources {
         match hex {
             Hexagon::Wood => Resources {
@@ -134,16 +129,22 @@ fn distribute_resources<'a>(
         }
     }
     for (_, color, hex) in on_board_with_hex(board.clone(), towns) {
-        let player_resources = get_by_color(&color, player_resources.iter_mut());
-        if let Some(player_resources) = player_resources {
+        let player_resources = crate::find_with_color(
+            &color,
+            player_resources.iter_mut().map(|(color, res)| (&*color, res)),
+        );
+        if let Some((_, player_resources)) = player_resources {
             let gained = hexagon_to_resources(hex);
             **player_resources += gained;
             *resources -= gained;
         }
     }
     for (_, color, hex) in on_board_with_hex(board, cities) {
-        let player_resources = get_by_color(&color, player_resources.iter_mut());
-        if let Some(player_resources) = player_resources {
+        let player_resources = crate::find_with_color(
+            &color,
+            player_resources.iter_mut().map(|(color, res)| (&*color, res)),
+        );
+        if let Some((_, player_resources)) = player_resources {
             let gained = hexagon_to_resources(hex) * 2;
             **player_resources += gained;
             *resources -= gained;

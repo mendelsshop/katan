@@ -76,7 +76,7 @@ pub fn place_setup_town(
     building_q: Query<'_, '_, (&'_ Building, &'_ CatanColor, &'_ BuildingPosition)>,
 ) {
     let possible_towns =
-        get_possible_town_placements(color_r.0, BoardSize(size_r.0), road_q, building_q);
+        get_possible_town_placements(color_r.0.color, BoardSize(size_r.0), road_q, building_q);
     possible_towns
         .filter_map(|p| {
             let (x, y) = p.positon_to_pixel_coordinates();

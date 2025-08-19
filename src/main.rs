@@ -54,7 +54,10 @@ fn main() {
         color: CatanColor::White,
         entity: Entity::PLACEHOLDER,
     }));
-    app.insert_resource(CurrentSetupColor(CatanColor::White));
+    app.insert_resource(CurrentSetupColor(CatanColorRef {
+        color: CatanColor::White,
+        entity: Entity::PLACEHOLDER,
+    }));
     app.add_systems(Startup, setup);
 
     app.add_systems(OnEnter(GameState::SetupRoad), roads::place_setup_road);
@@ -125,6 +128,7 @@ fn main() {
         development_card_actions::monopoly_setup,
     );
 
+    app.add_systems(Update, resources_management::show_player_resources);
     app.add_systems(
         Update,
         development_card_actions::monopoly_interaction.run_if(in_state(GameState::Monopoly)),
@@ -365,17 +369,21 @@ fn place_normal_interaction<
     // another way would be make the type of color be a marker struct that `#[requires(CatanColor)]`
     // and then we could just look for CatanColor, and when we need the more specific one we specify
     // via the marker struct
-    C: Into<CatanColor> + Resource + Copy,
+    C: Into<CatanColor> + Into<Entity> + Resource + Copy,
 >(
     mut resources: ResMut<'_, Resources>,
-    mut player_resources: Query<'_, '_, (&mut Resources, &CatanColor)>,
     game_state: Res<'_, State<GameState>>,
     mut game_state_mut: ResMut<'_, NextState<GameState>>,
     color_r: Res<'_, C>,
     mut commands: Commands<'_, '_>,
     mut meshes: ResMut<'_, Assets<Mesh>>,
     mut materials: ResMut<'_, Assets<ColorMaterial>>,
-    mut kind_free_q: Query<'_, '_, (&CatanColor, &mut Left<Kind>)>,
+    mut kind_free_and_resources_q: Query<
+        '_,
+        '_,
+        (&mut Resources, &mut Left<Kind>),
+        With<CatanColor>,
+    >,
     mut interaction_query: Query<
         '_,
         '_,
@@ -389,22 +397,21 @@ fn place_normal_interaction<
         (Changed<Interaction>, Without<CatanColor>),
     >,
 ) {
-    let current_color: CatanColor = (*color_r.into_inner()).into();
-    for (entity, interaction, mut color, mut button, required_resources) in &mut interaction_query {
+    let color_r = color_r.into_inner();
+    let current_color: CatanColor = (*color_r).into();
+    let current_color_entity: Entity = (*color_r).into();
+    for (pos, interaction, mut color, mut button, required_resources) in &mut interaction_query {
         match *interaction {
             Interaction::Pressed => {
                 *color = PRESSED_BUTTON.into();
 
                 button.set_changed();
 
-                commands.spawn((Kind::default(), current_color, *entity));
-                let kind_left = kind_free_q.iter_mut().find(|x| x.0 == &current_color);
-                if let Some((_, mut left)) = kind_left {
-                    left.0 -= 1;
-                }
-                let player_resources = player_resources.iter_mut().find(|x| x.1 == &current_color);
-                if let Some((mut resources, _)) = player_resources {
+                commands.spawn((Kind::default(), current_color, *pos));
+                let kind_left = kind_free_and_resources_q.get_mut(current_color_entity).ok();
+                if let Some((mut resources, mut left)) = kind_left {
                     *resources -= *required_resources;
+                    left.0 -= 1;
                 }
                 *resources += *required_resources;
                 match *game_state.get() {
@@ -424,12 +431,7 @@ fn place_normal_interaction<
                     GameState::SetupRoad => game_state_mut.set(GameState::SetupTown),
                     GameState::SetupTown => game_state_mut.set(GameState::SetupRoad),
                 }
-                commands.spawn(U::bundle(
-                    *entity,
-                    &mut meshes,
-                    &mut materials,
-                    current_color,
-                ));
+                commands.spawn(U::bundle(*pos, &mut meshes, &mut materials, current_color));
                 button.set_changed();
             }
             Interaction::Hovered => {
@@ -477,25 +479,9 @@ fn setup(
     let catan_colors = setup_game::setup(&mut commands, meshes, materials, layout, catan_colors);
     next_state.set(GameState::SetupRoad);
 
-    commands.insert_resource(ColorIterator(catan_colors.cycle()));
+    commands.insert_resource(ColorIterator(catan_colors.clone().cycle()));
     commands.insert_resource(SetupColorIterator(
-        vec![
-            CatanColor::White,
-            CatanColor::Red,
-            CatanColor::Blue,
-            CatanColor::Green,
-        ]
-        .into_iter()
-        .chain(
-            vec![
-                CatanColor::White,
-                CatanColor::Red,
-                CatanColor::Blue,
-                CatanColor::Green,
-            ]
-            .into_iter()
-            .rev(),
-        ),
+        catan_colors.clone().chain(catan_colors.into_iter().rev()),
     ));
 }
 

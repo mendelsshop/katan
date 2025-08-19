@@ -21,12 +21,21 @@ impl From<CurrentColor> for CatanColor {
     fn from(value: CurrentColor) -> Self {
         value.0.color
     }
+}impl From<CurrentColor> for Entity {
+    fn from(value: CurrentColor) -> Self {
+        value.0.entity
+    }
 }
 #[derive(Resource, Debug, Clone, Copy)]
-pub struct CurrentSetupColor(pub CatanColor);
+pub struct CurrentSetupColor(pub CatanColorRef);
+impl From<CurrentSetupColor> for Entity {
+    fn from(value: CurrentSetupColor) -> Self {
+        value.0.entity
+    }
+}
 impl From<CurrentSetupColor> for CatanColor {
     fn from(value: CurrentSetupColor) -> Self {
-        value.0
+        value.0.color
     }
 }
 #[derive(Debug, Component, Clone, Copy, PartialEq, Eq, Hash)]
@@ -62,7 +71,7 @@ pub struct ColorIterator(pub Cycle<IntoIter<CatanColorRef>>);
 
 #[derive(Resource, Debug)]
 // TODO: use color ref
-pub struct SetupColorIterator(pub Chain<IntoIter<CatanColor>, Rev<IntoIter<CatanColor>>>);
+pub struct SetupColorIterator(pub Chain<IntoIter<CatanColorRef>, Rev<IntoIter<CatanColorRef>>>);
 pub fn set_color(mut color_r: ResMut<'_, CurrentColor>, color_rotation: ResMut<'_, ColorIterator>) {
     *color_r = CurrentColor(color_rotation.into_inner().0.next().unwrap());
 }
