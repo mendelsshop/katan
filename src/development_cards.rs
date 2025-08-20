@@ -1,6 +1,7 @@
 use std::ops::{Add, AddAssign};
 
 use bevy::prelude::*;
+use itertools::Itertools;
 
 use crate::{
     Layout,
@@ -10,7 +11,7 @@ use crate::{
     turn_ui::DevelopmentCardButton,
 };
 
-#[derive(Debug, Component, Clone, Copy)]
+#[derive(Debug, Component, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum DevelopmentCard {
     Knight,
     Monopoly,
@@ -178,77 +179,117 @@ pub fn setup_show_dev_cards(
         commands
             .entity(layout.development_cards)
             .with_children(|builder| {
-                builder
-                    .spawn((Node {
-                        display: Display::Grid,
-                        grid_template_columns: vec![
-                            GridTrack::percent(20.),
-                            GridTrack::percent(20.),
-                            GridTrack::percent(20.),
-                            GridTrack::percent(20.),
-                            GridTrack::percent(20.),
-                        ],
-
-                        ..default()
-                    },))
-                    .with_children(|builder| {
-                        let dev_button_iter = [
-                            DevelopmentCard::Monopoly,
-                            DevelopmentCard::Knight,
-                            DevelopmentCard::RoadBuilding,
-                            DevelopmentCard::YearOfPlenty,
-                        ]
-                        .iter()
-                        .filter_map(|card_type| {
-                            let count = player_dev_cards.get(*card_type);
-                            (count > 0).then_some((card_type, count))
-                        });
-                        let count = dev_button_iter.clone().count();
-                        if player_dev_cards.get(DevelopmentCard::VictoryPoint) > 0 {
-                            builder.spawn((
-                                Node {
-                                    display: Display::Grid,
-                                    border: UiRect::all(Val::Px(1.)),
-                                    ..default()
-                                },
-                                BorderColor(Color::BLACK),
-                                Transform::from_rotation(Quat::from_rotation_z(
-                                    ((0 as f32 - count as f32 / 2.) * 10.).to_radians(),
-                                )),
-                                DevelopmentCardShow,
-                                DevelopmentCard::VictoryPoint,
-                                children![Text(format!("{:?}", DevelopmentCard::VictoryPoint))],
-                            ));
-                        }
-                        dev_button_iter
-                            .enumerate()
-                            .for_each(|(i, (card_kind, card_count))| {
-                                println!("{card_count} {card_kind:?}");
-                                builder.spawn((
-                                    Node {
-                                        display: Display::Grid,
-                                        border: UiRect::all(Val::Px(1.)),
-                                        ..default()
-                                    },
-                                    BorderColor(Color::BLACK),
-                                    Transform::from_rotation(Quat::from_rotation_z(
-                                        ((i as f32 - count as f32 / 2.) * 10.).to_radians(),
-                                    )),
-                                    DevelopmentCardShow,
-                                    Button,
-                                    *card_kind,
-                                    children![Text(format!("{card_kind:?}"))],
-                                ));
-                            });
+                let dev_button_iter = [
+                    DevelopmentCard::Monopoly,
+                    DevelopmentCard::Knight,
+                    DevelopmentCard::RoadBuilding,
+                    DevelopmentCard::YearOfPlenty,
+                ]
+                .iter()
+                .filter_map(|card_type| {
+                    let count = player_dev_cards.get(*card_type);
+                    (count > 0).then_some((card_type, count))
+                });
+                let player_vps = player_dev_cards.get(DevelopmentCard::VictoryPoint);
+                let count = dev_button_iter.clone().count() + if player_vps > 0 { 1 } else { 0 };
+                if player_vps > 0 {
+                    builder.spawn((
+                        Node {
+                            display: Display::Grid,
+                            border: UiRect::all(Val::Px(1.)),
+                            ..default()
+                        },
+                        BorderColor(Color::BLACK),
+                        Transform::from_rotation(Quat::from_rotation_z(
+                            ((0 as f32 - count as f32 / 2.) * 10.).to_radians(),
+                        )),
+                        DevelopmentCardShow(player_vps),
+                        DevelopmentCard::VictoryPoint,
+                        children![Text(format!("{:?}", DevelopmentCard::VictoryPoint))],
+                    ));
+                }
+                dev_button_iter
+                    .enumerate()
+                    .for_each(|(i, (card_kind, card_count))| {
+                        builder.spawn((
+                            Node {
+                                display: Display::Grid,
+                                border: UiRect::all(Val::Px(1.)),
+                                ..default()
+                            },
+                            BorderColor(Color::BLACK),
+                            Transform::from_rotation(Quat::from_rotation_z(
+                                (((i + if player_vps > 0 { 1 } else { 0 }) as f32
+                                    - count as f32 / 2.)
+                                    * 10.)
+                                    .to_radians(),
+                            )),
+                            DevelopmentCardShow(card_count),
+                            Button,
+                            *card_kind,
+                            children![Text(format!("{card_kind:?}"))],
+                        ));
                     });
             });
     }
 }
 pub fn show_dev_cards(
-    player_dev_cards: Query<'_, '_, (&CatanColor, &DevelopmentCards), Changed<DevelopmentCards>>,
-    shown_cards: Query<'_, '_, (&Node, &DevelopmentCard)>,
+    player_dev_cards: Query<
+        '_,
+        '_,
+        &DevelopmentCards,
+        (With<CatanColor>, Changed<DevelopmentCards>),
+    >,
+    mut shown_cards: Query<'_, '_, (&DevelopmentCard, &mut DevelopmentCardShow), With<Node>>,
     res: Res<'_, CurrentColor>,
-    commands: Commands<'_, '_>,
+    mut commands: Commands<'_, '_>,
+    layout: Res<'_, Layout>,
 ) {
-    if let Ok(player_dev_cards) = player_dev_cards.get(res.0.entity) {}
+    if let Ok(player_dev_cards) = player_dev_cards.get(res.0.entity) {
+        let new_cards = [
+            DevelopmentCard::Monopoly,
+            DevelopmentCard::Knight,
+            DevelopmentCard::RoadBuilding,
+            DevelopmentCard::YearOfPlenty,
+            DevelopmentCard::VictoryPoint,
+        ]
+        .iter()
+        .filter_map(|card_type| {
+            let count = player_dev_cards.get(*card_type);
+            (count > 0).then_some((card_type, count))
+        })
+        .filter(|(card_type, count)| {
+            let this = shown_cards.iter_mut().find(|(card, _)| card == card_type);
+            if let Some((_, mut development_card_show)) = this {
+                development_card_show.0 = *count;
+                false
+            } else {
+                true
+            }
+        })
+        .enumerate()
+        .collect_vec();
+
+        let count = new_cards.clone().len();
+        commands
+            .entity(layout.development_cards)
+            .with_children(|builder| {
+                for (i, (card_kind, card_count)) in new_cards {
+                    builder.spawn((
+                        Node {
+                            display: Display::Grid,
+                            border: UiRect::all(Val::Px(1.)),
+                            ..default()
+                        },
+                        BorderColor(Color::BLACK),
+                        Transform::from_rotation(Quat::from_rotation_z(
+                            ((i as f32 - count as f32 / 2.) * 10.).to_radians(),
+                        )),
+                        DevelopmentCardShow(card_count),
+                        *card_kind,
+                        children![Text(format!("{card_kind:?}"))],
+                    ));
+                }
+            });
+    }
 }

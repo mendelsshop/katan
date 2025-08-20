@@ -68,7 +68,7 @@ fn main() {
             .chain(),
     );
     app.add_systems(
-        Update,
+        PostUpdate,
         (
             development_cards::show_dev_cards,
             development_card_actions::development_card_action_interaction,
@@ -547,11 +547,17 @@ fn layout(commands: &mut Commands<'_, '_>) -> Layout {
         .spawn((
             Node {
                 display: Display::Grid,
+                grid_template_columns: vec![
+                    GridTrack::percent(20.),
+                    GridTrack::percent(20.),
+                    GridTrack::percent(20.),
+                    GridTrack::percent(20.),
+                    GridTrack::percent(20.),
+                ],
                 border: UiRect::all(Val::Px(1.)),
                 ..default()
             },
             BorderColor(Color::BLACK),
-            children![Text("dev".to_string()),],
         ))
         .id();
     let resources_layout = commands
@@ -562,7 +568,6 @@ fn layout(commands: &mut Commands<'_, '_>) -> Layout {
                 ..default()
             },
             BorderColor(Color::BLACK),
-            children![Text("res".to_string()),],
         ))
         .id();
     let mut card_layout = commands.spawn((
@@ -592,7 +597,6 @@ fn layout(commands: &mut Commands<'_, '_>) -> Layout {
                 ..default()
             },
             BorderColor(Color::BLACK),
-            children![Text("board".to_string()),],
         ))
         .id();
     let ui_layout = commands
@@ -603,7 +607,6 @@ fn layout(commands: &mut Commands<'_, '_>) -> Layout {
                 ..default()
             },
             BorderColor(Color::BLACK),
-            children![Text("ui".to_string()),],
         ))
         .id();
     let mut main_ui_layout = commands.spawn((

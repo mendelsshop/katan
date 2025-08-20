@@ -11,7 +11,7 @@ use crate::{
 };
 
 #[derive(Component, PartialEq, Eq, Clone, Copy, Debug)]
-pub struct DevelopmentCardShow;
+pub struct DevelopmentCardShow(pub u8);
 pub fn development_card_action_interaction(
     mut interaction_query: Query<
         '_,
