@@ -1,16 +1,17 @@
 use std::mem;
 
 use bevy::prelude::*;
+use itertools::Itertools;
 
 use crate::{
-    GameState, Knights,
+    GameState, Knights, Layout,
     colors::{CatanColor, CurrentColor, HOVERED_BUTTON, NORMAL_BUTTON, PRESSED_BUTTON},
     development_cards::{DevelopmentCard, DevelopmentCards},
     resources::{self, Resources},
 };
 
 #[derive(Component, PartialEq, Eq, Clone, Copy, Debug)]
-pub struct DevelopmentCardUseButton;
+pub struct DevelopmentCardShow;
 pub fn development_card_action_interaction(
     mut interaction_query: Query<
         '_,
@@ -22,7 +23,7 @@ pub fn development_card_action_interaction(
             &mut Button,
             &DevelopmentCard,
         ),
-        (Changed<Interaction>, With<DevelopmentCardUseButton>),
+        (Changed<Interaction>, With<DevelopmentCardShow>),
     >,
 
     mut player_dev_cards_and_knights: Query<
@@ -32,6 +33,7 @@ pub fn development_card_action_interaction(
         With<CatanColor>,
     >,
     res: Res<'_, CurrentColor>,
+    layout: Res<'_, Layout>,
     state: ResMut<'_, NextState<GameState>>,
     mut commands: Commands<'_, '_>,
 ) {
@@ -41,23 +43,29 @@ pub fn development_card_action_interaction(
         {
             match interaction {
                 Interaction::Pressed => {
-                    *color = PRESSED_BUTTON.into();
-                    button.set_changed();
                     *development_cards.get_mut(*development_card) -= 1;
 
+                    let development_card = *development_card;
+                    // little hack because this interaction is with a changed, only the
+                    // interactions that are hovered over are in the query
+                    // so keep the effect of change only have to do the work if its hovered over
+                    // but still being able to clear the buttons we just clear all the button in
+                    // the dev card part of the layout
+                    commands
+                        .entity(layout.development_cards)
+                        .remove_recursive::<Children, (Button, Interaction)>();
+                    *color = PRESSED_BUTTON.into();
+                    button.set_changed();
+                    if development_cards.get(development_card) == 0 {
+                        println!("removing {entity} compleletly");
+                        commands.entity(entity).despawn();
+                    }
                     match development_card {
                         DevelopmentCard::Knight => robber(state, knights),
                         DevelopmentCard::Monopoly => monopoly(state),
                         DevelopmentCard::YearOfPlenty => year_of_plenty(state),
                         DevelopmentCard::RoadBuilding => road_building(state),
                         DevelopmentCard::VictoryPoint => unimplemented!("you cannot play a vp"),
-                    }
-                    let development_card = *development_card;
-                    for (entity, _, _, _, _) in interaction_query {
-                        commands.entity(entity).remove::<(Interaction, Button)>();
-                    }
-                    if development_cards.get(development_card) == 0 {
-                        commands.entity(entity).despawn();
                     }
                     break;
                 }

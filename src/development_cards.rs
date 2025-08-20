@@ -5,7 +5,7 @@ use bevy::prelude::*;
 use crate::{
     Layout,
     colors::{CatanColor, CurrentColor, HOVERED_BUTTON, NORMAL_BUTTON, PRESSED_BUTTON},
-    development_card_actions::DevelopmentCardUseButton,
+    development_card_actions::DevelopmentCardShow,
     resources::{DEVELOPMENT_CARD_RESOURCES, Resources},
     turn_ui::DevelopmentCardButton,
 };
@@ -215,7 +215,7 @@ pub fn setup_show_dev_cards(
                                 Transform::from_rotation(Quat::from_rotation_z(
                                     ((0 as f32 - count as f32 / 2.) * 10.).to_radians(),
                                 )),
-                                DevelopmentCardUseButton,
+                                DevelopmentCardShow,
                                 DevelopmentCard::VictoryPoint,
                                 children![Text(format!("{:?}", DevelopmentCard::VictoryPoint))],
                             ));
@@ -234,7 +234,7 @@ pub fn setup_show_dev_cards(
                                     Transform::from_rotation(Quat::from_rotation_z(
                                         ((i as f32 - count as f32 / 2.) * 10.).to_radians(),
                                     )),
-                                    DevelopmentCardUseButton,
+                                    DevelopmentCardShow,
                                     Button,
                                     *card_kind,
                                     children![Text(format!("{card_kind:?}"))],
