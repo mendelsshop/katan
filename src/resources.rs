@@ -25,11 +25,11 @@ pub const ROAD_RESOURCES: Resources = Resources {
     ore: 0,
 };
 pub const DEVELOPMENT_CARD_RESOURCES: Resources = Resources {
-    wood: 1,
-    brick: 1,
-    sheep: 0,
-    wheat: 0,
-    ore: 0,
+    wood: 0,
+    brick: 0,
+    sheep: 1,
+    wheat: 1,
+    ore: 1,
 };
 #[derive(Debug, Component, Resource, Clone, Copy, Default)]
 pub struct Resources {

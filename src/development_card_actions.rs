@@ -3,12 +3,78 @@ use std::mem;
 use bevy::prelude::*;
 
 use crate::{
-    GameState,
-    colors::{CatanColor, CurrentColor, HOVERED_BUTTON, PRESSED_BUTTON},
+    GameState, Knights,
+    colors::{CatanColor, CurrentColor, HOVERED_BUTTON, NORMAL_BUTTON, PRESSED_BUTTON},
+    development_cards::{DevelopmentCard, DevelopmentCards},
     resources::{self, Resources},
 };
 
-pub fn robber(mut state: ResMut<'_, NextState<GameState>>) {
+#[derive(Component, PartialEq, Eq, Clone, Copy, Debug)]
+pub struct DevelopmentCardUseButton;
+pub fn development_card_action_interaction(
+    mut interaction_query: Query<
+        '_,
+        '_,
+        (
+            Entity,
+            &Interaction,
+            &mut BackgroundColor,
+            &mut Button,
+            &DevelopmentCard,
+        ),
+        (Changed<Interaction>, With<DevelopmentCardUseButton>),
+    >,
+
+    mut player_dev_cards_and_knights: Query<
+        '_,
+        '_,
+        (&mut DevelopmentCards, &mut Knights),
+        With<CatanColor>,
+    >,
+    res: Res<'_, CurrentColor>,
+    state: ResMut<'_, NextState<GameState>>,
+    mut commands: Commands<'_, '_>,
+) {
+    let development_cards = player_dev_cards_and_knights.get_mut(res.0.entity);
+    if let Ok((mut development_cards, knights)) = development_cards {
+        for (entity, interaction, mut color, mut button, development_card) in &mut interaction_query
+        {
+            match interaction {
+                Interaction::Pressed => {
+                    *color = PRESSED_BUTTON.into();
+                    button.set_changed();
+                    *development_cards.get_mut(*development_card) -= 1;
+
+                    match development_card {
+                        DevelopmentCard::Knight => robber(state, knights),
+                        DevelopmentCard::Monopoly => monopoly(state),
+                        DevelopmentCard::YearOfPlenty => year_of_plenty(state),
+                        DevelopmentCard::RoadBuilding => road_building(state),
+                        DevelopmentCard::VictoryPoint => unimplemented!("you cannot play a vp"),
+                    }
+                    let development_card = *development_card;
+                    for (entity, _, _, _, _) in interaction_query {
+                        commands.entity(entity).remove::<(Interaction, Button)>();
+                    }
+                    if development_cards.get(development_card) == 0 {
+                        commands.entity(entity).despawn();
+                    }
+                    break;
+                }
+                Interaction::Hovered => {
+                    *color = HOVERED_BUTTON.into();
+                    button.set_changed();
+                }
+                Interaction::None => {
+                    *color = NORMAL_BUTTON.into();
+                }
+            }
+        }
+    }
+}
+
+pub fn robber(mut state: ResMut<'_, NextState<GameState>>, mut knights: Mut<'_, Knights>) {
+    knights.0 += 1;
     state.set(GameState::PlaceRobber);
 }
 
@@ -24,7 +90,7 @@ pub fn road_building(mut state: ResMut<'_, NextState<GameState>>) {
     state.set(GameState::RoadBuilding);
 }
 pub fn monopoly(mut state: ResMut<'_, NextState<GameState>>) {
-    state.set(GameState::RoadBuilding);
+    state.set(GameState::Monopoly);
 }
 #[derive(Component, Debug, Clone, Copy)]
 pub struct MonopolyButton(resources::Resource);
@@ -80,6 +146,7 @@ pub(crate) fn monopoly_interaction(
 
     current_color: Res<'_, CurrentColor>,
     mut player_resources: Query<'_, '_, (&CatanColor, &mut Resources)>,
+    mut state: ResMut<'_, NextState<GameState>>,
 ) {
     for (interaction, mut button, mut color, kind) in &mut interaction_query {
         match *interaction {
@@ -103,6 +170,7 @@ pub(crate) fn monopoly_interaction(
                     // current color's resources
                     *resources.get_mut(kind.0) = taken;
                 }
+                state.set(GameState::Turn);
             }
             Interaction::Hovered => {
                 *color = HOVERED_BUTTON.into();

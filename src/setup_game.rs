@@ -3,7 +3,7 @@
 use std::{marker::PhantomData, mem::swap};
 
 use crate::{
-    Hexagon, Layout, Left, Number, Road, Robber, Town, VictoryPoints,
+    Hexagon, Knights, Layout, Left, Number, Road, Robber, Town, VictoryPoints,
     cities::City,
     colors::{CatanColor, CatanColorRef},
     development_cards::{DevelopmentCard, DevelopmentCards},
@@ -203,6 +203,7 @@ fn generate_pieces(
                 Resources::new_player(),
                 DevelopmentCards::new_player(),
                 VictoryPoints(0),
+                Knights(0),
             ))
             .id(),
     })

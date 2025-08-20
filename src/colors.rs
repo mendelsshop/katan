@@ -71,7 +71,6 @@ impl CatanColor {
 pub struct ColorIterator(pub Cycle<IntoIter<CatanColorRef>>);
 
 #[derive(Resource, Debug)]
-// TODO: use color ref
 pub struct SetupColorIterator(pub Chain<IntoIter<CatanColorRef>, Rev<IntoIter<CatanColorRef>>>);
 pub fn set_color(mut color_r: ResMut<'_, CurrentColor>, color_rotation: ResMut<'_, ColorIterator>) {
     *color_r = CurrentColor(color_rotation.into_inner().0.next().unwrap());

@@ -3,7 +3,9 @@ use std::ops::{Add, AddAssign};
 use bevy::prelude::*;
 
 use crate::{
+    Layout,
     colors::{CatanColor, CurrentColor, HOVERED_BUTTON, NORMAL_BUTTON, PRESSED_BUTTON},
+    development_card_actions::DevelopmentCardUseButton,
     resources::{DEVELOPMENT_CARD_RESOURCES, Resources},
     turn_ui::DevelopmentCardButton,
 };
@@ -166,8 +168,85 @@ pub fn buy_development_card_interaction(
         }
     }
 }
+pub fn setup_show_dev_cards(
+    player_dev_cards: Query<'_, '_, &DevelopmentCards, With<CatanColor>>,
+    res: Res<'_, CurrentColor>,
+    mut commands: Commands<'_, '_>,
+    layout: Res<'_, Layout>,
+) {
+    if let Ok(player_dev_cards) = player_dev_cards.get(res.0.entity) {
+        commands
+            .entity(layout.development_cards)
+            .with_children(|builder| {
+                builder
+                    .spawn((Node {
+                        display: Display::Grid,
+                        grid_template_columns: vec![
+                            GridTrack::percent(20.),
+                            GridTrack::percent(20.),
+                            GridTrack::percent(20.),
+                            GridTrack::percent(20.),
+                            GridTrack::percent(20.),
+                        ],
+
+                        ..default()
+                    },))
+                    .with_children(|builder| {
+                        let dev_button_iter = [
+                            DevelopmentCard::Monopoly,
+                            DevelopmentCard::Knight,
+                            DevelopmentCard::RoadBuilding,
+                            DevelopmentCard::YearOfPlenty,
+                        ]
+                        .iter()
+                        .filter_map(|card_type| {
+                            let count = player_dev_cards.get(*card_type);
+                            (count > 0).then_some((card_type, count))
+                        });
+                        let count = dev_button_iter.clone().count();
+                        if player_dev_cards.get(DevelopmentCard::VictoryPoint) > 0 {
+                            builder.spawn((
+                                Node {
+                                    display: Display::Grid,
+                                    border: UiRect::all(Val::Px(1.)),
+                                    ..default()
+                                },
+                                BorderColor(Color::BLACK),
+                                Transform::from_rotation(Quat::from_rotation_z(
+                                    ((0 as f32 - count as f32 / 2.) * 10.).to_radians(),
+                                )),
+                                DevelopmentCardUseButton,
+                                DevelopmentCard::VictoryPoint,
+                                children![Text(format!("{:?}", DevelopmentCard::VictoryPoint))],
+                            ));
+                        }
+                        dev_button_iter
+                            .enumerate()
+                            .for_each(|(i, (card_kind, card_count))| {
+                                println!("{card_count} {card_kind:?}");
+                                builder.spawn((
+                                    Node {
+                                        display: Display::Grid,
+                                        border: UiRect::all(Val::Px(1.)),
+                                        ..default()
+                                    },
+                                    BorderColor(Color::BLACK),
+                                    Transform::from_rotation(Quat::from_rotation_z(
+                                        ((i as f32 - count as f32 / 2.) * 10.).to_radians(),
+                                    )),
+                                    DevelopmentCardUseButton,
+                                    Button,
+                                    *card_kind,
+                                    children![Text(format!("{card_kind:?}"))],
+                                ));
+                            });
+                    });
+            });
+    }
+}
 pub fn show_dev_cards(
     player_dev_cards: Query<'_, '_, (&CatanColor, &DevelopmentCards), Changed<DevelopmentCards>>,
+    shown_cards: Query<'_, '_, (&Node, &DevelopmentCard)>,
     res: Res<'_, CurrentColor>,
     commands: Commands<'_, '_>,
 ) {

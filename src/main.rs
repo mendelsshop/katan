@@ -31,6 +31,7 @@ use crate::{
         NORMAL_BUTTON, PRESSED_BUTTON, SetupColorIterator,
     },
     development_card_actions::{MonopolyButton, RoadBuildingState, YearOfPlentyButton},
+    development_cards::DevelopmentCard,
     positions::{BuildingPosition, Position, RoadPosition},
     resources::Resources,
     roads::{Road, RoadUI},
@@ -58,6 +59,22 @@ fn main() {
     }));
     app.add_systems(Startup, setup);
 
+    app.add_systems(
+        OnEnter(GameState::Roll),
+        (
+            cleanup_ui::<DevelopmentCard>,
+            development_cards::setup_show_dev_cards,
+        )
+            .chain(),
+    );
+    app.add_systems(
+        Update,
+        (
+            development_cards::show_dev_cards,
+            development_card_actions::development_card_action_interaction,
+        )
+            .run_if(in_state(GameState::Turn)),
+    );
     app.add_systems(OnEnter(GameState::SetupRoad), roads::place_setup_road);
     app.add_systems(OnEnter(GameState::SetupTown), towns::place_setup_town);
 
@@ -343,7 +360,14 @@ fn cleanup_button<T: Component>(
         commands.entity(entity).despawn();
     }
 }
-
+fn cleanup_ui<T: Component>(
+    mut commands: Commands<'_, '_>,
+    mut interaction_query: Query<'_, '_, Entity, (With<T>, With<Node>)>,
+) {
+    for entity in &mut interaction_query {
+        commands.entity(entity).despawn();
+    }
+}
 pub trait UI {
     type Pos;
     fn bundle(
@@ -458,6 +482,8 @@ struct Building;
 
 #[derive(Component, PartialEq, Default, Clone, Copy, Debug)]
 pub struct VictoryPoints(pub u8);
+#[derive(Component, PartialEq, Default, Clone, Copy, Debug)]
+pub struct Knights(pub u8);
 fn setup(
     mut next_state: ResMut<'_, NextState<GameState>>,
     mut commands: Commands<'_, '_>,
