@@ -6,13 +6,9 @@ use bevy::{
 use itertools::Itertools;
 
 use crate::{
-    Building, GameState,
     colors::{
         CatanColor, CatanColorRef, CurrentColor, HOVERED_BUTTON, NORMAL_BUTTON, PRESSED_BUTTON,
-    },
-    positions::{BuildingPosition, FPosition, Position, generate_postions},
-    resources::{self, Resources, take_resource},
-    resources_management::{self, ResourcesRef, Value},
+    }, positions::{generate_postions, BuildingPosition, FPosition, Position}, resources::{self, take_resource, Resources}, resources_management::{self, ResourcesRef}, slider::{self, Value}, Building, GameState
 };
 
 #[derive(Resource, PartialEq, Eq, Clone, Copy, Debug)]
@@ -350,31 +346,31 @@ fn setup_take_extra_resources(
             ..default()
         },
         children![
-            resources_management::slider_bundle(
+            slider::slider_bundle(
                 resources.wood,
                 resources_entity,
                 resources::Resource::Wood,
                 true,
             ),
-            resources_management::slider_bundle(
+            slider::slider_bundle(
                 resources.brick,
                 resources_entity,
                 resources::Resource::Brick,
                 true,
             ),
-            resources_management::slider_bundle(
+            slider::slider_bundle(
                 resources.sheep,
                 resources_entity,
                 resources::Resource::Sheep,
                 true,
             ),
-            resources_management::slider_bundle(
+            slider::slider_bundle(
                 resources.wheat,
                 resources_entity,
                 resources::Resource::Wheat,
                 true,
             ),
-            resources_management::slider_bundle(
+            slider::slider_bundle(
                 resources.ore,
                 resources_entity,
                 resources::Resource::Ore,
@@ -405,3 +401,4 @@ pub struct SumbitButton {
     new_max_resources: u8,
     resource_ref: Entity,
 }
+

@@ -2,19 +2,36 @@ use bevy::prelude::*;
 
 use crate::{
     Layout,
-    colors::{CatanColor, CurrentColor, HOVERED_BUTTON, NORMAL_BUTTON, PRESSED_BUTTON},
+    colors::{CatanColor, CurrentColor},
+    common_ui::{self, SliderButtonInteraction, Value},
+    development_cards::DevelopmentCard,
     resources::{self, Resources},
 };
 pub fn show_player_resources(
     player_resources: Query<'_, '_, (&CatanColor, &Resources), Changed<Resources>>,
+    player_resources_nodes: Query<'_, '_, (&mut Text, &Value<TradingResourcesSlider>)>,
+    sliders: Query<'_, '_, &TradingResourcesSlider>,
     res: Res<'_, CurrentColor>,
-    commands: Commands<'_, '_>,
 ) {
-    if let Some(resources) = player_dev_cards.get(res.0.entity).ok() {}
+    for resource in player_resources {
+        println!("{resource:?}")
+    }
+    if let Some(resources) = player_resources.get(res.0.entity).ok() {
+        for (mut text, slider_ref) in player_resources_nodes {
+            if let Some(resource_slider) = sliders.get(slider_ref.0).ok() {
+                **text = resources.1.get(resource_slider.0).to_string();
+            }
+        }
+    }
 }
 pub fn setup_players_resources(mut commands: Commands<'_, '_>, layout: Res<'_, Layout>) {
-    let trade_resources = Resources::default();
-    let resources_entity = commands.spawn(trade_resources).id();
+    let children = children![
+        resource_slider(&mut commands, resources::Resource::Wood),
+        resource_slider(&mut commands, resources::Resource::Brick),
+        resource_slider(&mut commands, resources::Resource::Sheep),
+        resource_slider(&mut commands, resources::Resource::Wheat),
+        resource_slider(&mut commands, resources::Resource::Ore),
+    ];
     commands.entity(layout.resources).with_child((
         Node {
             display: Display::Grid,
@@ -40,162 +57,53 @@ pub fn setup_players_resources(mut commands: Commands<'_, '_>, layout: Res<'_, L
 
                     ..default()
                 },
-                children![
-                    slider_bundle(0, resources_entity, resources::Resource::Wood, false,),
-                    slider_bundle(0, resources_entity, resources::Resource::Brick, false,),
-                    slider_bundle(0, resources_entity, resources::Resource::Sheep, false,),
-                    slider_bundle(0, resources_entity, resources::Resource::Wheat, false,),
-                    slider_bundle(0, resources_entity, resources::Resource::Ore, false,),
-                ]
+                children
             )
         ],
     ));
 }
-#[derive(Component)]
-pub struct UpButton {
-    max_individual: Option<u8>,
+fn resource_slider(commands: &mut Commands<'_, '_>, kind: resources::Resource) -> impl Bundle {
+    let entity = commands.spawn(TradingResourcesSlider(kind)).id();
+    common_ui::slider_bundle::<TradingResourcesSlider>(entity)
 }
-#[derive(Component)]
-pub struct DownButton;
 
 #[derive(Component)]
 pub struct ResourcesRef(pub Entity, pub resources::Resource);
-#[derive(Component)]
-pub struct Value;
-pub fn slider_bundle(
-    resource_count: u8,
-    resources: Entity,
-    specific_resource: resources::Resource,
-    set_max: bool,
-) -> impl Bundle {
-    (
-        Node {
-            display: Display::Grid,
-            margin: UiRect::all(Val::Px(3.0)),
-            grid_template_rows: vec![GridTrack::auto(), GridTrack::auto(), GridTrack::auto()],
-            border: UiRect::all(Val::Px(3.0)),
-            ..default()
-        },
-        BorderColor(Color::BLACK),
-        children![
-            (
-                UpButton {
-                    max_individual: set_max.then_some(resource_count),
-                },
-                Node {
-                    display: Display::Grid,
-                    margin: UiRect::all(Val::Px(3.0)),
-                    ..default()
-                },
-                Button,
-                BackgroundColor(NORMAL_BUTTON),
-                Text::new("+".to_string()),
-                ResourcesRef(resources, specific_resource),
-            ),
-            (
-                Node {
-                    justify_self: JustifySelf::Center,
-                    display: Display::Grid,
-                    ..default()
-                },
-                Value,
-                Text::new(resource_count.to_string()),
-                ResourcesRef(resources, specific_resource),
-            ),
-            (
-                DownButton,
-                Node {
-                    display: Display::Grid,
-                    margin: UiRect::all(Val::Px(3.0)),
-                    ..default()
-                },
-                Button,
-                BackgroundColor(NORMAL_BUTTON),
-                Text::new("-".to_string()),
-                ResourcesRef(resources, specific_resource),
-            )
-        ],
-    )
+#[derive(Resource)]
+pub struct TradingResources {
+    pub wood: i8,
+    pub brick: i8,
+    pub sheep: i8,
+    pub wheat: i8,
+    pub ore: i8,
 }
-pub fn slider_down_interaction(
-    mut interaction_query: Query<
-        '_,
-        '_,
-        (
-            &Interaction,
-            &mut Button,
-            &mut BackgroundColor,
-            &ResourcesRef,
-        ),
-        (Changed<Interaction>, With<DownButton>),
-    >,
-    mut counter_query: Query<'_, '_, &mut Resources>,
-) {
-    for (interaction, mut button, mut color, resources) in &mut interaction_query {
-        if let Ok(resource) = counter_query
-            .get_mut(resources.0)
-            .map(bevy::prelude::Mut::into_inner)
-            .map(|r| r.get_mut(resources.1))
-            && *resource > 0
-        {
-            match *interaction {
-                Interaction::Pressed => {
-                    *color = PRESSED_BUTTON.into();
-                    *resource -= 1;
-                    button.set_changed();
-                }
-                Interaction::Hovered => {
-                    *color = HOVERED_BUTTON.into();
-                    button.set_changed();
-                }
-                Interaction::None => {
-                    *color = NORMAL_BUTTON.into();
-                }
-            }
-        } else {
-            *color = NORMAL_BUTTON.into();
+impl TradingResources {
+    pub const fn get(&self, selector: resources::Resource) -> i8 {
+        match selector {
+            resources::Resource::Wood => self.wood,
+            resources::Resource::Brick => self.brick,
+            resources::Resource::Sheep => self.sheep,
+            resources::Resource::Wheat => self.wheat,
+            resources::Resource::Ore => self.ore,
+        }
+    }
+    pub const fn get_mut(&mut self, selector: resources::Resource) -> &mut i8 {
+        match selector {
+            resources::Resource::Wood => &mut self.wood,
+            resources::Resource::Brick => &mut self.brick,
+            resources::Resource::Sheep => &mut self.sheep,
+            resources::Resource::Wheat => &mut self.wheat,
+            resources::Resource::Ore => &mut self.ore,
         }
     }
 }
-pub fn slider_up_interaction(
-    mut interaction_query: Query<
-        '_,
-        '_,
-        (
-            &Interaction,
-            &mut Button,
-            &mut BackgroundColor,
-            &ResourcesRef,
-            &UpButton,
-        ),
-        (Changed<Interaction>,),
-    >,
-
-    mut counter_query: Query<'_, '_, &mut Resources>,
-) {
-    for (interaction, mut button, mut color, resources, max) in &mut interaction_query {
-        if let Ok(resource) = counter_query
-            .get_mut(resources.0)
-            .map(bevy::prelude::Mut::into_inner)
-            .map(|r| r.get_mut(resources.1))
-            && max.max_individual.is_none_or(|max| *resource < max)
-        {
-            match *interaction {
-                Interaction::Pressed => {
-                    *color = PRESSED_BUTTON.into();
-                    *resource += 1;
-                    button.set_changed();
-                }
-                Interaction::Hovered => {
-                    *color = HOVERED_BUTTON.into();
-                    button.set_changed();
-                }
-                Interaction::None => {
-                    *color = NORMAL_BUTTON.into();
-                }
-            }
-        } else {
-            *color = NORMAL_BUTTON.into();
-        }
+#[derive(Debug, Component, Clone, Copy)]
+pub struct TradingResourcesSlider(resources::Resource);
+impl SliderButtonInteraction<TradingResourcesSlider> for ResMut<'_, TradingResources> {
+    fn increment(&mut self, resource: &TradingResourcesSlider) {
+        *self.get_mut(resource.0) += 1;
+    }
+    fn decrement(&mut self, resource: &TradingResourcesSlider) {
+        *self.get_mut(resource.0) -= 1;
     }
 }

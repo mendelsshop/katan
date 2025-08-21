@@ -1,13 +1,14 @@
-#![warn(clippy::pedantic, clippy::nursery, clippy::cargo)]
-#![deny(
-    clippy::use_self,
-    rust_2018_idioms,
-    missing_debug_implementations,
-    clippy::missing_panics_doc
-)]
+// #![warn(clippy::pedantic, clippy::nursery, clippy::cargo)]
+// #![deny(
+//     clippy::use_self,
+//     rust_2018_idioms,
+//     missing_debug_implementations,
+//     clippy::missing_panics_doc
+// )]
 
 mod cities;
 mod colors;
+mod common_ui;
 mod development_card_actions;
 mod development_cards;
 mod dice;
@@ -17,12 +18,13 @@ mod resources_management;
 mod roads;
 mod robber;
 mod setup_game;
+mod slider;
 mod towns;
 mod turn_ui;
 
 use std::marker::PhantomData;
 
-use bevy::prelude::*;
+use bevy::{ecs::system::SystemParamItem, prelude::*};
 
 use crate::{
     cities::BuildingRef,
@@ -30,10 +32,12 @@ use crate::{
         CatanColor, CatanColorRef, ColorIterator, CurrentColor, CurrentSetupColor, HOVERED_BUTTON,
         NORMAL_BUTTON, PRESSED_BUTTON, SetupColorIterator,
     },
+    common_ui::{ButtonInteraction, Down,  SliderParmeter, Up},
     development_card_actions::{MonopolyButton, RoadBuildingState, YearOfPlentyButton},
     development_cards::DevelopmentCard,
     positions::{BuildingPosition, Position, RoadPosition},
     resources::Resources,
+    resources_management::{TradingResources, TradingResourcesSlider},
     roads::{Road, RoadUI},
     robber::{PreRobberDiscardLeft, Robber, RobberButton, RobberChooseColorButton},
     towns::{Town, TownUI},
@@ -262,13 +266,12 @@ fn main() {
             )
                 .run_if(in_state(GameState::RobberDiscardResources)),
             (
-                resources_management::slider_down_interaction,
-                resources_management::slider_up_interaction,
+                slider::slider_down_interaction,
+                slider::slider_up_interaction,
             )
-                .run_if(in_state(GameState::RobberDiscardResources).or(in_state(GameState::Turn))),
+                .run_if(in_state(GameState::RobberDiscardResources)),
         ),
     );
-
     app.add_systems(
         Update,
         cities::place_normal_city_interaction.run_if(in_state(GameState::PlaceCity)),
@@ -537,6 +540,7 @@ fn layout(commands: &mut Commands<'_, '_>) -> Layout {
             Node {
                 display: Display::Grid,
                 border: UiRect::all(Val::Px(1.)),
+
                 ..default()
             },
             BorderColor(Color::BLACK),
