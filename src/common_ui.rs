@@ -8,11 +8,7 @@ use bevy::{
     prelude::*,
 };
 
-use crate::{
-    GameState,
-    colors::{HOVERED_BUTTON, NORMAL_BUTTON, PRESSED_BUTTON},
-    resources_management::{TradingResources, TradingResourcesSlider},
-};
+use crate::colors::{HOVERED_BUTTON, NORMAL_BUTTON, PRESSED_BUTTON};
 
 // https://www.reddit.com/r/bevy/comments/18xgcm8/comment/kg5jmwp/
 // The extra generic here lets me implement for each component
@@ -22,7 +18,7 @@ pub trait ButtonInteraction<C: Component>: SystemParam {
         true
     }
 }
-pub trait SliderButtonInteraction<C: Component>: SystemParam {
+pub trait SpinnerButtonInteraction<C: Component>: SystemParam {
     fn increment(&mut self, _: &C);
     fn can_increment(&mut self, _: &C) -> bool {
         true
@@ -34,29 +30,28 @@ pub trait SliderButtonInteraction<C: Component>: SystemParam {
     }
 }
 #[derive(SystemParam)]
-pub struct SliderParmeter<
-    'w,
-    's,
-    C: Component,
-    T: SystemParam + SliderButtonInteraction<C> + 'static,
->(Query<'w, 's, &'static C>, StaticSystemParam<'w, 's, T>);
+pub struct SpinnerParmeter<'w, 's, C: Component, T: SystemParam + 'static>(
+    Query<'w, 's, &'static C>,
+    StaticSystemParam<'w, 's, T>,
+);
 
 #[derive(Debug, Component, Clone, Copy)]
 pub struct Up<C>(Entity, PhantomData<C>);
-impl<'w, 's, C, T> ButtonInteraction<Up<C>> for SliderParmeter<'w, 's, C, T>
+impl<C, T> ButtonInteraction<Up<C>> for SpinnerParmeter<'_, '_, C, T>
 where
     C: Component,
-    T: SliderButtonInteraction<C> + SystemParam<Item<'w, 's> = T> + SliderButtonInteraction<C>,
+    T: SystemParam,
+    for<'w, 's> T::Item<'w, 's>: SpinnerButtonInteraction<C>,
 {
     fn interact(&mut self, c: &Up<C>) {
         if let Ok(c) = self.0.get(c.0) {
-            self.1.increment(&c)
+            self.1.increment(c)
         }
     }
 
     fn verify(&mut self, c: &Up<C>) -> bool {
         if let Ok(c) = self.0.get(c.0) {
-            self.1.deref_mut().can_increment(&c)
+            self.1.deref_mut().can_increment(c)
         } else {
             false
         }
@@ -65,22 +60,21 @@ where
 
 #[derive(Debug, Component, Clone, Copy)]
 pub struct Down<C>(Entity, PhantomData<C>);
-impl<
+impl<C, T> ButtonInteraction<Down<C>> for SpinnerParmeter<'_, '_, C, T>
+where
     C: Component,
-    T: SliderButtonInteraction<C>
-        + for<'w, 's> SystemParam<Item<'w, 's> = T>
-        + SliderButtonInteraction<C>,
-> ButtonInteraction<Down<C>> for SliderParmeter<'_, '_, C, T>
+    T: SystemParam,
+    for<'w, 's> T::Item<'w, 's>: SpinnerButtonInteraction<C>,
 {
     fn interact(&mut self, c: &Down<C>) {
         if let Ok(c) = self.0.get(c.0) {
-            self.1.deref_mut().increment(&c)
+            self.1.deref_mut().decrement(c)
         }
     }
 
     fn verify(&mut self, c: &Down<C>) -> bool {
         if let Ok(c) = self.0.get(c.0) {
-            self.1.deref_mut().can_increment(&c)
+            self.1.deref_mut().can_decrement(c)
         } else {
             false
         }
@@ -112,26 +106,19 @@ pub fn button_system_with_generic<C: Component, T: SystemParam>(
         }
     }
 }
-pub fn slider_buttons_interactions<C, T1, T2>() -> ScheduleConfigs<ScheduleSystem>
+pub fn spinner_buttons_interactions<C, T: SystemParam + 'static>() -> ScheduleConfigs<ScheduleSystem>
 where
     C: Component,
-    for<'w, 's> T1: SystemParam<Item<'w, 's> = T1>
-        + SliderButtonInteraction<C>
-        + 'static
-        + ButtonInteraction<Up<C>>,
-    for<'w, 's> T2: SystemParam<Item<'w, 's> = T2>
-        + SliderButtonInteraction<C>
-        + 'static
-        + ButtonInteraction<Down<C>>,
+    for<'w, 's> T::Item<'w, 's>: SpinnerButtonInteraction<C>,
 {
     (
-        button_system_with_generic::<Up<C>, SliderParmeter<'_, '_, C, T1>>,
-        button_system_with_generic::<Down<C>, SliderParmeter<'_, '_, C, T2>>,
+        button_system_with_generic::<Up<C>, SpinnerParmeter<'_, '_, C, T>>,
+        button_system_with_generic::<Down<C>, SpinnerParmeter<'_, '_, C, T>>,
     )
         .into_configs()
 }
 
-pub fn slider_bundle<U: Component>(entity: Entity) -> impl Bundle
+pub fn spinner_bundle<U: Component>(entity: Entity) -> impl Bundle
 where
 {
     (
@@ -157,6 +144,7 @@ where
             ),
             (
                 Value(entity, PhantomData::<U>),
+                Text::new("".to_string()),
                 Node {
                     justify_self: JustifySelf::Center,
                     display: Display::Grid,
@@ -177,12 +165,3 @@ where
         ],
     )
 }
-// #[derive(Debug, Component, Clone, Copy)]
-// pub struct PlayButton;
-// impl ButtonInteraction<PlayButton> for ResMut<'_, NextState<GameState>> {
-//     fn interact(&mut self, f: &PlayButton) {
-//         // if let Some(Interaction::Pressed) = interaction {
-//         //     self.set(AppState::Game);
-//         // }
-//     }
-// }

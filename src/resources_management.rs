@@ -3,22 +3,21 @@ use bevy::prelude::*;
 use crate::{
     Layout,
     colors::{CatanColor, CurrentColor},
-    common_ui::{self, SliderButtonInteraction, Value},
-    development_cards::DevelopmentCard,
+    common_ui::{self, SpinnerButtonInteraction, Value},
     resources::{self, Resources},
 };
 pub fn show_player_resources(
     player_resources: Query<'_, '_, (&CatanColor, &Resources), Changed<Resources>>,
-    player_resources_nodes: Query<'_, '_, (&mut Text, &Value<TradingResourcesSlider>)>,
-    sliders: Query<'_, '_, &TradingResourcesSlider>,
+    player_resources_nodes: Query<'_, '_, (&mut Text, &Value<TradingResourceSpinner>)>,
+    sliders: Query<'_, '_, &TradingResourceSpinner>,
     res: Res<'_, CurrentColor>,
 ) {
     for resource in player_resources {
         println!("{resource:?}")
     }
-    if let Some(resources) = player_resources.get(res.0.entity).ok() {
+    if let Ok(resources) = player_resources.get(res.0.entity) {
         for (mut text, slider_ref) in player_resources_nodes {
-            if let Some(resource_slider) = sliders.get(slider_ref.0).ok() {
+            if let Ok(resource_slider) = sliders.get(slider_ref.0) {
                 **text = resources.1.get(resource_slider.0).to_string();
             }
         }
@@ -63,13 +62,13 @@ pub fn setup_players_resources(mut commands: Commands<'_, '_>, layout: Res<'_, L
     ));
 }
 fn resource_slider(commands: &mut Commands<'_, '_>, kind: resources::Resource) -> impl Bundle {
-    let entity = commands.spawn(TradingResourcesSlider(kind)).id();
-    common_ui::slider_bundle::<TradingResourcesSlider>(entity)
+    let entity = commands.spawn(TradingResourceSpinner(kind)).id();
+    common_ui::spinner_bundle::<TradingResourceSpinner>(entity)
 }
 
-#[derive(Component)]
-pub struct ResourcesRef(pub Entity, pub resources::Resource);
-#[derive(Resource)]
+#[derive(Component, Clone, Copy, Debug)]
+pub struct ResourceRef(pub Entity, pub resources::Resource);
+#[derive(Resource, Default)]
 pub struct TradingResources {
     pub wood: i8,
     pub brick: i8,
@@ -98,12 +97,12 @@ impl TradingResources {
     }
 }
 #[derive(Debug, Component, Clone, Copy)]
-pub struct TradingResourcesSlider(resources::Resource);
-impl SliderButtonInteraction<TradingResourcesSlider> for ResMut<'_, TradingResources> {
-    fn increment(&mut self, resource: &TradingResourcesSlider) {
+pub struct TradingResourceSpinner(resources::Resource);
+impl SpinnerButtonInteraction<TradingResourceSpinner> for ResMut<'_, TradingResources> {
+    fn increment(&mut self, resource: &TradingResourceSpinner) {
         *self.get_mut(resource.0) += 1;
     }
-    fn decrement(&mut self, resource: &TradingResourcesSlider) {
+    fn decrement(&mut self, resource: &TradingResourceSpinner) {
         *self.get_mut(resource.0) -= 1;
     }
 }

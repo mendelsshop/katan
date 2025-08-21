@@ -6,9 +6,14 @@ use bevy::{
 use itertools::Itertools;
 
 use crate::{
+    Building, GameState,
     colors::{
         CatanColor, CatanColorRef, CurrentColor, HOVERED_BUTTON, NORMAL_BUTTON, PRESSED_BUTTON,
-    }, positions::{generate_postions, BuildingPosition, FPosition, Position}, resources::{self, take_resource, Resources}, resources_management::{self, ResourcesRef}, slider::{self, Value}, Building, GameState
+    },
+    common_ui::{self, SpinnerButtonInteraction, Value},
+    positions::{BuildingPosition, FPosition, Position, generate_postions},
+    resources::{self, Resources, take_resource},
+    resources_management::{self, ResourceRef},
 };
 
 #[derive(Resource, PartialEq, Eq, Clone, Copy, Debug)]
@@ -19,6 +24,19 @@ impl Default for Robber {
     }
 }
 
+pub fn counter_text_update(
+    mut interaction_query: Query<'_, '_, (&mut Text, &Value<RobberResourceSpinner>)>,
+    counter_query: Query<'_, '_, &Resources, Changed<Resources>>,
+    robber_spinner_query: Query<'_, '_, &RobberResourceSpinner>,
+) {
+    for (mut text, resources) in &mut interaction_query {
+        if let Ok(resources) = robber_spinner_query.get(resources.0) {
+            if let Ok(counter) = counter_query.get(resources.resource.0) {
+                **text = counter.get(resources.resource.1).to_string();
+            }
+        }
+    }
+}
 #[derive(Component, PartialEq, Eq, Clone, Copy, Debug)]
 pub struct RobberButton;
 pub fn place_robber(mut commands: Commands<'_, '_>, robber: Res<'_, Robber>) {
@@ -215,9 +233,9 @@ pub fn choose_player_to_take_from_interaction(
             }
             Interaction::Hovered => {
                 *button_color = (if color.color == CatanColor::White {
-                    (*button_color).0.darker(0.2)
+                    button_color.0.darker(0.2)
                 } else {
-                    (*button_color).0.lighter(0.1)
+                    button_color.0.lighter(0.1)
                 })
                 .into();
 
@@ -262,17 +280,6 @@ pub fn take_extra_resources(
 
             setup_take_extra_resources(&mut commands, camera, window, *r.2, r.0, r.2.count() / 2);
         });
-}
-
-pub fn counter_text_update(
-    mut interaction_query: Query<'_, '_, (&mut Text, &ResourcesRef), With<Value>>,
-    counter_query: Query<'_, '_, &Resources>,
-) {
-    for (mut text, resources) in &mut interaction_query {
-        if let Ok(counter) = counter_query.get(resources.0) {
-            **text = counter.get(resources.1).to_string();
-        }
-    }
 }
 
 #[derive(Resource)]
@@ -330,6 +337,50 @@ fn setup_take_extra_resources(
     resources_entity: Entity,
     resources_needed: u8,
 ) {
+    let spawn_related_bundle = children![
+        resource_slider(
+            commands,
+            ResourceRef(resources_entity, resources::Resource::Wood),
+            resources.wood,
+        ),
+        resource_slider(
+            commands,
+            ResourceRef(resources_entity, resources::Resource::Brick,),
+            resources.brick,
+        ),
+        resource_slider(
+            commands,
+            ResourceRef(resources_entity, resources::Resource::Sheep,),
+            resources.sheep,
+        ),
+        resource_slider(
+            commands,
+            ResourceRef(resources_entity, resources::Resource::Wheat),
+            resources.wheat,
+        ),
+        resource_slider(
+            commands,
+            ResourceRef(resources_entity, resources::Resource::Ore,),
+            resources.ore,
+        ),
+        (
+            Node {
+                display: Display::Grid,
+                align_self: AlignSelf::Center,
+                border: UiRect::all(Val::Px(3.0)),
+                ..default()
+            },
+            Button,
+            SumbitButton {
+                new_max_resources: resources_needed,
+                resource_ref: resources_entity,
+            },
+            BackgroundColor(NORMAL_BUTTON),
+            BorderColor(Color::BLACK),
+            WindowRef(window),
+            Text::new("confirm".to_string()),
+        ),
+    ];
     commands.spawn((
         UiTargetCamera(camera),
         Node {
@@ -345,55 +396,7 @@ fn setup_take_extra_resources(
 
             ..default()
         },
-        children![
-            slider::slider_bundle(
-                resources.wood,
-                resources_entity,
-                resources::Resource::Wood,
-                true,
-            ),
-            slider::slider_bundle(
-                resources.brick,
-                resources_entity,
-                resources::Resource::Brick,
-                true,
-            ),
-            slider::slider_bundle(
-                resources.sheep,
-                resources_entity,
-                resources::Resource::Sheep,
-                true,
-            ),
-            slider::slider_bundle(
-                resources.wheat,
-                resources_entity,
-                resources::Resource::Wheat,
-                true,
-            ),
-            slider::slider_bundle(
-                resources.ore,
-                resources_entity,
-                resources::Resource::Ore,
-                true,
-            ),
-            (
-                Node {
-                    display: Display::Grid,
-                    align_self: AlignSelf::Center,
-                    border: UiRect::all(Val::Px(3.0)),
-                    ..default()
-                },
-                Button,
-                SumbitButton {
-                    new_max_resources: resources_needed,
-                    resource_ref: resources_entity,
-                },
-                BackgroundColor(NORMAL_BUTTON),
-                BorderColor(Color::BLACK),
-                WindowRef(window),
-                Text::new("confirm".to_string()),
-            ),
-        ],
+        spawn_related_bundle,
     ));
 }
 #[derive(Component)]
@@ -401,4 +404,43 @@ pub struct SumbitButton {
     new_max_resources: u8,
     resource_ref: Entity,
 }
+#[derive(Debug, Component, Clone, Copy)]
+pub struct RobberResourceSpinner {
+    resource: ResourceRef,
+    max: u8,
+}
+impl SpinnerButtonInteraction<RobberResourceSpinner> for Query<'_, '_, &'static mut Resources> {
+    fn increment(&mut self, resource: &RobberResourceSpinner) {
+        if let Ok(mut resources) = self.get_mut(resource.resource.0) {
+            *resources.get_mut(resource.resource.1) += 1;
+        }
+    }
+    fn decrement(&mut self, resource: &RobberResourceSpinner) {
+        if let Ok(mut resources) = self.get_mut(resource.resource.0) {
+            *resources.get_mut(resource.resource.1) -= 1;
+        }
+    }
 
+    fn can_increment(&mut self, resource: &RobberResourceSpinner) -> bool {
+        if let Ok(resources) = self.get(resource.resource.0) {
+            resources.get(resource.resource.1) < resource.max
+        } else {
+            false
+        }
+    }
+    fn can_decrement(&mut self, resource: &RobberResourceSpinner) -> bool {
+        if let Ok(resources) = self.get(resource.resource.0) {
+            resources.get(resource.resource.1) > 0
+        } else {
+            false
+        }
+    }
+}
+fn resource_slider(
+    commands: &mut Commands<'_, '_>,
+    resource: resources_management::ResourceRef,
+    max: u8,
+) -> impl Bundle {
+    let entity = commands.spawn(RobberResourceSpinner { resource, max }).id();
+    common_ui::spinner_bundle::<RobberResourceSpinner>(entity)
+}

@@ -1,8 +1,8 @@
 use bevy::prelude::*;
 
 use crate::{
-    BuildingPosition, CatanColor, GameState, Hexagon, Number, Position, Resources, Robber, Town,
-    cities::City, turn_ui::DieButton,
+    BuildingPosition, CatanColor, GameState, Hexagon, Number, Resources, Robber, Town,
+    cities::City, positions::Position, turn_ui::DieButton,
 };
 fn roll_dice() -> (u8, u8, u8) {
     let dice1 = rand::random_range(1..=6);
@@ -27,7 +27,7 @@ pub fn full_roll_dice(
         .for_each(|(mut die_ui, new_roll)| {
             *die_ui.1 = die_ui
                 .1
-                .with_rotation(Quat::from_rotation_z(rand::random_range((-25.)..(4.))));
+                .with_rotation(Quat::from_rotation_z(rand::random_range((-25.)..4.)));
             // TODO: maybe make dice move not only rotate
 
             **die_ui.0 = new_roll.to_string();

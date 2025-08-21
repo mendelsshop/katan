@@ -1,10 +1,10 @@
-// #![warn(clippy::pedantic, clippy::nursery, clippy::cargo)]
-// #![deny(
-//     clippy::use_self,
-//     rust_2018_idioms,
-//     missing_debug_implementations,
-//     clippy::missing_panics_doc
-// )]
+#![warn(clippy::pedantic, clippy::nursery, clippy::cargo)]
+#![deny(
+    clippy::use_self,
+    rust_2018_idioms,
+    missing_debug_implementations,
+    clippy::missing_panics_doc
+)]
 
 mod cities;
 mod colors;
@@ -18,13 +18,12 @@ mod resources_management;
 mod roads;
 mod robber;
 mod setup_game;
-mod slider;
 mod towns;
 mod turn_ui;
 
 use std::marker::PhantomData;
 
-use bevy::{ecs::system::SystemParamItem, prelude::*};
+use bevy::prelude::*;
 
 use crate::{
     cities::BuildingRef,
@@ -32,14 +31,15 @@ use crate::{
         CatanColor, CatanColorRef, ColorIterator, CurrentColor, CurrentSetupColor, HOVERED_BUTTON,
         NORMAL_BUTTON, PRESSED_BUTTON, SetupColorIterator,
     },
-    common_ui::{ButtonInteraction, Down,  SliderParmeter, Up},
     development_card_actions::{MonopolyButton, RoadBuildingState, YearOfPlentyButton},
     development_cards::DevelopmentCard,
-    positions::{BuildingPosition, Position, RoadPosition},
+    positions::{BuildingPosition, RoadPosition},
     resources::Resources,
-    resources_management::{TradingResources, TradingResourcesSlider},
+    resources_management::{TradingResourceSpinner, TradingResources},
     roads::{Road, RoadUI},
-    robber::{PreRobberDiscardLeft, Robber, RobberButton, RobberChooseColorButton},
+    robber::{
+        PreRobberDiscardLeft, Robber, RobberButton, RobberChooseColorButton, RobberResourceSpinner,
+    },
     towns::{Town, TownUI},
 };
 
@@ -50,6 +50,7 @@ fn main() {
     app.insert_resource(BoardSize(3));
     app.init_resource::<Robber>();
     app.insert_resource(Resources::new_game());
+    app.insert_resource(TradingResources::default());
     // TODO: is there way to init resource
     // without giving a value
     app.insert_resource(PreRobberDiscardLeft(0));
@@ -257,6 +258,14 @@ fn main() {
         place_normal_interaction::<Town, BuildingPosition, TownUI, CurrentColor>
             .run_if(in_state(GameState::PlaceTown)),
     );
+
+    app.add_systems(
+        Update,
+        (common_ui::spinner_buttons_interactions::<
+            TradingResourceSpinner,
+            ResMut<'_, TradingResources>,
+        >(),),
+    );
     app.add_systems(
         Update,
         (
@@ -265,10 +274,10 @@ fn main() {
                 robber::counter_text_update,
             )
                 .run_if(in_state(GameState::RobberDiscardResources)),
-            (
-                slider::slider_down_interaction,
-                slider::slider_up_interaction,
-            )
+            (common_ui::spinner_buttons_interactions::<
+                RobberResourceSpinner,
+                Query<'static, 'static, &'_ mut Resources>,
+            >(),)
                 .run_if(in_state(GameState::RobberDiscardResources)),
         ),
     );

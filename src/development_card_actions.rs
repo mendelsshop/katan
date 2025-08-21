@@ -171,9 +171,7 @@ pub(crate) fn monopoly_interaction(
                     })
                     .sum::<u8>();
 
-                if let Some((_, mut resources)) =
-                    player_resources.get_mut(current_color.0.entity).ok()
-                {
+                if let Ok((_, mut resources)) = player_resources.get_mut(current_color.0.entity) {
                     // we reassign because when we go through the resources we also go through
                     // current color's resources
                     *resources.get_mut(kind.0) = taken;
@@ -267,7 +265,7 @@ pub(crate) fn year_of_plenty_interaction(
             Interaction::Pressed => {
                 *color = PRESSED_BUTTON.into();
                 button.set_changed();
-                if let Some(mut resources) = player_resources.get_mut(current_color.0.entity).ok() {
+                if let Ok(mut resources) = player_resources.get_mut(current_color.0.entity) {
                     // we reassign because when we go through the resources we also go through
                     // current color's resources
                     *resources.get_mut(kind.0) += 1;
