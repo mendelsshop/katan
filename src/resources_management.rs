@@ -9,6 +9,16 @@ use crate::{
     common_ui::{self, ButtonInteraction, SpinnerButtonInteraction, Value},
     resources::{self, Resources},
 };
+#[derive(Component, Clone, Copy, Debug)]
+pub struct TradeButton;
+#[derive(Component, Clone, Copy, Debug)]
+pub struct BankTradeButton;
+impl ButtonInteraction<TradeButton> for Res<'_, TradingResources> {
+    fn interact(&mut self, _: &TradeButton) {}
+}
+impl ButtonInteraction<BankTradeButton> for Res<'_, TradingResources> {
+    fn interact(&mut self, _: &BankTradeButton) {}
+}
 pub fn show_player_trade(
     resources: Res<'_, TradingResources>,
     mut text_query: Single<'_, (&TradingText, &mut Text)>,
@@ -49,7 +59,8 @@ pub fn setup_players_resources(mut commands: Commands<'_, '_>, layout: Res<'_, L
             Node {
                 display: Display::Grid,
                 grid_template_columns: vec![
-                    GridTrack::percent(80.),
+                    GridTrack::percent(70.),
+                    GridTrack::percent(10.),
                     GridTrack::percent(10.),
                     GridTrack::percent(10.)
                 ],
@@ -57,26 +68,58 @@ pub fn setup_players_resources(mut commands: Commands<'_, '_>, layout: Res<'_, L
             },
             children![
                 (
-                    TextFont {
-                        font_size: 10.,
-                        ..default()
-                    },
                     TradingText,
                     Node {
                         display: Display::Grid,
+                        ..default()
+                    },
+                    TextFont {
+                        font_size: 10.,
                         ..default()
                     },
                     Text::new("")
                 ),
                 (
                     Button,
-                    TradingResourceReset,
+                    TradingResourceResetButton,
                     Node {
                         display: Display::Grid,
                         ..default()
                     },
+                    TextFont {
+                        font_size: 10.,
+                        ..default()
+                    },
                     Text::new("x")
-                )
+                ),
+                (
+                    Button,
+                    Node {
+                        display: Display::Grid,
+                        ..default()
+                    },
+                    TextFont {
+                        font_size: 10.,
+                        ..default()
+                    },
+                    TradeButton,
+                    // trade button
+                    Text::new("t")
+                ),
+                (
+                    Button,
+                    Node {
+                        display: Display::Grid,
+                        ..default()
+                    },
+                    TextFont {
+                        font_size: 10.,
+                        ..default()
+                    },
+                    BankTradeButton,
+                    // bank button
+                    Text::new("b")
+                ),
             ]
         ),
         (
@@ -186,9 +229,9 @@ impl SpinnerButtonInteraction<TradingResourceSpinner> for TradingSpinnerState<'_
 }
 
 #[derive(Debug, Component, Clone, Copy)]
-pub struct TradingResourceReset;
-impl ButtonInteraction<TradingResourceReset> for ResMut<'_, TradingResources> {
-    fn interact(&mut self, _: &TradingResourceReset) {
+pub struct TradingResourceResetButton;
+impl ButtonInteraction<TradingResourceResetButton> for ResMut<'_, TradingResources> {
+    fn interact(&mut self, _: &TradingResourceResetButton) {
         **self = TradingResources::default();
     }
 }
@@ -225,8 +268,16 @@ impl Plugin for ResourceManagmentPlugin {
         );
         app.add_systems(
             Update,
+            (common_ui::button_system_with_generic::<TradeButton, Res<'_, TradingResources>>,),
+        );
+        app.add_systems(
+            Update,
+            (common_ui::button_system_with_generic::<BankTradeButton, Res<'_, TradingResources>>,),
+        );
+        app.add_systems(
+            Update,
             (common_ui::button_system_with_generic::<
-                TradingResourceReset,
+                TradingResourceResetButton,
                 ResMut<'_, TradingResources>,
             >,),
         );
