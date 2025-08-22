@@ -1,11 +1,19 @@
-use bevy::prelude::*;
+use bevy::{ecs::system::SystemParam, prelude::*};
 
 use crate::{
     GameState, Layout,
     colors::{CatanColor, CurrentColor},
-    common_ui::{self, SpinnerButtonInteraction, Value},
+    common_ui::{self, ButtonInteraction, SpinnerButtonInteraction, Value},
     resources::{self, Resources},
 };
+pub fn show_player_trade(
+    resources: Res<'_, TradingResources>,
+    mut text_query: Single<'_, (&TradingText, &mut Text)>,
+) {
+    if resources.is_changed() {
+        **text_query.1 = format!("{:?}", resources);
+    }
+}
 pub fn show_player_resources(
     player_resources: Query<'_, '_, (&CatanColor, &Resources), Changed<Resources>>,
     player_resources_nodes: Query<'_, '_, (&mut Text, &Value<TradingResourceSpinner>)>,
@@ -23,6 +31,8 @@ pub fn show_player_resources(
         }
     }
 }
+#[derive(Component, Clone, Copy, Debug)]
+pub struct TradingText;
 pub fn setup_players_resources(mut commands: Commands<'_, '_>, layout: Res<'_, Layout>) {
     let children = children![
         resource_slider(&mut commands, resources::Resource::Wood),
@@ -32,10 +42,40 @@ pub fn setup_players_resources(mut commands: Commands<'_, '_>, layout: Res<'_, L
         resource_slider(&mut commands, resources::Resource::Ore),
     ];
     commands.entity(layout.resources).insert((children![
-        Node {
-            display: Display::Grid,
-            ..default()
-        },
+        (
+            Node {
+                display: Display::Grid,
+                grid_template_columns: vec![
+                    GridTrack::percent(80.),
+                    GridTrack::percent(10.),
+                    GridTrack::percent(10.)
+                ],
+                ..default()
+            },
+            children![
+                (
+                    TextFont {
+                        font_size: 5.,
+                        ..default()
+                    },
+                    TradingText,
+                    Node {
+                        display: Display::Grid,
+                        ..default()
+                    },
+                    Text::new("")
+                ),
+                (
+                    Button,
+                    TradingResourceReset,
+                    Node {
+                        display: Display::Grid,
+                        ..default()
+                    },
+                    Text::new("x")
+                )
+            ]
+        ),
         (
             Node {
                 display: Display::Grid,
@@ -60,7 +100,7 @@ fn resource_slider(commands: &mut Commands<'_, '_>, kind: resources::Resource) -
 
 #[derive(Component, Clone, Copy, Debug)]
 pub struct ResourceRef(pub Entity, pub resources::Resource);
-#[derive(Resource, Default)]
+#[derive(Resource, Default, Debug)]
 pub struct TradingResources {
     pub wood: i8,
     pub brick: i8,
@@ -90,15 +130,37 @@ impl TradingResources {
 }
 #[derive(Debug, Component, Clone, Copy)]
 pub struct TradingResourceSpinner(resources::Resource);
-impl SpinnerButtonInteraction<TradingResourceSpinner> for ResMut<'_, TradingResources> {
+#[derive(SystemParam)]
+struct TradingSpinnerState<'w, 's> {
+    trading_resources: ResMut<'w, TradingResources>,
+    current_color: Res<'w, CurrentColor>,
+    player_resources_q: Query<'w, 's, &'static Resources, With<CatanColor>>,
+}
+
+impl SpinnerButtonInteraction<TradingResourceSpinner> for TradingSpinnerState<'_, '_> {
     fn increment(&mut self, resource: &TradingResourceSpinner) {
-        *self.get_mut(resource.0) += 1;
+        *self.trading_resources.get_mut(resource.0) += 1;
     }
     fn decrement(&mut self, resource: &TradingResourceSpinner) {
-        *self.get_mut(resource.0) -= 1;
+        *self.trading_resources.get_mut(resource.0) -= 1;
+    }
+    fn can_decrement(&mut self, resource: &TradingResourceSpinner) -> bool {
+        let current_value = self.trading_resources.get(resource.0);
+        current_value > 0
+            || self
+                .player_resources_q
+                .get(self.current_color.0.entity)
+                .is_ok_and(|r| r.get(resource.0) > current_value.unsigned_abs())
     }
 }
 
+#[derive(Debug, Component, Clone, Copy)]
+pub struct TradingResourceReset;
+impl ButtonInteraction<TradingResourceReset> for ResMut<'_, TradingResources> {
+    fn interact(&mut self, _: &TradingResourceReset) {
+        **self = TradingResources::default();
+    }
+}
 pub fn reset_trading_resources(mut resources: ResMut<'_, TradingResources>) {
     *resources = TradingResources::default();
 }
@@ -119,6 +181,7 @@ impl Plugin for ResourceManagmentPlugin {
         );
 
         app.add_systems(Update, show_player_resources);
+        app.add_systems(Update, show_player_trade);
         // TODO: maybe remove the Changed<Resources> for this one, so new players cards always show
         app.add_systems(OnEnter(GameState::Roll), show_player_resources);
         app.add_systems(OnEnter(GameState::Roll), reset_trading_resources);
@@ -126,8 +189,15 @@ impl Plugin for ResourceManagmentPlugin {
             Update,
             (common_ui::spinner_buttons_interactions::<
                 TradingResourceSpinner,
-                ResMut<'_, TradingResources>,
+                TradingSpinnerState<'_, '_>,
             >(),),
+        );
+        app.add_systems(
+            Update,
+            (common_ui::button_system_with_generic::<
+                TradingResourceReset,
+                ResMut<'_, TradingResources>,
+            >,),
         );
     }
 }
