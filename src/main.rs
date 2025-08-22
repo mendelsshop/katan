@@ -35,7 +35,7 @@ use crate::{
     development_cards::DevelopmentCard,
     positions::{BuildingPosition, RoadPosition},
     resources::Resources,
-    resources_management::{TradingResourceSpinner, TradingResources},
+    resources_management::ResourceManagmentPlugin,
     roads::{Road, RoadUI},
     robber::{
         PreRobberDiscardLeft, Robber, RobberButton, RobberChooseColorButton, RobberResourceSpinner,
@@ -47,10 +47,10 @@ fn main() {
     let mut app = App::new();
     app.add_plugins((DefaultPlugins,));
     app.init_state::<GameState>();
+    app.add_plugins((ResourceManagmentPlugin,));
     app.insert_resource(BoardSize(3));
     app.init_resource::<Robber>();
     app.insert_resource(Resources::new_game());
-    app.insert_resource(TradingResources::default());
     // TODO: is there way to init resource
     // without giving a value
     app.insert_resource(PreRobberDiscardLeft(0));
@@ -95,15 +95,7 @@ fn main() {
         cleanup_button::<BuildingPosition>,
     );
     app.add_systems(OnExit(GameState::PlaceRoad), cleanup_button::<RoadPosition>);
-    app.add_systems(
-        OnTransition {
-            // you might think, that we would do this after the last town (with SetupTown), but due
-            // to how the color/player changing logic for setup its not acutally so
-            exited: GameState::SetupRoad,
-            entered: GameState::Roll,
-        },
-        resources_management::setup_players_resources,
-    );
+
     app.add_systems(
         OnExit(RoadBuildingState::Road1),
         (
@@ -145,7 +137,6 @@ fn main() {
         development_card_actions::monopoly_setup,
     );
 
-    app.add_systems(Update, resources_management::show_player_resources);
     app.add_systems(
         Update,
         development_card_actions::monopoly_interaction.run_if(in_state(GameState::Monopoly)),
@@ -259,13 +250,6 @@ fn main() {
             .run_if(in_state(GameState::PlaceTown)),
     );
 
-    app.add_systems(
-        Update,
-        (common_ui::spinner_buttons_interactions::<
-            TradingResourceSpinner,
-            ResMut<'_, TradingResources>,
-        >(),),
-    );
     app.add_systems(
         Update,
         (
@@ -577,6 +561,8 @@ fn layout(commands: &mut Commands<'_, '_>) -> Layout {
         .spawn((
             Node {
                 display: Display::Grid,
+
+                grid_template_rows: vec![GridTrack::percent(10.), GridTrack::percent(90.)],
                 border: UiRect::all(Val::Px(1.)),
                 ..default()
             },

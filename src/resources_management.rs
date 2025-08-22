@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 
 use crate::{
-    Layout,
+    GameState, Layout,
     colors::{CatanColor, CurrentColor},
     common_ui::{self, SpinnerButtonInteraction, Value},
     resources::{self, Resources},
@@ -31,35 +31,27 @@ pub fn setup_players_resources(mut commands: Commands<'_, '_>, layout: Res<'_, L
         resource_slider(&mut commands, resources::Resource::Wheat),
         resource_slider(&mut commands, resources::Resource::Ore),
     ];
-    commands.entity(layout.resources).with_child((
+    commands.entity(layout.resources).insert((children![
         Node {
             display: Display::Grid,
-            grid_template_rows: vec![GridTrack::percent(10.), GridTrack::percent(90.)],
-
             ..default()
         },
-        children![
+        (
             Node {
                 display: Display::Grid,
+                grid_template_columns: vec![
+                    GridTrack::percent(20.),
+                    GridTrack::percent(20.),
+                    GridTrack::percent(20.),
+                    GridTrack::percent(20.),
+                    GridTrack::percent(20.)
+                ],
+
                 ..default()
             },
-            (
-                Node {
-                    display: Display::Grid,
-                    grid_template_columns: vec![
-                        GridTrack::percent(20.),
-                        GridTrack::percent(20.),
-                        GridTrack::percent(20.),
-                        GridTrack::percent(20.),
-                        GridTrack::percent(20.)
-                    ],
-
-                    ..default()
-                },
-                children
-            )
-        ],
-    ));
+            children
+        )
+    ],));
 }
 fn resource_slider(commands: &mut Commands<'_, '_>, kind: resources::Resource) -> impl Bundle {
     let entity = commands.spawn(TradingResourceSpinner(kind)).id();
@@ -104,5 +96,38 @@ impl SpinnerButtonInteraction<TradingResourceSpinner> for ResMut<'_, TradingReso
     }
     fn decrement(&mut self, resource: &TradingResourceSpinner) {
         *self.get_mut(resource.0) -= 1;
+    }
+}
+
+pub fn reset_trading_resources(mut resources: ResMut<'_, TradingResources>) {
+    *resources = TradingResources::default();
+}
+
+// manages card trading and showing users resources
+pub struct ResourceManagmentPlugin;
+impl Plugin for ResourceManagmentPlugin {
+    fn build(&self, app: &mut App) {
+        app.insert_resource(TradingResources::default());
+        app.add_systems(
+            OnTransition {
+                // you might think, that we would do this after the last town (with SetupTown), but due
+                // to how the color/player changing logic for setup its not acutally so
+                exited: GameState::SetupRoad,
+                entered: GameState::Roll,
+            },
+            setup_players_resources,
+        );
+
+        app.add_systems(Update, show_player_resources);
+        // TODO: maybe remove the Changed<Resources> for this one, so new players cards always show
+        app.add_systems(OnEnter(GameState::Roll), show_player_resources);
+        app.add_systems(OnEnter(GameState::Roll), reset_trading_resources);
+        app.add_systems(
+            Update,
+            (common_ui::spinner_buttons_interactions::<
+                TradingResourceSpinner,
+                ResMut<'_, TradingResources>,
+            >(),),
+        );
     }
 }
