@@ -1,7 +1,6 @@
 use std::mem;
 
 use bevy::prelude::*;
-use itertools::Itertools;
 
 use crate::{
     GameState, Knights, Layout,
@@ -193,7 +192,7 @@ pub struct YearOfPlentyButton(resources::Resource);
 #[derive(SubStates, Clone, Copy, PartialEq, Eq, Hash, Debug, Default)]
 #[source(GameState = GameState::YearOfPlenty)]
 
-pub(crate) enum YearOrPlentyState {
+pub(crate) enum YearOfPlentyState {
     #[default]
     Resource1,
     Resource2,
@@ -244,11 +243,10 @@ pub(crate) fn year_of_plenty_interaction(
         '_,
         '_,
         (
-            Entity,
             &Interaction,
             &mut Button,
             &mut BackgroundColor,
-            &MonopolyButton,
+            &YearOfPlentyButton,
         ),
         (Changed<Interaction>,),
     >,
@@ -256,11 +254,10 @@ pub(crate) fn year_of_plenty_interaction(
     current_color: Res<'_, CurrentColor>,
     mut player_resources: Query<'_, '_, &mut Resources, With<CatanColor>>,
     mut state: ResMut<'_, NextState<GameState>>,
-    mut substate_mut: ResMut<'_, NextState<YearOrPlentyState>>,
-    substate: Res<'_, State<YearOrPlentyState>>,
-    mut commands: Commands<'_, '_>,
+    mut substate_mut: ResMut<'_, NextState<YearOfPlentyState>>,
+    substate: Res<'_, State<YearOfPlentyState>>,
 ) {
-    for (entity, interaction, mut button, mut color, kind) in &mut interaction_query {
+    for (interaction, mut button, mut color, kind) in &mut interaction_query {
         match *interaction {
             Interaction::Pressed => {
                 *color = PRESSED_BUTTON.into();
@@ -269,9 +266,8 @@ pub(crate) fn year_of_plenty_interaction(
                     // we reassign because when we go through the resources we also go through
                     // current color's resources
                     *resources.get_mut(kind.0) += 1;
-                    commands.entity(entity).despawn();
-                    if *substate.get() == YearOrPlentyState::Resource1 {
-                        substate_mut.set(YearOrPlentyState::Resource2);
+                    if *substate.get() == YearOfPlentyState::Resource1 {
+                        substate_mut.set(YearOfPlentyState::Resource2);
                     } else {
                         state.set(GameState::Turn);
                     }

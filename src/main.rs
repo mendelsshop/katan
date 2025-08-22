@@ -31,7 +31,9 @@ use crate::{
         CatanColor, CatanColorRef, ColorIterator, CurrentColor, CurrentSetupColor, HOVERED_BUTTON,
         NORMAL_BUTTON, PRESSED_BUTTON, SetupColorIterator,
     },
-    development_card_actions::{MonopolyButton, RoadBuildingState, YearOfPlentyButton},
+    development_card_actions::{
+        MonopolyButton, RoadBuildingState, YearOfPlentyButton, YearOfPlentyState,
+    },
     development_cards::DevelopmentCard,
     positions::{BuildingPosition, RoadPosition},
     resources::Resources,
@@ -46,7 +48,9 @@ use crate::{
 fn main() {
     let mut app = App::new();
     app.add_plugins((DefaultPlugins,));
-    app.init_state::<GameState>();
+    app.init_state::<GameState>()
+        .add_sub_state::<YearOfPlentyState>()
+        .add_sub_state::<RoadBuildingState>();
     app.add_plugins((ResourceManagmentPlugin,));
     app.insert_resource(BoardSize(3));
     app.init_resource::<Robber>();
@@ -98,17 +102,7 @@ fn main() {
 
     app.add_systems(
         OnExit(RoadBuildingState::Road1),
-        (
-            cleanup_button::<RoadPosition>,
-            // will this work if we are also exiting GameState::RoadBuilding
-            (|mut state: ResMut<'_, NextState<GameState>>,
-              mut sub_state: ResMut<'_, NextState<RoadBuildingState>>| {
-                state.set(GameState::RoadBuilding);
-                // because we share the logic with general road placement we have to handle the
-                // state switch seperatly
-                sub_state.set(RoadBuildingState::Road2)
-            }),
-        ),
+        cleanup_button::<RoadPosition>,
     );
     app.add_systems(
         OnExit(RoadBuildingState::Road2),
@@ -411,6 +405,8 @@ fn place_normal_interaction<
         ),
         (Changed<Interaction>, Without<CatanColor>),
     >,
+    substate_mut: Option<ResMut<'_, NextState<RoadBuildingState>>>,
+    substate: Option<Res<'_, State<RoadBuildingState>>>,
 ) {
     let color_r = color_r.into_inner();
     let current_color: CatanColor = (*color_r).into();
@@ -439,7 +435,6 @@ fn place_normal_interaction<
                     | GameState::YearOfPlenty
                     | GameState::Start
                     | GameState::Roll
-                    | GameState::RoadBuilding
                     | GameState::Turn
                     | GameState::PlaceRobber
                     | GameState::RobberDiscardResources
@@ -447,11 +442,24 @@ fn place_normal_interaction<
                     GameState::PlaceRoad | GameState::PlaceTown | GameState::PlaceCity => {
                         game_state_mut.set(GameState::Turn);
                     }
+
+                    // little hacky to road building (dev card) state management from here
+                    GameState::RoadBuilding => {
+                        if let Some((substate, mut substate_mut)) = substate.zip(substate_mut) {
+                            if *substate.get() == RoadBuildingState::Road1 {
+                                substate_mut.set(RoadBuildingState::Road2)
+                            } else {
+                                game_state_mut.set(GameState::Turn)
+                            }
+                        }
+                    }
+
                     GameState::SetupRoad => game_state_mut.set(GameState::SetupTown),
                     GameState::SetupTown => game_state_mut.set(GameState::SetupRoad),
                 }
                 commands.spawn(U::bundle(*pos, &mut meshes, &mut materials, current_color));
                 button.set_changed();
+                break;
             }
             Interaction::Hovered => {
                 *color = HOVERED_BUTTON.into();
@@ -490,13 +498,7 @@ fn setup(
     let layout = layout(&mut commands);
     commands.insert_resource(layout);
     // this has to be set dynamically
-    let catan_colors = vec![
-        CatanColor::White,
-        CatanColor::Red,
-        CatanColor::Blue,
-        CatanColor::Green,
-    ]
-    .into_iter();
+    let catan_colors = vec![CatanColor::White, CatanColor::Red].into_iter();
     let catan_colors = setup_game::setup(&mut commands, meshes, materials, layout, catan_colors);
     next_state.set(GameState::SetupRoad);
 
