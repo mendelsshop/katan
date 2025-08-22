@@ -1,4 +1,7 @@
+use std::fmt;
+
 use bevy::{ecs::system::SystemParam, prelude::*};
+use itertools::Itertools;
 
 use crate::{
     GameState, Layout,
@@ -11,7 +14,7 @@ pub fn show_player_trade(
     mut text_query: Single<'_, (&TradingText, &mut Text)>,
 ) {
     if resources.is_changed() {
-        **text_query.1 = format!("{:?}", resources);
+        **text_query.1 = format!("{}", resources.into_inner());
     }
 }
 pub fn show_player_resources(
@@ -55,7 +58,7 @@ pub fn setup_players_resources(mut commands: Commands<'_, '_>, layout: Res<'_, L
             children![
                 (
                     TextFont {
-                        font_size: 5.,
+                        font_size: 10.,
                         ..default()
                     },
                     TradingText,
@@ -107,6 +110,34 @@ pub struct TradingResources {
     pub sheep: i8,
     pub wheat: i8,
     pub ore: i8,
+}
+impl fmt::Display for TradingResources {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let (giving, taking): (Vec<_>, Vec<_>) = [
+            resources::Resource::Wood,
+            resources::Resource::Brick,
+            resources::Resource::Sheep,
+            resources::Resource::Wheat,
+            resources::Resource::Ore,
+        ]
+        .map(|r| (r, self.get(r)))
+        .into_iter()
+        .filter(|(_, count)| *count != 0)
+        .partition(|(_, count)| *count < 0);
+        // TODO: should we show if giving or taking is 0
+        write!(
+            f,
+            "{} -> {}",
+            giving
+                .iter()
+                .map(|(kind, count)| format!("{} {kind:?}", count.abs()))
+                .join(", "),
+            taking
+                .iter()
+                .map(|(kind, count)| format!("{count} {kind:?}"))
+                .join(", ")
+        )
+    }
 }
 impl TradingResources {
     pub const fn get(&self, selector: resources::Resource) -> i8 {
