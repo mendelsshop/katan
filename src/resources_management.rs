@@ -1,4 +1,7 @@
-use std::fmt;
+use std::{
+    fmt,
+    ops::{Add, AddAssign, Sub, SubAssign},
+};
 
 use bevy::{ecs::system::SystemParam, prelude::*};
 use itertools::Itertools;
@@ -16,8 +19,36 @@ pub struct BankTradeButton;
 impl ButtonInteraction<TradeButton> for Res<'_, TradingResources> {
     fn interact(&mut self, _: &TradeButton) {}
 }
-impl ButtonInteraction<BankTradeButton> for Res<'_, TradingResources> {
-    fn interact(&mut self, _: &BankTradeButton) {}
+#[derive(SystemParam)]
+struct BankTradeState<'w, 's> {
+    trading_resources: Res<'w, TradingResources>,
+    bank_resources: ResMut<'w, Resources>,
+    current_color: Res<'w, CurrentColor>,
+    player_color_q: Query<'w, 's, &'static mut Resources, With<CatanColor>>,
+}
+
+impl ButtonInteraction<BankTradeButton> for BankTradeState<'_, '_> {
+    fn verify(&mut self, _: &BankTradeButton) -> bool {
+        let (given, taken) = self.trading_resources.given_and_taken();
+        let taken = taken.iter().map(|(_, count)| count / 4).count();
+        let given: i8 = given
+            .iter()
+            .filter(|(_, count)| *count > 0 || *count % 4 == 0)
+            .map(|(_, count)| count / 4)
+            .sum();
+        // TODO: verify there is enough resources in bank
+        // TODO: port
+        println!("{given} -> {taken}");
+
+        (given == -(taken as i8)) && given != 0 && taken != 0
+    }
+    fn interact(&mut self, _: &BankTradeButton) {
+        let trading_resources = *(&self.trading_resources as &TradingResources);
+        self.bank_resources.sub_assign(trading_resources);
+        if let Ok(mut player_resources) = self.player_color_q.get_mut(self.current_color.0.entity) {
+            player_resources.add_assign(trading_resources)
+        };
+    }
 }
 pub fn show_player_trade(
     resources: Res<'_, TradingResources>,
@@ -146,7 +177,7 @@ fn resource_slider(commands: &mut Commands<'_, '_>, kind: resources::Resource) -
 
 #[derive(Component, Clone, Copy, Debug)]
 pub struct ResourceRef(pub Entity, pub resources::Resource);
-#[derive(Resource, Default, Debug)]
+#[derive(Resource, Default, Debug, Clone, Copy)]
 pub struct TradingResources {
     pub wood: i8,
     pub brick: i8,
@@ -154,19 +185,46 @@ pub struct TradingResources {
     pub wheat: i8,
     pub ore: i8,
 }
+impl Add<TradingResources> for Resources {
+    type Output = Self;
+
+    fn add(self, rhs: TradingResources) -> Self::Output {
+        Self {
+            wood: (self.wood as i8 + rhs.wood) as u8,
+            brick: (self.brick as i8 + rhs.brick) as u8,
+            sheep: (self.sheep as i8 + rhs.sheep) as u8,
+            wheat: (self.wheat as i8 + rhs.wheat) as u8,
+            ore: (self.ore as i8 + rhs.ore) as u8,
+        }
+    }
+}
+impl Sub<TradingResources> for Resources {
+    type Output = Self;
+
+    fn sub(self, rhs: TradingResources) -> Self::Output {
+        Self {
+            wood: (self.wood as i8 - rhs.wood) as u8,
+            brick: (self.brick as i8 - rhs.brick) as u8,
+            sheep: (self.sheep as i8 - rhs.sheep) as u8,
+            wheat: (self.wheat as i8 - rhs.wheat) as u8,
+            ore: (self.ore as i8 - rhs.ore) as u8,
+        }
+    }
+}
+impl AddAssign<TradingResources> for Resources {
+    fn add_assign(&mut self, rhs: TradingResources) {
+        *self = *self + rhs;
+    }
+}
+impl SubAssign<TradingResources> for Resources {
+    fn sub_assign(&mut self, rhs: TradingResources) {
+        *self = *self - rhs;
+    }
+}
+
 impl fmt::Display for TradingResources {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let (giving, taking): (Vec<_>, Vec<_>) = [
-            resources::Resource::Wood,
-            resources::Resource::Brick,
-            resources::Resource::Sheep,
-            resources::Resource::Wheat,
-            resources::Resource::Ore,
-        ]
-        .map(|r| (r, self.get(r)))
-        .into_iter()
-        .filter(|(_, count)| *count != 0)
-        .partition(|(_, count)| *count < 0);
+        let (giving, taking): (Vec<_>, Vec<_>) = self.given_and_taken();
         // TODO: should we show if giving or taking is 0
         write!(
             f,
@@ -200,6 +258,25 @@ impl TradingResources {
             resources::Resource::Wheat => &mut self.wheat,
             resources::Resource::Ore => &mut self.ore,
         }
+    }
+
+    fn given_and_taken(
+        &self,
+    ) -> (
+        Vec<(resources::Resource, i8)>,
+        Vec<(resources::Resource, i8)>,
+    ) {
+        [
+            resources::Resource::Wood,
+            resources::Resource::Brick,
+            resources::Resource::Sheep,
+            resources::Resource::Wheat,
+            resources::Resource::Ore,
+        ]
+        .map(|r| (r, self.get(r)))
+        .into_iter()
+        .filter(|(_, count)| *count != 0)
+        .partition(|(_, count)| *count < 0)
     }
 }
 #[derive(Debug, Component, Clone, Copy)]
@@ -264,22 +341,26 @@ impl Plugin for ResourceManagmentPlugin {
             (common_ui::spinner_buttons_interactions::<
                 TradingResourceSpinner,
                 TradingSpinnerState<'_, '_>,
-            >(),),
+            >(),)
+                .run_if(in_state(GameState::Turn)),
         );
         app.add_systems(
             Update,
-            (common_ui::button_system_with_generic::<TradeButton, Res<'_, TradingResources>>,),
+            (common_ui::button_system_with_generic::<TradeButton, Res<'_, TradingResources>>,)
+                .run_if(in_state(GameState::Turn)),
         );
         app.add_systems(
             Update,
-            (common_ui::button_system_with_generic::<BankTradeButton, Res<'_, TradingResources>>,),
+            (common_ui::button_system_with_generic::<BankTradeButton, BankTradeState<'_, '_>>,)
+                .run_if(in_state(GameState::Turn)),
         );
         app.add_systems(
             Update,
             (common_ui::button_system_with_generic::<
                 TradingResourceResetButton,
                 ResMut<'_, TradingResources>,
-            >,),
+            >,)
+                .run_if(in_state(GameState::Turn)),
         );
     }
 }
