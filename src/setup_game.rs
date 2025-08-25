@@ -3,11 +3,12 @@
 use std::{marker::PhantomData, mem::swap};
 
 use crate::{
-    Hexagon, Knights, Layout, Left, Number, Road, Robber, Town, VictoryPoints,
+    Hexagon, Knights, Layout, Left, Number, Port, Road, Robber, Town, VictoryPoints,
     cities::City,
     colors::{CatanColor, CatanColorRef},
     development_cards::{DevelopmentCard, DevelopmentCards},
-    positions::{self, FPosition, Position},
+    positions::{self, BuildingPosition, FPosition, Position},
+    resources,
     resources::Resources,
 };
 use bevy::prelude::*;
@@ -15,6 +16,7 @@ use itertools::Itertools;
 use rand::seq::SliceRandom;
 fn draw_board(
     q: impl Iterator<Item = (Position, Hexagon, Number)>,
+    port_q: impl Iterator<Item = (BuildingPosition, Port)>,
     mut materials: ResMut<'_, Assets<ColorMaterial>>,
     mut meshes: ResMut<'_, Assets<Mesh>>,
     commands: &mut Commands<'_, '_>,
@@ -188,6 +190,20 @@ fn fix_numbers(
     used.append(&mut normal);
     used
 }
+pub struct Ports {
+    three_for_one: bool,
+    two_for_one_wood: bool,
+    two_for_one_brick: bool,
+    two_for_one_sheep: bool,
+    two_for_one_wheat: bool,
+    two_for_one_ore: bool,
+}
+fn generate_port_positions(n: i8) -> impl Iterator<Item = BuildingPosition> {
+    positions::generate_postions_ring(n + 1)
+        .chain(positions::generate_postions_ring(n))
+        .array_combinations::<3>()
+        .filter_map(move |[p1, p2, p3]| BuildingPosition::new(p1, p2, p3, Some(n as u8)))
+}
 fn generate_pieces(
     commands: &mut Commands<'_, '_>,
     colors: vec::IntoIter<CatanColor>,
@@ -208,6 +224,29 @@ fn generate_pieces(
             .id(),
     })
 }
+fn generate_ports(commands: &mut Commands<'_, '_>) -> Vec<(BuildingPosition, Port)> {
+    let positions = generate_port_positions(3);
+    let mut ports = [
+        Port::ThreeForOne,
+        Port::ThreeForOne,
+        Port::ThreeForOne,
+        Port::ThreeForOne,
+        Port::TwoForOne(resources::Resource::Wood),
+        Port::TwoForOne(resources::Resource::Brick),
+        Port::TwoForOne(resources::Resource::Sheep),
+        Port::TwoForOne(resources::Resource::Wheat),
+        Port::TwoForOne(resources::Resource::Ore),
+    ];
+
+    ports.shuffle(&mut rand::rng());
+    positions
+        .zip(ports)
+        .map(|(pos, port)| {
+            commands.spawn((pos, port));
+            (pos, port)
+        })
+        .collect()
+}
 pub fn setup(
     commands: &mut Commands<'_, '_>,
     meshes: ResMut<'_, Assets<Mesh>>,
@@ -217,6 +256,7 @@ pub fn setup(
 ) -> vec::IntoIter<CatanColorRef> {
     draw_board(
         generate_board(commands).into_iter(),
+        generate_ports(commands).into_iter(),
         materials,
         meshes,
         commands,

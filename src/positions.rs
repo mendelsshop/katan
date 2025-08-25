@@ -293,8 +293,19 @@ pub enum BuildingPosition {
 }
 
 impl BuildingPosition {
-    pub const fn new(p1: Position, p2: Position, p3: Position, size: Option<u8>) -> Option<Self> {
-        Some(Self::All(p1, p2, p3))
+    pub fn new(p1: Position, p2: Position, p3: Position, size: Option<u8>) -> Option<Self> {
+        let not_off_board = size.is_none_or(|size| {
+            p1.all_points_are(|p| -(size as i8) < p && p < size as i8)
+                || p2.all_points_are(|p| -(size as i8) < p && p < size as i8)
+                || p3.all_points_are(|p| -(size as i8) < p && p < size as i8)
+        });
+        let do_share_points = p1.get_shared_coordinate(&p2).is_some_and(|p1p2| {
+            p2.get_shared_coordinate(&p3).is_some_and(|p2p3| {
+                p1.get_shared_coordinate(&p3)
+                    .is_some_and(|p1p3| p1p2 != p2p3 && p1p2 != p1p3 && p1p3 != p2p3)
+            })
+        });
+        (not_off_board && do_share_points).then_some(Self::All(p1, p2, p3))
     }
 
     pub fn positon_to_pixel_coordinates(&self) -> (f32, f32) {

@@ -337,8 +337,11 @@ impl Hexagon {
         }
     }
 }
-#[derive(Debug)]
-enum Port {}
+#[derive(Debug, Component, Clone, Copy)]
+enum Port {
+    TwoForOne(resources::Resource),
+    ThreeForOne,
+}
 #[derive(Resource, Clone, Copy)]
 struct BoardSize(u8);
 
