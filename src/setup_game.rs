@@ -190,6 +190,7 @@ fn fix_numbers(
     used.append(&mut normal);
     used
 }
+#[derive(Debug, Component, Clone, Copy)]
 pub struct Ports {
     three_for_one: bool,
     two_for_one_wood: bool,
@@ -197,6 +198,23 @@ pub struct Ports {
     two_for_one_sheep: bool,
     two_for_one_wheat: bool,
     two_for_one_ore: bool,
+}
+impl Ports {
+    pub fn get_trade_rate(&self, resource: resources::Resource) -> u8 {
+        if match resource {
+            resources::Resource::Wood => self.two_for_one_wood,
+            resources::Resource::Brick => self.two_for_one_brick,
+            resources::Resource::Sheep => self.two_for_one_sheep,
+            resources::Resource::Wheat => self.two_for_one_wheat,
+            resources::Resource::Ore => self.two_for_one_ore,
+        } {
+            2
+        } else if self.three_for_one {
+            3
+        } else {
+            4
+        }
+    }
 }
 fn generate_port_positions(n: i8) -> impl Iterator<Item = BuildingPosition> {
     positions::generate_postions_ring(n + 1)

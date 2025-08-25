@@ -11,6 +11,7 @@ use crate::{
     colors::{CatanColor, CurrentColor},
     common_ui::{self, ButtonInteraction, SpinnerButtonInteraction, Value},
     resources::{self, Resources},
+    setup_game::Ports,
 };
 #[derive(Component, Clone, Copy, Debug)]
 pub struct TradeButton;
@@ -24,28 +25,43 @@ struct BankTradeState<'w, 's> {
     trading_resources: Res<'w, TradingResources>,
     bank_resources: ResMut<'w, Resources>,
     current_color: Res<'w, CurrentColor>,
-    player_color_q: Query<'w, 's, &'static mut Resources, With<CatanColor>>,
+    player_resources_and_ports:
+        Query<'w, 's, (&'static mut Resources, &'static Ports), With<CatanColor>>,
 }
 
 impl ButtonInteraction<BankTradeButton> for BankTradeState<'_, '_> {
     fn verify(&mut self, _: &BankTradeButton) -> bool {
         let (given, taken) = self.trading_resources.given_and_taken();
         let taken = taken.iter().map(|(_, count)| count / 4).count();
-        let given: i8 = given
-            .iter()
-            .filter(|(_, count)| *count > 0 || *count % 4 == 0)
-            .map(|(_, count)| count / 4)
-            .sum();
-        // TODO: verify there is enough resources in bank
-        // TODO: port
-        println!("{given} -> {taken}");
+        let ports = self
+            .player_resources_and_ports
+            .get(self.current_color.0.entity)
+            .map(|(_, ports)| ports);
 
-        (given == -(taken as i8)) && given != 0 && taken != 0
+        if let Ok(ports) = ports {
+            let given: i8 = given
+                .iter()
+                .filter_map(|(k, count)| {
+                    let count = *count % ports.get_trade_rate(*k) as i8;
+                    (count == 0).then_some(count)
+                })
+                .sum();
+            // TODO: verify there is enough resources in bank
+            // TODO: port
+            println!("{given} -> {taken}");
+
+            (given == -(taken as i8)) && given != 0 && taken != 0
+        } else {
+            false
+        }
     }
     fn interact(&mut self, _: &BankTradeButton) {
         let trading_resources = *(&self.trading_resources as &TradingResources);
         self.bank_resources.sub_assign(trading_resources);
-        if let Ok(mut player_resources) = self.player_color_q.get_mut(self.current_color.0.entity) {
+        if let Ok((mut player_resources, _)) = self
+            .player_resources_and_ports
+            .get_mut(self.current_color.0.entity)
+        {
             player_resources.add_assign(trading_resources)
         };
     }
