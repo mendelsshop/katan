@@ -305,12 +305,7 @@ pub enum BuildingPosition {
 }
 
 impl BuildingPosition {
-    pub fn new(
-        p1: Position,
-        p2: Position,
-        p3: Position,
-        size: Option<u8>,
-    ) -> Option<Self> {
+    pub fn new(p1: Position, p2: Position, p3: Position, size: Option<u8>) -> Option<Self> {
         let not_off_board = size.is_none_or(|size| {
             p1.all_points_are(|p| -(size as i8) < p && p < size as i8)
                 || p2.all_points_are(|p| -(size as i8) < p && p < size as i8)

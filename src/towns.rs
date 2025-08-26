@@ -1,13 +1,16 @@
-use bevy::prelude::*;
+use bevy::{ecs::system::SystemParam, prelude::*};
 
 use crate::{
     BoardSize, Building, GameState, Left, UI,
     colors::{CatanColor, CurrentColor, CurrentSetupColor, NORMAL_BUTTON},
+    common_ui::ButtonInteraction,
     positions::{BuildingPosition, RoadPosition},
     resources::{Resources, TOWN_RESOURCES},
     roads::{RoadQuery, RoadQueryItem},
 };
 
+#[derive(Component, Clone, Copy, Debug)]
+pub struct TownPlaceButton(Resources, BuildingPosition);
 #[derive(Debug, Component, Clone, Copy, Default)]
 #[require(Building)]
 pub struct Town;
@@ -44,6 +47,7 @@ pub fn place_normal_town(
                     ..default()
                 },
                 children![(
+                    TownPlaceButton(TownUI::resources(), p),
                     Button,
                     Node {
                         position_type: PositionType::Relative,
@@ -53,8 +57,6 @@ pub fn place_normal_town(
                         bottom: Val::Px(y * 77.),
                         ..default()
                     },
-                    p,
-                    TownUI::resources(),
                     BorderRadius::MAX,
                     BackgroundColor(NORMAL_BUTTON),
                 )],
@@ -101,8 +103,7 @@ pub fn place_setup_town(
                         bottom: Val::Px(y * 77.),
                         ..default()
                     },
-                    p,
-                    Resources::default(),
+                    TownPlaceButton(Resources::default(), p),
                     BorderRadius::MAX,
                     BackgroundColor(NORMAL_BUTTON),
                 )],
@@ -194,5 +195,68 @@ impl UI for TownUI {
 
     fn resources() -> Resources {
         TOWN_RESOURCES
+    }
+}
+#[derive(SystemParam)]
+pub struct PlaceTownButtonState<'w, 's, C: Resource> {
+    resources: ResMut<'w, Resources>,
+    game_state: Res<'w, State<GameState>>,
+    game_state_mut: ResMut<'w, NextState<GameState>>,
+    color_r: Res<'w, C>,
+    commands: Commands<'w, 's>,
+    meshes: ResMut<'w, Assets<Mesh>>,
+    materials: ResMut<'w, Assets<ColorMaterial>>,
+    kind_free_and_resources_q:
+        Query<'w, 's, (&'static mut Resources, &'static mut Left<Town>), With<CatanColor>>,
+}
+impl<C: Resource> ButtonInteraction<TownPlaceButton> for PlaceTownButtonState<'_, '_, C>
+where
+    CatanColor: From<C>,
+    bevy::prelude::Entity: From<C>,
+    C: Copy,
+{
+    fn interact(&mut self, TownPlaceButton(cost, position): &TownPlaceButton) {
+        let PlaceTownButtonState {
+            resources,
+            game_state,
+            game_state_mut,
+            color_r,
+            commands,
+            meshes,
+            materials,
+            kind_free_and_resources_q,
+        } = self;
+
+        let color_r: &C = &color_r;
+        let current_color: CatanColor = (*color_r).into();
+        let current_color_entity: Entity = (*color_r).into();
+        commands
+            .entity(current_color_entity)
+            .with_child((Town, current_color, *position));
+        let kind_left = kind_free_and_resources_q.get_mut(current_color_entity).ok();
+        if let Some((mut resources, mut left)) = kind_left {
+            *resources -= *cost;
+            left.0 -= 1;
+        }
+        **resources += *cost;
+        match *game_state.get() {
+            GameState::Nothing
+            | GameState::Monopoly
+            | GameState::YearOfPlenty
+            | GameState::Start
+            | GameState::Roll
+            | GameState::Turn
+            | GameState::PlaceRobber
+            | GameState::RobberDiscardResources
+            | GameState::RoadBuilding
+            | GameState::SetupRoad
+            | GameState::RobberPickColor => {}
+            GameState::PlaceRoad | GameState::PlaceTown | GameState::PlaceCity => {
+                game_state_mut.set(GameState::Turn);
+            }
+
+            GameState::SetupTown => game_state_mut.set(GameState::SetupRoad),
+        }
+        commands.spawn(TownUI::bundle(*position, meshes, materials, current_color));
     }
 }

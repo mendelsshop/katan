@@ -42,7 +42,7 @@ use crate::{
     robber::{
         PreRobberDiscardLeft, Robber, RobberButton, RobberChooseColorButton, RobberResourceSpinner,
     },
-    towns::{Town, TownUI},
+    towns::{PlaceTownButtonState, Town, TownPlaceButton, TownUI},
 };
 
 fn main() {
@@ -93,10 +93,9 @@ fn main() {
         robber::take_extra_resources,
     );
     app.add_systems(OnExit(GameState::SetupRoad), cleanup_button::<RoadPosition>);
-    app.add_systems(OnExit(GameState::SetupRoad), cleanup_button::<RoadPosition>);
     app.add_systems(
         OnExit(GameState::SetupTown),
-        cleanup_button::<BuildingPosition>,
+        cleanup_button::<TownPlaceButton>,
     );
     app.add_systems(OnExit(GameState::PlaceRoad), cleanup_button::<RoadPosition>);
 
@@ -110,7 +109,7 @@ fn main() {
     );
     app.add_systems(
         OnExit(GameState::PlaceTown),
-        cleanup_button::<BuildingPosition>,
+        cleanup_button::<TownPlaceButton>,
     );
     app.add_systems(OnExit(GameState::PlaceCity), cleanup_button::<BuildingRef>);
 
@@ -230,7 +229,10 @@ fn main() {
     );
     app.add_systems(
         Update,
-        place_normal_interaction::<Town, BuildingPosition, TownUI, CurrentSetupColor>
+        common_ui::button_system_with_generic::<
+            TownPlaceButton,
+            PlaceTownButtonState<'_, '_, CurrentSetupColor>,
+        >
             .run_if(in_state(GameState::SetupTown)),
     );
     app.add_systems(
@@ -240,7 +242,10 @@ fn main() {
     );
     app.add_systems(
         Update,
-        place_normal_interaction::<Town, BuildingPosition, TownUI, CurrentColor>
+        common_ui::button_system_with_generic::<
+            TownPlaceButton,
+            PlaceTownButtonState<'_, '_, CurrentColor>,
+        >
             .run_if(in_state(GameState::PlaceTown)),
     );
 
