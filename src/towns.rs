@@ -47,7 +47,7 @@ pub fn place_normal_town(
                     ..default()
                 },
                 children![(
-                    TownPlaceButton(TownUI::resources(), p),
+                    TownPlaceButton(TOWN_RESOURCES, p),
                     Button,
                     Node {
                         position_type: PositionType::Relative,
@@ -249,9 +249,11 @@ where
             | GameState::PlaceRobber
             | GameState::RobberDiscardResources
             | GameState::RoadBuilding
+            | GameState::PlaceRoad
+            | GameState::PlaceCity
             | GameState::SetupRoad
             | GameState::RobberPickColor => {}
-            GameState::PlaceRoad | GameState::PlaceTown | GameState::PlaceCity => {
+            GameState::PlaceTown => {
                 game_state_mut.set(GameState::Turn);
             }
 

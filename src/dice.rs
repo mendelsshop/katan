@@ -1,8 +1,11 @@
 use bevy::prelude::*;
 
 use crate::{
-    BuildingPosition, CatanColor, GameState, Hexagon, Number, Resources, Robber, Town,
-    cities::City, positions::Position, turn_ui::DieButton,
+    CatanColor, GameState, Hexagon, Number, Resources, Robber,
+    cities::City,
+    positions::{BuildingPosition, Position},
+    towns::Town,
+    turn_ui::DieButton,
 };
 fn roll_dice() -> (u8, u8, u8) {
     let dice1 = rand::random_range(1..=6);

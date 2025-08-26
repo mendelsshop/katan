@@ -1,11 +1,11 @@
 use bevy::prelude::*;
 
 use crate::{
-    CatanColor, CurrentColor, GameState, Hexagon, Layout, Number, Resources, RoadUI, Robber, Town,
-    TownUI, UI,
+    CatanColor, CurrentColor, GameState, Hexagon, Layout, Number, Resources, Robber,
     cities::City,
     positions::{BuildingPosition, Position},
-    resources::CITY_RESOURCES,
+    resources::{CITY_RESOURCES, ROAD_RESOURCES, TOWN_RESOURCES},
+    towns::Town,
 };
 #[derive(Component, PartialEq, Eq, Debug, Clone, Copy)]
 // button in game to start road placement ui
@@ -125,7 +125,7 @@ pub fn turn_ui_town_interaction(
     let player_resources = player_resources.get(color_r.0.entity);
     if let Ok(resources) = player_resources {
         let (_, interaction, mut button) = interaction_query.into_inner();
-        if resources.contains(TownUI::resources()) {
+        if resources.contains(TOWN_RESOURCES) {
             match *interaction {
                 Interaction::Pressed => {
                     button.set_changed();
@@ -152,7 +152,7 @@ pub fn turn_ui_road_interaction(
     let player_resources = player_resources.get(color_r.0.entity).ok();
     if let Some(resources) = player_resources {
         let (_, interaction, mut button) = interaction_query.into_inner();
-        if resources.contains(RoadUI::resources()) {
+        if resources.contains(ROAD_RESOURCES) {
             match *interaction {
                 Interaction::Pressed => {
                     button.set_changed();

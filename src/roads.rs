@@ -1,9 +1,14 @@
-use bevy::{ecs::query::QueryData, prelude::*};
+use bevy::{
+    ecs::{query::QueryData, system::SystemParam},
+    prelude::*,
+};
 use itertools::Itertools;
 
 use crate::{
     BoardSize, Building, GameState, Left, UI,
     colors::{CatanColor, CurrentColor, NORMAL_BUTTON},
+    common_ui::ButtonInteraction,
+    development_card_actions::RoadBuildingState,
     positions::{self, BuildingPosition, Coordinate, Position, RoadPosition},
     resources::{ROAD_RESOURCES, Resources},
     towns::{buildings_on_road, check_no_touching_buildings},
@@ -16,6 +21,8 @@ pub struct RoadQuery(
     pub &'static RoadPosition,
 );
 
+#[derive(Component, Clone, Copy, Debug)]
+pub struct RoadPlaceButton(Resources, RoadPosition);
 #[derive(Debug, Component, Clone, Copy, Default)]
 pub struct Road;
 /// if `RESOURCE_MULTIPLIER` is zero then its free (default is 1, normal price)
@@ -124,8 +131,7 @@ pub fn place_normal_road<const RESOURCE_MULTIPLIER: u8>(
                         bottom: Val::Px(y * 77.),
                         ..default()
                     },
-                    p,
-                    RoadUI::resources() * RESOURCE_MULTIPLIER,
+                    RoadPlaceButton(ROAD_RESOURCES * RESOURCE_MULTIPLIER, p,),
                     BorderRadius::MAX,
                     BackgroundColor(NORMAL_BUTTON),
                 )],
@@ -189,8 +195,7 @@ pub fn place_setup_road(
                         bottom: Val::Px(y * 77.),
                         ..default()
                     },
-                    p,
-                    Resources::default(),
+                    RoadPlaceButton(Resources::default(), p,),
                     BorderRadius::MAX,
                     BackgroundColor(NORMAL_BUTTON),
                 )],
@@ -232,5 +237,85 @@ impl UI for RoadUI {
 
     fn resources() -> Resources {
         ROAD_RESOURCES
+    }
+}
+#[derive(SystemParam)]
+pub struct PlaceRoadButtonState<'w, 's, C: Resource> {
+    resources: ResMut<'w, Resources>,
+    game_state: Res<'w, State<GameState>>,
+    game_state_mut: ResMut<'w, NextState<GameState>>,
+    color_r: Res<'w, C>,
+    commands: Commands<'w, 's>,
+    meshes: ResMut<'w, Assets<Mesh>>,
+    materials: ResMut<'w, Assets<ColorMaterial>>,
+    kind_free_and_resources_q:
+        Query<'w, 's, (&'static mut Resources, &'static mut Left<Road>), With<CatanColor>>,
+
+    substate_mut: Option<ResMut<'w, NextState<RoadBuildingState>>>,
+    substate: Option<Res<'w, State<RoadBuildingState>>>,
+}
+impl<C: Resource> ButtonInteraction<RoadPlaceButton> for PlaceRoadButtonState<'_, '_, C>
+where
+    CatanColor: From<C>,
+    bevy::prelude::Entity: From<C>,
+    C: Copy,
+{
+    fn interact(&mut self, RoadPlaceButton(cost, position): &RoadPlaceButton) {
+        let PlaceRoadButtonState {
+            resources,
+            game_state,
+            game_state_mut,
+            color_r,
+            commands,
+            meshes,
+            materials,
+            kind_free_and_resources_q,
+            substate_mut,
+            substate,
+        } = self;
+
+        let color_r: &C = &color_r;
+        let current_color: CatanColor = (*color_r).into();
+        let current_color_entity: Entity = (*color_r).into();
+        commands
+            .entity(current_color_entity)
+            .with_child((Road, current_color, *position));
+        let kind_left = kind_free_and_resources_q.get_mut(current_color_entity).ok();
+        if let Some((mut resources, mut left)) = kind_left {
+            *resources -= *cost;
+            left.0 -= 1;
+        }
+        **resources += *cost;
+        match *game_state.get() {
+            GameState::Nothing
+            | GameState::Monopoly
+            | GameState::YearOfPlenty
+            | GameState::Start
+            | GameState::Roll
+            | GameState::Turn
+            | GameState::PlaceRobber
+            | GameState::RobberDiscardResources
+            | GameState::SetupTown
+            | GameState::PlaceTown
+            | GameState::PlaceCity
+            | GameState::RobberPickColor => {}
+            GameState::PlaceRoad => {
+                game_state_mut.set(GameState::Turn);
+            }
+            GameState::RoadBuilding => {
+                if let Some((substate_mut, substate)) =
+                    substate_mut.as_deref_mut().zip(substate.as_ref())
+                {
+                    if *substate.get() == RoadBuildingState::Road1 {
+                        substate_mut.set(RoadBuildingState::Road2)
+                    } else {
+                        game_state_mut.set(GameState::Turn)
+                    }
+                }
+            }
+
+            GameState::SetupRoad => game_state_mut.set(GameState::SetupTown),
+        }
+        commands.spawn(RoadUI::bundle(*position, meshes, materials, current_color));
     }
 }

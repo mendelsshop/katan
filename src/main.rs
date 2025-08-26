@@ -28,21 +28,20 @@ use bevy::prelude::*;
 use crate::{
     cities::BuildingRef,
     colors::{
-        CatanColor, CatanColorRef, ColorIterator, CurrentColor, CurrentSetupColor, HOVERED_BUTTON,
-        NORMAL_BUTTON, PRESSED_BUTTON, SetupColorIterator,
+        CatanColor, CatanColorRef, ColorIterator, CurrentColor, CurrentSetupColor,
+        SetupColorIterator,
     },
     development_card_actions::{
         MonopolyButton, RoadBuildingState, YearOfPlentyButton, YearOfPlentyState,
     },
     development_cards::DevelopmentCard,
-    positions::{BuildingPosition, RoadPosition},
     resources::Resources,
     resources_management::ResourceManagmentPlugin,
-    roads::{Road, RoadUI},
+    roads::{PlaceRoadButtonState, RoadPlaceButton},
     robber::{
         PreRobberDiscardLeft, Robber, RobberButton, RobberChooseColorButton, RobberResourceSpinner,
     },
-    towns::{PlaceTownButtonState, Town, TownPlaceButton, TownUI},
+    towns::{PlaceTownButtonState, TownPlaceButton},
 };
 
 fn main() {
@@ -92,20 +91,26 @@ fn main() {
         OnEnter(GameState::RobberDiscardResources),
         robber::take_extra_resources,
     );
-    app.add_systems(OnExit(GameState::SetupRoad), cleanup_button::<RoadPosition>);
+    app.add_systems(
+        OnExit(GameState::SetupRoad),
+        cleanup_button::<RoadPlaceButton>,
+    );
     app.add_systems(
         OnExit(GameState::SetupTown),
         cleanup_button::<TownPlaceButton>,
     );
-    app.add_systems(OnExit(GameState::PlaceRoad), cleanup_button::<RoadPosition>);
+    app.add_systems(
+        OnExit(GameState::PlaceRoad),
+        cleanup_button::<RoadPlaceButton>,
+    );
 
     app.add_systems(
         OnExit(RoadBuildingState::Road1),
-        cleanup_button::<RoadPosition>,
+        cleanup_button::<RoadPlaceButton>,
     );
     app.add_systems(
         OnExit(RoadBuildingState::Road2),
-        cleanup_button::<RoadPosition>,
+        cleanup_button::<RoadPlaceButton>,
     );
     app.add_systems(
         OnExit(GameState::PlaceTown),
@@ -218,11 +223,7 @@ fn main() {
     );
     app.add_systems(OnEnter(GameState::SetupRoad), colors::set_setup_color);
     app.add_systems(OnEnter(GameState::Roll), colors::set_color);
-    app.add_systems(
-        Update,
-        place_normal_interaction::<Road, RoadPosition, RoadUI, CurrentSetupColor>
-            .run_if(in_state(GameState::SetupRoad)),
-    );
+
     app.add_systems(
         Update,
         development_cards::buy_development_card_interaction.run_if(in_state(GameState::Turn)),
@@ -237,9 +238,21 @@ fn main() {
     );
     app.add_systems(
         Update,
-        place_normal_interaction::<Road, RoadPosition, RoadUI, CurrentColor>
-            .run_if(in_state(GameState::PlaceRoad).or(in_state(GameState::RoadBuilding))),
+        common_ui::button_system_with_generic::<
+            RoadPlaceButton,
+            PlaceRoadButtonState<'_, '_, CurrentSetupColor>,
+        >
+            .run_if(in_state(GameState::SetupRoad)),
     );
+    app.add_systems(
+        Update,
+        common_ui::button_system_with_generic::<
+            RoadPlaceButton,
+            PlaceRoadButtonState<'_, '_, CurrentColor>,
+        >
+            .run_if(in_state(GameState::PlaceRoad)),
+    );
+
     app.add_systems(
         Update,
         common_ui::button_system_with_generic::<
@@ -384,109 +397,6 @@ pub trait UI {
         color: CatanColor,
     ) -> impl Bundle;
     fn resources() -> Resources;
-}
-// should interaction be doing the ui update for showing the roads/towns
-fn place_normal_interaction<
-    Kind: Component + Default + std::fmt::Debug,
-    Pos: Component + Copy,
-    U: UI<Pos = Pos>,
-    // TODO: unify the different types of color for setup and during the game
-    // one way would be to make a color enum that has variant for setup and one for the rest of the game
-    // another way would be make the type of color be a marker struct that `#[requires(CatanColor)]`
-    // and then we could just look for CatanColor, and when we need the more specific one we specify
-    // via the marker struct
-    C: Into<CatanColor> + Into<Entity> + Resource + Copy,
->(
-    mut resources: ResMut<'_, Resources>,
-    game_state: Res<'_, State<GameState>>,
-    mut game_state_mut: ResMut<'_, NextState<GameState>>,
-    color_r: Res<'_, C>,
-    mut commands: Commands<'_, '_>,
-    mut meshes: ResMut<'_, Assets<Mesh>>,
-    mut materials: ResMut<'_, Assets<ColorMaterial>>,
-    mut kind_free_and_resources_q: Query<
-        '_,
-        '_,
-        (&mut Resources, &mut Left<Kind>),
-        With<CatanColor>,
-    >,
-    mut interaction_query: Query<
-        '_,
-        '_,
-        (
-            &Pos,
-            &Interaction,
-            &mut BackgroundColor,
-            &mut Button,
-            &Resources,
-        ),
-        (Changed<Interaction>, Without<CatanColor>),
-    >,
-    substate_mut: Option<ResMut<'_, NextState<RoadBuildingState>>>,
-    substate: Option<Res<'_, State<RoadBuildingState>>>,
-) {
-    let color_r = color_r.into_inner();
-    let current_color: CatanColor = (*color_r).into();
-    let current_color_entity: Entity = (*color_r).into();
-    for (pos, interaction, mut color, mut button, required_resources) in &mut interaction_query {
-        match *interaction {
-            Interaction::Pressed => {
-                *color = PRESSED_BUTTON.into();
-
-                button.set_changed();
-
-                commands.entity(current_color_entity).with_child((
-                    Kind::default(),
-                    current_color,
-                    *pos,
-                ));
-                let kind_left = kind_free_and_resources_q.get_mut(current_color_entity).ok();
-                if let Some((mut resources, mut left)) = kind_left {
-                    *resources -= *required_resources;
-                    left.0 -= 1;
-                }
-                *resources += *required_resources;
-                match *game_state.get() {
-                    GameState::Nothing
-                    | GameState::Monopoly
-                    | GameState::YearOfPlenty
-                    | GameState::Start
-                    | GameState::Roll
-                    | GameState::Turn
-                    | GameState::PlaceRobber
-                    | GameState::RobberDiscardResources
-                    | GameState::RobberPickColor => {}
-                    GameState::PlaceRoad | GameState::PlaceTown | GameState::PlaceCity => {
-                        game_state_mut.set(GameState::Turn);
-                    }
-
-                    // little hacky to road building (dev card) state management from here
-                    GameState::RoadBuilding => {
-                        if let Some((substate, mut substate_mut)) = substate.zip(substate_mut) {
-                            if *substate.get() == RoadBuildingState::Road1 {
-                                substate_mut.set(RoadBuildingState::Road2)
-                            } else {
-                                game_state_mut.set(GameState::Turn)
-                            }
-                        }
-                    }
-
-                    GameState::SetupRoad => game_state_mut.set(GameState::SetupTown),
-                    GameState::SetupTown => game_state_mut.set(GameState::SetupRoad),
-                }
-                commands.spawn(U::bundle(*pos, &mut meshes, &mut materials, current_color));
-                button.set_changed();
-                break;
-            }
-            Interaction::Hovered => {
-                *color = HOVERED_BUTTON.into();
-                button.set_changed();
-            }
-            Interaction::None => {
-                *color = NORMAL_BUTTON.into();
-            }
-        }
-    }
 }
 
 // not for initial game setup where the are no roads yet
@@ -680,6 +590,3 @@ fn layout(commands: &mut Commands<'_, '_>) -> Layout {
         setting_pull_out: settings_pull_out_layout,
     }
 }
-
-// TODO: eventually buildings/roads will be linked to the main player entity, at which point
-// find with color won't be needed

@@ -3,13 +3,14 @@
 use std::{iter, marker::PhantomData, mem::swap};
 
 use crate::{
-    Hexagon, Knights, Layout, Left, Number, Port, Road, Robber, Town, VictoryPoints,
+    Hexagon, Knights, Layout, Left, Number, Port, Robber, VictoryPoints,
     cities::City,
     colors::{CatanColor, CatanColorRef},
     development_cards::{DevelopmentCard, DevelopmentCards},
     positions::{self, BuildingPosition, FPosition, Position},
-    resources,
-    resources::Resources,
+    resources::{self, Resources},
+    roads::Road,
+    towns::Town,
 };
 use bevy::prelude::*;
 use itertools::Itertools;
