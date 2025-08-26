@@ -1,8 +1,11 @@
 use itertools::Itertools;
-use std::ops::{Add, Div};
+use std::{
+    mem,
+    ops::{Add, Div},
+};
 
 use bevy::prelude::*;
-#[derive(Component, Debug, PartialEq, Eq, Clone, Copy)]
+#[derive(Component, Debug, PartialEq, Eq, Clone, Copy, PartialOrd, Ord)]
 pub struct Position {
     pub q: i8,
     pub r: i8,
@@ -131,10 +134,13 @@ impl Position {
             s: -q,
         }
     }
+    fn rotate_right_n(&self, n: u8) -> Self {
+        (0..n).fold(*self, |this, _| this.rotate_right())
+    }
     pub fn building_positions_around(&self) -> [BuildingPosition; 6] {
         Self::DIRECTION_VECTORS.map(|p| {
             let p1 = p.rotate_right();
-            BuildingPosition::All(*self, p + *self, p1 + *self)
+            unsafe { BuildingPosition::new_unchecked(*self, p + *self, p1 + *self) }
         })
     }
     pub fn all_points_are(&self, mut f: impl FnMut(i8) -> bool) -> bool {
@@ -224,13 +230,9 @@ impl RoadPosition {
                 || p2.all_points_are(|p| -(size as i8) < p && p < size as i8)
         });
         // veifies that the two roads boredering each other
-        let c = p1.get_shared_coordinate(&p2).filter(|c|
-           match c {
-            Coordinate::Q => p1.r.abs_diff(p2.r) <= 1 &&p1.s.abs_diff(p2.s) <= 1,
-            Coordinate::R => p1.q.abs_diff(p2.q) <= 1 &&p1.s.abs_diff(p2.s) <= 1,
-            Coordinate::S => p1.r.abs_diff(p2.r) <= 1 &&p1.q.abs_diff(p2.q) <= 1,
-        } &&
-            not_off_board);
+        let c = p1
+            .get_shared_coordinate(&p2)
+            .filter(|c| other_point_is_close(p1, p2, c) && not_off_board);
         c.map(|c| Self::Both(p1, p2, c))
     }
     pub fn neighboring_two(&self, size: Option<u8>) -> (Option<Position>, Option<Position>) {
@@ -276,6 +278,14 @@ impl RoadPosition {
     }
 }
 
+fn other_point_is_close(p1: Position, p2: Position, c: &Coordinate) -> bool {
+    match c {
+        Coordinate::Q => p1.r.abs_diff(p2.r) <= 1 && p1.s.abs_diff(p2.s) <= 1,
+        Coordinate::R => p1.q.abs_diff(p2.q) <= 1 && p1.s.abs_diff(p2.s) <= 1,
+        Coordinate::S => p1.r.abs_diff(p2.r) <= 1 && p1.q.abs_diff(p2.q) <= 1,
+    }
+}
+
 impl PartialEq for RoadPosition {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
@@ -287,27 +297,77 @@ impl PartialEq for RoadPosition {
     }
 }
 
-#[derive(Component, Clone, Copy, Debug)]
+#[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
 pub enum BuildingPosition {
+    /// Do not use this
+    /// so we can garuntee p1 > p2 > p3
     All(Position, Position, Position),
 }
 
 impl BuildingPosition {
-    pub fn new(p1: Position, p2: Position, p3: Position, size: Option<u8>) -> Option<Self> {
+    pub fn new(
+        p1: Position,
+        p2: Position,
+        p3: Position,
+        size: Option<u8>,
+    ) -> Option<Self> {
         let not_off_board = size.is_none_or(|size| {
             p1.all_points_are(|p| -(size as i8) < p && p < size as i8)
                 || p2.all_points_are(|p| -(size as i8) < p && p < size as i8)
                 || p3.all_points_are(|p| -(size as i8) < p && p < size as i8)
         });
         let do_share_points = p1.get_shared_coordinate(&p2).is_some_and(|p1p2| {
-            p2.get_shared_coordinate(&p3).is_some_and(|p2p3| {
-                p1.get_shared_coordinate(&p3)
-                    .is_some_and(|p1p3| p1p2 != p2p3 && p1p2 != p1p3 && p1p3 != p2p3)
-            })
+            other_point_is_close(p1, p3, &p1p2)
+                && p2.get_shared_coordinate(&p3).is_some_and(|p2p3| {
+                    other_point_is_close(p2, p1, &p2p3)
+                        && p1p2 != p2p3
+                        && p1.get_shared_coordinate(&p3).is_some_and(|p1p3| {
+                            other_point_is_close(p3, p2, &p1p3) && p1p2 != p1p3 && p1p3 != p2p3
+                        })
+                })
         });
-        (not_off_board && do_share_points).then_some(Self::All(p1, p2, p3))
+        (not_off_board && do_share_points).then_some(unsafe { Self::new_unchecked(p1, p2, p3) })
+    }
+    pub fn rotate_right(&self) -> Self {
+        match self {
+            BuildingPosition::All(position, position1, position2) => unsafe {
+                Self::new_unchecked(
+                    position.rotate_right(),
+                    position1.rotate_right(),
+                    position2.rotate_right(),
+                )
+            },
+        }
     }
 
+    pub fn rotate_right_n(&self, n: u8) -> Self {
+        match self {
+            BuildingPosition::All(position, position1, position2) => unsafe {
+                Self::new_unchecked(
+                    position.rotate_right_n(n),
+                    position1.rotate_right_n(n),
+                    position2.rotate_right_n(n),
+                )
+            },
+        }
+    }
+    pub unsafe fn new_unchecked(
+        mut p1: Position,
+        mut p2: Position,
+        mut p3: Position,
+    ) -> BuildingPosition {
+        if p2 < p3 {
+            mem::swap(&mut p2, &mut p3);
+        }
+        if p1 < p2 {
+            mem::swap(&mut p1, &mut p2);
+        }
+        // we swap p2 and p3 as p1 might've been < than p3
+        if p2 < p3 {
+            mem::swap(&mut p2, &mut p3);
+        }
+        Self::All(p1, p2, p3)
+    }
     pub fn positon_to_pixel_coordinates(&self) -> (f32, f32) {
         match self {
             Self::All(position, position1, position2) => {
@@ -327,18 +387,13 @@ impl BuildingPosition {
     }
 }
 
-impl PartialEq for BuildingPosition {
-    fn eq(&self, other: &Self) -> bool {
-        match (self, other) {
-            (Self::All(l0, l1, l2), Self::All(r0, r1, r2)) => {
-                l0 == r0 && l1 == r1 && l2 == r2
-                    || l0 == r0 && l1 == r2 && l2 == r1
-                    || l0 == r1 && l1 == r0 && l2 == r2
-                    || l0 == r1 && l1 == r2 && l2 == r0
-                    || l0 == r2 && l1 == r0 && l2 == r1
-                    || l0 == r2 && l1 == r1 && l2 == r0
-            }
-            _ => false,
+impl Add<Position> for BuildingPosition {
+    type Output = Self;
+    fn add(self, rhs: Position) -> Self::Output {
+        match self {
+            BuildingPosition::All(position, position1, position2) => unsafe {
+                Self::new_unchecked(position + rhs, position1 + rhs, position2 + rhs)
+            },
         }
     }
 }

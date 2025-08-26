@@ -342,6 +342,15 @@ enum Port {
     TwoForOne(resources::Resource),
     ThreeForOne,
 }
+impl Port {
+    pub fn color(&self) -> Color {
+        match self {
+            Port::TwoForOne(resource) => resource.color(),
+            Port::ThreeForOne => Color::srgb_u8(194, 178, 128),
+        }
+        .darker(0.02)
+    }
+}
 #[derive(Resource, Clone, Copy)]
 struct BoardSize(u8);
 

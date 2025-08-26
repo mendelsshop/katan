@@ -1,6 +1,6 @@
 //! functions to generate initial game state
 //! like hex placement
-use std::{marker::PhantomData, mem::swap};
+use std::{iter, marker::PhantomData, mem::swap};
 
 use crate::{
     Hexagon, Knights, Layout, Left, Number, Port, Road, Robber, Town, VictoryPoints,
@@ -23,6 +23,27 @@ fn draw_board(
     layout: Layout,
 ) {
     let text_justification = JustifyText::Center;
+
+    for q in port_q {
+        let mesh = meshes.add(Circle::new(30.0));
+        let (x, y) = q.0.positon_to_pixel_coordinates();
+        commands.spawn((
+            Mesh2d(mesh),
+            MeshMaterial2d(materials.add(q.1.color())),
+            Transform::from_xyz(x * 77.0, y * 77., 0.0),
+        ));
+
+        // let mesh2 = Text2d::new(q.0.0.to_string());
+        // commands.spawn((
+        //     mesh2,
+        //     TextLayout::new_with_justify(text_justification),
+        //     TextFont {
+        //         font_size: 45.0,
+        //         ..Default::default()
+        //     },
+        //     Transform::from_xyz(x * 77.0, y * 77., 0.0),
+        // ));
+    }
     // let mut commands = commands.entity(layout.board);
     for q in q {
         let mesh = meshes.add(RegularPolygon::new(70.0, 6));
@@ -217,10 +238,34 @@ impl Ports {
     }
 }
 fn generate_port_positions(n: i8) -> impl Iterator<Item = BuildingPosition> {
-    positions::generate_postions_ring(n + 1)
-        .chain(positions::generate_postions_ring(n))
-        .array_combinations::<3>()
-        .filter_map(move |[p1, p2, p3]| BuildingPosition::new(p1, p2, p3, Some(n as u8)))
+    // very order dependent
+    building_postions_on_ring(n)
+        .enumerate()
+        .filter(|(i, _)| i % 10 != 0)
+        .map(|(_, pos)| pos)
+        .enumerate()
+        .filter(|(i, _)| i % 3 != 0)
+        .map(|(_, pos)| pos)
+    // when its an end of a 3 set it postion will have two from the third ring, otherwise it
+}
+
+fn building_postions_on_ring(n: i8) -> impl Iterator<Item = BuildingPosition> {
+    // start at base (some variation of n, -n, 0)
+    let base = Position::new(0, -n + 1, n - 1, Some(n as u8)).unwrap();
+    let up = Position::new(0, -1, 1, Some(n as u8)).unwrap();
+    let up_right = Position::new(1, -1, 0, Some(n as u8)).unwrap();
+    let right = Position::new(1, 0, -1, Some(n as u8)).unwrap();
+    let left_building =
+        unsafe { BuildingPosition::new_unchecked(base, base + up, base + up_right) };
+    let right_building =
+        unsafe { BuildingPosition::new_unchecked(base, base + up_right, base + right) };
+    let row = iter::once(right_building).chain((1..n).flat_map(move |i| {
+        [
+            left_building + Position::new(1 * i, 0, -1 * i, None).unwrap(),
+            right_building + Position::new(1 * i, 0, -1 * i, None).unwrap(),
+        ]
+    }));
+    (0..6).flat_map(move |i| row.clone().map(move |town| town.rotate_right_n(i)))
 }
 fn generate_pieces(
     commands: &mut Commands<'_, '_>,
@@ -243,6 +288,7 @@ fn generate_pieces(
     })
 }
 fn generate_ports(commands: &mut Commands<'_, '_>) -> Vec<(BuildingPosition, Port)> {
+    // very hacky and order dependent
     let positions = generate_port_positions(3);
     let mut ports = [
         Port::ThreeForOne,
@@ -258,7 +304,10 @@ fn generate_ports(commands: &mut Commands<'_, '_>) -> Vec<(BuildingPosition, Por
 
     ports.shuffle(&mut rand::rng());
     positions
-        .zip(ports)
+        // we duplicate each port type because the postions iterator just returns each port postion
+        // seperatly even though a port in the game occupies two intersections, we represent each
+        // intersection seperatly but we happen to know that are in order
+        .zip(ports.iter().flat_map(|c| [*c, *c]))
         .map(|(pos, port)| {
             commands.spawn((pos, port));
             (pos, port)

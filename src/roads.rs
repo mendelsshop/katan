@@ -85,9 +85,9 @@ pub fn place_normal_road<const RESOURCE_MULTIPLIER: u8>(
         mut building_q: impl Iterator<Item = &'a BuildingPosition>,
     ) -> bool {
         let road_intersection = match road2 {
-            RoadPosition::Both(position, position1, _) => {
-                BuildingPosition::All(*road1, *position, *position1)
-            }
+            RoadPosition::Both(position, position1, _) => unsafe {
+                BuildingPosition::new_unchecked(*road1, *position, *position1)
+            },
         };
         !building_q.any(|bp| &road_intersection == bp)
     }
