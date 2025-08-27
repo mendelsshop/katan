@@ -118,7 +118,7 @@ where
         .into_configs()
 }
 
-pub fn spinner_bundle<U: Component>(entity: Entity) -> impl Bundle
+pub fn spinner_bundle<U: Component>(entity: Entity, label: impl Bundle) -> impl Bundle
 where
 {
     (
@@ -143,13 +143,22 @@ where
                 Text::new("+".to_string()),
             ),
             (
-                Value(entity, PhantomData::<U>),
-                Text::new("".to_string()),
                 Node {
-                    justify_self: JustifySelf::Center,
                     display: Display::Grid,
+                    grid_template_columns: vec![GridTrack::auto(), GridTrack::auto()],
                     ..default()
                 },
+                children![
+                    (
+                        Value(entity, PhantomData::<U>),
+                        Text::new("".to_string()),
+                        Node {
+                            display: Display::Grid,
+                            ..default()
+                        },
+                    ),
+                    label
+                ]
             ),
             (
                 Down(entity, PhantomData::<U>),

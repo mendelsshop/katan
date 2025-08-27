@@ -188,7 +188,7 @@ pub fn setup_players_resources(mut commands: Commands<'_, '_>, layout: Res<'_, L
 }
 fn resource_slider(commands: &mut Commands<'_, '_>, kind: resources::Resource) -> impl Bundle {
     let entity = commands.spawn(TradingResourceSpinner(kind)).id();
-    common_ui::spinner_bundle::<TradingResourceSpinner>(entity)
+    common_ui::spinner_bundle::<TradingResourceSpinner>(entity, Text::new(format!("{kind:?}")))
 }
 
 #[derive(Component, Clone, Copy, Debug)]

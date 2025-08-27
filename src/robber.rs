@@ -442,5 +442,8 @@ fn resource_slider(
     max: u8,
 ) -> impl Bundle {
     let entity = commands.spawn(RobberResourceSpinner { resource, max }).id();
-    common_ui::spinner_bundle::<RobberResourceSpinner>(entity)
+    common_ui::spinner_bundle::<RobberResourceSpinner>(
+        entity,
+        Text::new(format!("{:?}", resource.1)),
+    )
 }
