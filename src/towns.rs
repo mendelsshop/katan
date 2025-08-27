@@ -1,12 +1,14 @@
 use bevy::{ecs::system::SystemParam, prelude::*};
+use itertools::Itertools;
 
 use crate::{
-    BoardSize, Building, GameState, Left, UI,
+    BoardSize, Building, GameState, Left, Port, UI,
     colors::{CatanColor, CurrentColor, CurrentSetupColor, NORMAL_BUTTON},
     common_ui::ButtonInteraction,
     positions::{BuildingPosition, RoadPosition},
     resources::{Resources, TOWN_RESOURCES},
     roads::{RoadQuery, RoadQueryItem},
+    setup_game::Ports,
 };
 
 #[derive(Component, Clone, Copy, Debug)]
@@ -206,8 +208,17 @@ pub struct PlaceTownButtonState<'w, 's, C: Resource> {
     commands: Commands<'w, 's>,
     meshes: ResMut<'w, Assets<Mesh>>,
     materials: ResMut<'w, Assets<ColorMaterial>>,
-    kind_free_and_resources_q:
-        Query<'w, 's, (&'static mut Resources, &'static mut Left<Town>), With<CatanColor>>,
+    kind_free_ports_and_resources_q: Query<
+        'w,
+        's,
+        (
+            &'static mut Resources,
+            &'static mut Ports,
+            &'static mut Left<Town>,
+        ),
+        With<CatanColor>,
+    >,
+    ports: Query<'w, 's, (&'static BuildingPosition, &'static Port)>,
 }
 impl<C: Resource> ButtonInteraction<TownPlaceButton> for PlaceTownButtonState<'_, '_, C>
 where
@@ -224,7 +235,8 @@ where
             commands,
             meshes,
             materials,
-            kind_free_and_resources_q,
+            kind_free_ports_and_resources_q,
+            ports,
         } = self;
 
         let color_r: &C = &color_r;
@@ -233,10 +245,21 @@ where
         commands
             .entity(current_color_entity)
             .with_child((Town, current_color, *position));
-        let kind_left = kind_free_and_resources_q.get_mut(current_color_entity).ok();
-        if let Some((mut resources, mut left)) = kind_left {
+        let player_resources_ports_and_towns_left = kind_free_ports_and_resources_q
+            .get_mut(current_color_entity)
+            .ok();
+        if let Some((mut resources, mut player_ports, mut left)) =
+            player_resources_ports_and_towns_left
+        {
             *resources -= *cost;
             left.0 -= 1;
+
+            if let Some((_, port)) = ports
+                .iter()
+                .find(|(port_position, _)| port_position == &position)
+            {
+                *player_ports += *port;
+            }
         }
         **resources += *cost;
         match *game_state.get() {

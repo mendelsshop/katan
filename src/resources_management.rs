@@ -31,26 +31,26 @@ struct BankTradeState<'w, 's> {
 
 impl ButtonInteraction<BankTradeButton> for BankTradeState<'_, '_> {
     fn verify(&mut self, _: &BankTradeButton) -> bool {
-        let (given, taken) = self.trading_resources.given_and_taken();
-        let taken = taken.iter().map(|(_, count)| count / 4).count();
+        let (giving, taking) = self.trading_resources.given_and_taken();
+        let taking: i8 = taking.iter().map(|(_, count)| count).sum();
         let ports = self
             .player_resources_and_ports
             .get(self.current_color.0.entity)
             .map(|(_, ports)| ports);
 
         if let Ok(ports) = ports {
-            let given: i8 = given
+            let giving: i8 = giving
                 .iter()
                 .filter_map(|(k, count)| {
-                    let count = *count % ports.get_trade_rate(*k) as i8;
-                    (count == 0).then_some(count)
+                    let trade_rate = ports.get_trade_rate(*k);
+                    (*count % trade_rate as i8 == 0).then_some(count / trade_rate as i8)
                 })
                 .sum();
             // TODO: verify there is enough resources in bank
             // TODO: port
-            println!("{given} -> {taken}");
+            println!("{giving} -> {taking}");
 
-            (given == -(taken as i8)) && given != 0 && taken != 0
+            (giving == -(taking)) && giving != 0 && taking != 0
         } else {
             false
         }

@@ -1,6 +1,11 @@
 //! functions to generate initial game state
 //! like hex placement
-use std::{iter, marker::PhantomData, mem::swap};
+use std::{
+    iter,
+    marker::PhantomData,
+    mem::swap,
+    ops::{Add, AddAssign},
+};
 
 use crate::{
     Hexagon, Knights, Layout, Left, Number, Port, Robber, VictoryPoints,
@@ -212,7 +217,7 @@ fn fix_numbers(
     used.append(&mut normal);
     used
 }
-#[derive(Debug, Component, Clone, Copy)]
+#[derive(Debug, Component, Clone, Copy, Default)]
 pub struct Ports {
     three_for_one: bool,
     two_for_one_wood: bool,
@@ -222,6 +227,16 @@ pub struct Ports {
     two_for_one_ore: bool,
 }
 impl Ports {
+    pub fn new_player() -> Self {
+        Ports {
+            three_for_one: false,
+            two_for_one_wood: false,
+            two_for_one_brick: false,
+            two_for_one_sheep: false,
+            two_for_one_wheat: false,
+            two_for_one_ore: false,
+        }
+    }
     pub fn get_trade_rate(&self, resource: resources::Resource) -> u8 {
         if match resource {
             resources::Resource::Wood => self.two_for_one_wood,
@@ -235,6 +250,51 @@ impl Ports {
             3
         } else {
             4
+        }
+    }
+}
+impl Add<Port> for Ports {
+    type Output = Self;
+
+    fn add(self, rhs: Port) -> Self::Output {
+        match rhs {
+            Port::TwoForOne(resources::Resource::Wood) => Self {
+                two_for_one_wood: true,
+                ..self
+            },
+            Port::TwoForOne(resources::Resource::Brick) => Self {
+                two_for_one_brick: true,
+                ..self
+            },
+            Port::TwoForOne(resources::Resource::Sheep) => Self {
+                two_for_one_sheep: true,
+                ..self
+            },
+            Port::TwoForOne(resources::Resource::Wheat) => Self {
+                two_for_one_wheat: true,
+                ..self
+            },
+            Port::TwoForOne(resources::Resource::Ore) => Self {
+                two_for_one_ore: true,
+                ..self
+            },
+            Port::ThreeForOne => Self {
+                three_for_one: true,
+                ..self
+            },
+        }
+    }
+}
+
+impl AddAssign<Port> for Ports {
+    fn add_assign(&mut self, rhs: Port) {
+        match rhs {
+            Port::TwoForOne(resources::Resource::Wood) => self.two_for_one_wood = true,
+            Port::TwoForOne(resources::Resource::Brick) => self.two_for_one_brick = true,
+            Port::TwoForOne(resources::Resource::Sheep) => self.two_for_one_sheep = true,
+            Port::TwoForOne(resources::Resource::Wheat) => self.two_for_one_wheat = true,
+            Port::TwoForOne(resources::Resource::Ore) => self.two_for_one_ore = true,
+            Port::ThreeForOne => self.three_for_one = true,
         }
     }
 }
@@ -282,6 +342,7 @@ fn generate_pieces(
                 Left::<Road>(15, PhantomData),
                 Resources::new_player(),
                 DevelopmentCards::new_player(),
+                Ports::new_player(),
                 VictoryPoints(0),
                 Knights(0),
             ))
