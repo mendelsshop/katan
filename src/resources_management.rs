@@ -8,7 +8,7 @@ use itertools::Itertools;
 
 use crate::{
     GameState, Layout,
-    colors::{CatanColor, CurrentColor},
+    colors::{CatanColor, CatanColorRef, CurrentColor},
     common_ui::{self, ButtonInteraction, SpinnerButtonInteraction, Value},
     resources::{self, Resources},
     setup_game::Ports,
@@ -17,9 +17,100 @@ use crate::{
 pub struct TradeButton;
 #[derive(Component, Clone, Copy, Debug)]
 pub struct BankTradeButton;
-impl ButtonInteraction<TradeButton> for Res<'_, TradingResources> {
-    fn interact(&mut self, _: &TradeButton) {}
+#[derive(SystemParam)]
+struct TradeState<'w, 's> {
+    trade: Res<'w, TradingResources>,
+    commands: Commands<'w, 's>,
+    // maybe a with<..> just in case there more entities that also have color
+    colors: Query<'w, 's, &'static CatanColorRef>,
+    current_color: Res<'w, CurrentColor>,
 }
+
+// TODO: clicking this despawns its parent too
+// only active if both players have the resources
+// if clicked then do trade
+#[derive(Component)]
+pub struct AcceptTrade {
+    color: CatanColorRef,
+    trade: TradingResources,
+}
+// TODO: clicking this despawns its parent too
+#[derive(Component)]
+pub struct RejectTrade {
+    color: CatanColorRef,
+    trade: TradingResources,
+}
+// TODO: if no more children then despawn
+// maybe also spawn button on main player to cancel trade
+#[derive(Component)]
+pub struct Trade(TradingResources);
+impl ButtonInteraction<TradeButton> for TradeState<'_, '_> {
+    fn interact(&mut self, _: &TradeButton) {
+        self.commands
+            .spawn(Trade(*self.trade))
+            .with_related_entities::<TradeChildOf>(|b| {
+                self.colors
+                    .iter()
+                    .filter(|c| **c != self.current_color.0)
+                    .for_each(|color| {
+                        // TODO: spawn in specific players window
+                        b.spawn((
+                            Node {
+                                display: Display::Grid,
+                                grid_template_columns: vec![
+                                    GridTrack::auto(),
+                                    GridTrack::auto(),
+                                    GridTrack::auto(),
+                                ],
+                                ..Default::default()
+                            },
+                            Visibility::Hidden,
+                            children![
+                                (
+                                    Node {
+                                        ..Default::default()
+                                    },
+                                    Text::new(self.trade.to_string())
+                                ),
+                                (
+                                    Node {
+                                        ..Default::default()
+                                    },
+                                    Button,
+                                    Text::new("ok"),
+                                    RejectTrade {
+                                        color: *color,
+                                        trade: *self.trade
+                                    },
+                                ),
+                                (
+                                    Node {
+                                        ..Default::default()
+                                    },
+                                    Button,
+                                    Text::new("x"),
+                                    AcceptTrade {
+                                        color: *color,
+                                        trade: *self.trade
+                                    }
+                                )
+                            ],
+                        ));
+                    });
+            });
+    }
+    fn verify(&mut self, _: &TradeButton) -> bool {
+        let (giving, taking) = self.trade.given_and_taken();
+        giving.len() > 0 && taking.len() > 0
+    }
+}
+#[derive(Component)]
+#[relationship(relationship_target = TradeChildren)]
+pub struct TradeChildOf(pub Entity);
+
+#[derive(Component)]
+#[relationship_target(relationship = TradeChildOf, linked_spawn)]
+pub struct TradeChildren(Vec<Entity>);
 #[derive(SystemParam)]
 struct BankTradeState<'w, 's> {
     trading_resources: Res<'w, TradingResources>,
@@ -362,7 +453,7 @@ impl Plugin for ResourceManagmentPlugin {
         );
         app.add_systems(
             Update,
-            (common_ui::button_system_with_generic::<TradeButton, Res<'_, TradingResources>>,)
+            (common_ui::button_system_with_generic::<TradeButton, TradeState<'_, '_>>,)
                 .run_if(in_state(GameState::Turn)),
         );
         app.add_systems(
