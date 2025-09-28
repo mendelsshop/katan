@@ -1,8 +1,9 @@
 use bevy::prelude::*;
 
 use crate::{
-    CatanColor, CurrentColor, GameState, Hexagon, Layout, Number, Resources, Robber,
+    CatanColor, CurrentColor, GameState, Hexagon, Layout, Left, Number, Resources, Robber,
     cities::City,
+    colors::CatanColorRef,
     positions::{BuildingPosition, Position},
     resources::{CITY_RESOURCES, ROAD_RESOURCES, TOWN_RESOURCES},
     towns::Town,
@@ -316,4 +317,45 @@ pub fn show_turn_ui(
             ),
         ],
     ));
+}
+
+#[derive(Component, PartialEq, Eq, Debug, Clone, Copy)]
+pub struct PlayerBanner(CatanColorRef);
+pub fn setup_top(
+    mut commands: Commands<'_, '_>,
+    // the With<...> is a hack to just filter to the players just in case other entities have color
+    players: Query<'_, '_, (Entity, &CatanColor), With<Left<Town>>>,
+    layout: Res<'_, Layout>,
+) {
+    let player_count = players.iter().count();
+    commands
+        .entity(layout.player_banner)
+        .with_children(|builder| {
+            builder
+                .spawn(Node {
+                    display: Display::Grid,
+                    grid_template_columns: vec![
+                        GridTrack::percent(100. / player_count as f32);
+                        player_count
+                    ],
+                    border: UiRect::all(Val::Px(1.)),
+                    ..default()
+                })
+                .with_children(|builder| {
+                    players.iter().for_each(|player| {
+                        builder.spawn((
+                            Node {
+                                display: Display::Grid,
+                                border: UiRect::all(Val::Px(1.)),
+                                ..default()
+                            },
+                            BackgroundColor(player.1.to_bevy_color()),
+                            PlayerBanner(CatanColorRef {
+                                color: *player.1,
+                                entity: player.0,
+                            }),
+                        ));
+                    })
+                });
+        });
 }

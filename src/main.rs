@@ -85,6 +85,10 @@ fn main() {
     );
     app.add_systems(OnEnter(GameState::SetupRoad), roads::place_setup_road);
     app.add_systems(OnEnter(GameState::SetupTown), towns::place_setup_town);
+    app.add_systems(
+        OnEnter(GameState::SetupTown),
+        turn_ui::setup_top.run_if(run_once),
+    );
 
     app.add_systems(OnEnter(GameState::PlaceRobber), robber::place_robber);
     app.add_systems(
