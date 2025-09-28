@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use itertools::Itertools;
 
 use crate::{
     CatanColor, CurrentColor, GameState, Hexagon, Layout, Left, Number, Resources, Robber,
@@ -318,9 +319,11 @@ pub fn show_turn_ui(
         ],
     ));
 }
+#[derive(Component, PartialEq, Eq, Debug, Clone, Copy)]
+pub struct BannerRef(Entity);
 
 #[derive(Component, PartialEq, Eq, Debug, Clone, Copy)]
-pub struct PlayerBanner(CatanColorRef);
+pub struct PlayerBanner(pub CatanColorRef);
 pub fn setup_top(
     mut commands: Commands<'_, '_>,
     // the With<...> is a hack to just filter to the players just in case other entities have color
@@ -328,34 +331,35 @@ pub fn setup_top(
     layout: Res<'_, Layout>,
 ) {
     let player_count = players.iter().count();
-    commands
-        .entity(layout.player_banner)
-        .with_children(|builder| {
-            builder
-                .spawn(Node {
-                    display: Display::Grid,
-                    grid_template_columns: vec![
-                        GridTrack::percent(100. / player_count as f32);
-                        player_count
-                    ],
-                    border: UiRect::all(Val::Px(1.)),
-                    ..default()
-                })
-                .with_children(|builder| {
-                    players.iter().for_each(|player| {
-                        builder.spawn((
-                            Node {
-                                display: Display::Grid,
-                                border: UiRect::all(Val::Px(1.)),
-                                ..default()
-                            },
-                            BackgroundColor(player.1.to_bevy_color()),
-                            PlayerBanner(CatanColorRef {
-                                color: *player.1,
-                                entity: player.0,
-                            }),
-                        ));
-                    })
-                });
-        });
+    let banners = players
+        .iter()
+        .map(|player| {
+            let id = commands
+                .spawn((
+                    Node {
+                        display: Display::Grid,
+                        border: UiRect::all(Val::Px(1.)),
+                        ..default()
+                    },
+                    BackgroundColor(player.1.to_bevy_color()),
+                    PlayerBanner(CatanColorRef {
+                        color: *player.1,
+                        entity: player.0,
+                    }),
+                ))
+                .id();
+            commands.entity(player.0).insert(BannerRef(id));
+            id
+        })
+        .collect_vec();
+
+    let mut top = commands.spawn(Node {
+        display: Display::Grid,
+        grid_template_columns: vec![GridTrack::percent(100. / player_count as f32); player_count],
+        border: UiRect::all(Val::Px(1.)),
+        ..default()
+    });
+    top.add_children(&banners);
+    let top = top.id();
+    commands.entity(layout.player_banner).add_child(top);
 }

@@ -10,7 +10,7 @@ pub const HOVERED_BUTTON: Color = Color::srgb(0.25, 0.25, 0.25);
 pub const PRESSED_BUTTON: Color = Color::srgb(0.35, 0.75, 0.35);
 use bevy::{color, prelude::*};
 
-use crate::GameState;
+use crate::{GameState, turn_ui::PlayerBanner};
 
 #[derive(Debug, Resource, Clone, Copy)]
 
@@ -72,17 +72,50 @@ pub struct ColorIterator(pub Cycle<IntoIter<CatanColorRef>>);
 
 #[derive(Resource, Debug)]
 pub struct SetupColorIterator(pub Chain<IntoIter<CatanColorRef>, Rev<IntoIter<CatanColorRef>>>);
-pub fn set_color(mut color_r: ResMut<'_, CurrentColor>, color_rotation: ResMut<'_, ColorIterator>) {
+pub fn set_color(
+    mut color_r: ResMut<'_, CurrentColor>,
+    color_rotation: ResMut<'_, ColorIterator>,
+
+    mut player_banners: Query<'_, '_, (&mut BackgroundColor, &PlayerBanner)>,
+) {
+    if let Some((mut background, _)) = player_banners
+        .iter_mut()
+        .find(|(_, banner)| banner.0 == color_r.0)
+    {
+        *background = BackgroundColor(background.0.lighter(0.001))
+    }
     *color_r = CurrentColor(color_rotation.into_inner().0.next().unwrap());
+    if let Some((mut background, _)) = player_banners
+        .iter_mut()
+        .find(|(_, banner)| banner.0 == color_r.0)
+    {
+        // TODO: better shinning effect
+        *background = BackgroundColor(background.0.darker(0.001))
+    }
 }
 
 pub fn set_setup_color(
     mut game_state: ResMut<'_, NextState<GameState>>,
     mut color_r: ResMut<'_, CurrentSetupColor>,
     color_rotation: ResMut<'_, SetupColorIterator>,
+
+    mut player_banners: Query<'_, '_, (&mut BackgroundColor, &PlayerBanner)>,
 ) {
     if let Some(color) = color_rotation.into_inner().0.next() {
+        if let Some((mut background, _)) = player_banners
+            .iter_mut()
+            .find(|(_, banner)| banner.0 == color_r.0)
+        {
+            *background = BackgroundColor(background.0.lighter(0.001))
+        }
         *color_r = CurrentSetupColor(color);
+        if let Some((mut background, _)) = player_banners
+            .iter_mut()
+            .find(|(_, banner)| banner.0 == color_r.0)
+        {
+            // TODO: better shinning effect
+            *background = BackgroundColor(background.0.darker(0.001))
+        }
     } else {
         // TODO: will this happen fast enough so that the last player wont have option to do it a
         // 3rd time
