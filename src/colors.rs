@@ -82,7 +82,7 @@ pub fn set_color(
         .iter_mut()
         .find(|(_, banner)| banner.0 == color_r.0)
     {
-        *background = BackgroundColor(background.0.lighter(0.001))
+        *background = BackgroundColor(background.0.with_alpha(0.5))
     }
     *color_r = CurrentColor(color_rotation.into_inner().0.next().unwrap());
     if let Some((mut background, _)) = player_banners
@@ -90,7 +90,7 @@ pub fn set_color(
         .find(|(_, banner)| banner.0 == color_r.0)
     {
         // TODO: better shinning effect
-        *background = BackgroundColor(background.0.darker(0.001))
+        *background = BackgroundColor(background.0.with_alpha(1.0))
     }
 }
 
@@ -106,15 +106,15 @@ pub fn set_setup_color(
             .iter_mut()
             .find(|(_, banner)| banner.0 == color_r.0)
         {
-            *background = BackgroundColor(background.0.lighter(0.001))
+            *background = BackgroundColor(background.0.with_alpha(0.5))
         }
         *color_r = CurrentSetupColor(color);
         if let Some((mut background, _)) = player_banners
             .iter_mut()
             .find(|(_, banner)| banner.0 == color_r.0)
         {
+            *background = BackgroundColor(background.0.with_alpha(1.))
             // TODO: better shinning effect
-            *background = BackgroundColor(background.0.darker(0.001))
         }
     } else {
         // TODO: will this happen fast enough so that the last player wont have option to do it a

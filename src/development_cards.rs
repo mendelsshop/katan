@@ -89,6 +89,9 @@ pub struct DevelopmentCards {
     victory_point: u8,
 }
 impl DevelopmentCards {
+    pub const fn count(self) -> u8 {
+        self.knight + self.monopoly + self.year_of_plenty + self.road_building + self.victory_point
+    }
     pub fn new_player() -> Self {
         Self::default()
     }

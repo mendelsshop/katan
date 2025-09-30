@@ -3,10 +3,13 @@ use itertools::Itertools;
 
 use crate::{
     CatanColor, CurrentColor, GameState, Hexagon, Layout, Left, Number, Resources, Robber,
+    VictoryPoints,
     cities::City,
     colors::CatanColorRef,
+    development_cards::DevelopmentCards,
     positions::{BuildingPosition, Position},
     resources::{CITY_RESOURCES, ROAD_RESOURCES, TOWN_RESOURCES},
+    roads::Road,
     towns::Town,
 };
 #[derive(Component, PartialEq, Eq, Debug, Clone, Copy)]
@@ -342,6 +345,9 @@ pub fn setup_top(
                         ..default()
                     },
                     BackgroundColor(player.1.to_bevy_color()),
+                    // TODO: compartmentalize banner
+                    Text::new(""),
+                    TextColor(Color::BLACK),
                     PlayerBanner(CatanColorRef {
                         color: *player.1,
                         entity: player.0,
@@ -362,4 +368,54 @@ pub fn setup_top(
     top.add_children(&banners);
     let top = top.id();
     commands.entity(layout.player_banner).add_child(top);
+}
+
+pub fn top_interaction(
+    mut banners: Query<'_, '_, (&PlayerBanner, &mut Text)>,
+    players: Query<
+        '_,
+        '_,
+        (
+            &CatanColor,
+            &Left<Town>,
+            &Left<City>,
+            &Left<Road>,
+            &DevelopmentCards,
+            &Resources,
+            &VictoryPoints,
+            &BannerRef,
+        ),
+        (
+            Or<(
+                Changed<Left<Town>>,
+                Changed<Left<City>>,
+                Changed<Left<Road>>,
+                Changed<DevelopmentCards>,
+                Changed<Resources>,
+                Changed<VictoryPoints>,
+            )>,
+        ),
+    >,
+) {
+    for (
+        catan_color,
+        towns,
+        cities,
+        roads,
+        development_cards,
+        resources,
+        victory_points,
+        banner_ref,
+    ) in players
+    {
+        println!("update");
+        if let Ok((player_banner, mut text)) = banners.get_mut(banner_ref.0) {
+            *text = Text::new(format!(
+                "vps: {}, resources: {}, dev cards: {}",
+                victory_points.0,
+                resources.count(),
+                development_cards.count()
+            ));
+        }
+    }
 }

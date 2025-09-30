@@ -90,6 +90,7 @@ fn main() {
         turn_ui::setup_top.run_if(run_once),
     );
 
+    app.add_systems(Update, turn_ui::top_interaction);
     app.add_systems(OnEnter(GameState::PlaceRobber), robber::place_robber);
     app.add_systems(
         OnEnter(GameState::RobberDiscardResources),
