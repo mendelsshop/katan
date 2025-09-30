@@ -1,8 +1,7 @@
 use bevy::{ecs::system::SystemParam, prelude::*};
-use itertools::Itertools;
 
 use crate::{
-    BoardSize, Building, GameState, Left, Port, UI,
+    BoardSize, Building, GameState, Left, Port, UI, VictoryPoints,
     colors::{CatanColor, CurrentColor, CurrentSetupColor, NORMAL_BUTTON},
     common_ui::ButtonInteraction,
     positions::{BuildingPosition, RoadPosition},
@@ -215,6 +214,7 @@ pub struct PlaceTownButtonState<'w, 's, C: Resource> {
             &'static mut Resources,
             &'static mut Ports,
             &'static mut Left<Town>,
+            &'static mut VictoryPoints,
         ),
         With<CatanColor>,
     >,
@@ -248,11 +248,12 @@ where
         let player_resources_ports_and_towns_left = kind_free_ports_and_resources_q
             .get_mut(current_color_entity)
             .ok();
-        if let Some((mut resources, mut player_ports, mut left)) =
+        if let Some((mut resources, mut player_ports, mut left, mut points)) =
             player_resources_ports_and_towns_left
         {
             *resources -= *cost;
             left.0 -= 1;
+            points.actual += 1;
 
             if let Some((_, port)) = ports
                 .iter()

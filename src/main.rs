@@ -417,7 +417,10 @@ struct Left<T>(pub u8, PhantomData<T>);
 struct Building;
 
 #[derive(Component, PartialEq, Default, Clone, Copy, Debug)]
-pub struct VictoryPoints(pub u8);
+pub struct VictoryPoints {
+    pub actual: u8,
+    pub from_development_cards: u8,
+}
 #[derive(Component, PartialEq, Default, Clone, Copy, Debug)]
 pub struct Knights(pub u8);
 fn setup(

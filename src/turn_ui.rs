@@ -412,7 +412,7 @@ pub fn top_interaction(
         if let Ok((player_banner, mut text)) = banners.get_mut(banner_ref.0) {
             *text = Text::new(format!(
                 "vps: {}, resources: {}, dev cards: {}",
-                victory_points.0,
+                victory_points.actual,
                 resources.count(),
                 development_cards.count()
             ));

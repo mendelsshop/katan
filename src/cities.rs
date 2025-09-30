@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 
 use crate::{
-    Building, GameState, Left,
+    Building, GameState, Left, VictoryPoints,
     colors::{CatanColor, CurrentColor, HOVERED_BUTTON, NORMAL_BUTTON, PRESSED_BUTTON},
     positions::BuildingPosition,
     resources::{CITY_RESOURCES, Resources},
@@ -19,7 +19,12 @@ pub fn place_normal_city_interaction(
     mut player_q: Query<
         '_,
         '_,
-        (&mut Left<Town>, &mut Left<City>, &mut Resources),
+        (
+            &mut Left<Town>,
+            &mut Left<City>,
+            &mut Resources,
+            &mut VictoryPoints,
+        ),
         With<CatanColor>,
     >,
     mut resources: ResMut<'_, Resources>,
@@ -45,10 +50,14 @@ pub fn place_normal_city_interaction(
 
                 commands.entity(entity.0).remove::<Town>().insert(City);
                 let player = player_q.get_mut(color_r.0.entity).ok();
-                if let Some((mut towns_left, mut cities_left, mut player_resources)) = player {
+                if let Some((mut towns_left, mut cities_left, mut player_resources, mut points)) =
+                    player
+                {
                     towns_left.0 += 1;
                     cities_left.0 -= 1;
                     *player_resources -= *required_resources;
+                    points.actual += 1;
+
                     *resources += *required_resources;
                 }
 

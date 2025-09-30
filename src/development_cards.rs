@@ -4,7 +4,7 @@ use bevy::prelude::*;
 use itertools::Itertools;
 
 use crate::{
-    Layout,
+    Layout, VictoryPoints,
     colors::{CatanColor, CurrentColor, HOVERED_BUTTON, NORMAL_BUTTON, PRESSED_BUTTON},
     development_card_actions::DevelopmentCardShow,
     resources::{DEVELOPMENT_CARD_RESOURCES, Resources},
@@ -127,7 +127,7 @@ pub fn buy_development_card_interaction(
     mut player_resources_and_dev_cards: Query<
         '_,
         '_,
-        (&mut Resources, &mut DevelopmentCards),
+        (&mut Resources, &mut DevelopmentCards, &mut VictoryPoints),
         With<CatanColor>,
     >,
     mut resources: ResMut<'_, Resources>,
@@ -142,7 +142,7 @@ pub fn buy_development_card_interaction(
         Changed<Interaction>,
     >,
 ) {
-    if let Ok((mut player_resources, mut player_dev_cards)) =
+    if let Ok((mut player_resources, mut player_dev_cards, mut vps)) =
         player_resources_and_dev_cards.get_mut(color_r.0.entity)
     {
         let required_resources = DEVELOPMENT_CARD_RESOURCES;
@@ -155,6 +155,9 @@ pub fn buy_development_card_interaction(
                 if let Some(card) = free_dev_cards.iter_mut().next() {
                     *player_resources -= required_resources;
                     *resources += required_resources;
+                    if *card.1 == DevelopmentCard::VictoryPoint {
+                        vps.from_development_cards += 1;
+                    }
                     *player_dev_cards.get_mut(*card.1) += 1;
                     commands.entity(card.0).despawn();
                 }

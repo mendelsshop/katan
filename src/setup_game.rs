@@ -343,7 +343,10 @@ fn generate_pieces(
                 Resources::new_player(),
                 DevelopmentCards::new_player(),
                 Ports::new_player(),
-                VictoryPoints(0),
+                VictoryPoints {
+                    actual: 0,
+                    from_development_cards: 0,
+                },
                 Knights(0),
             ))
             .id(),
