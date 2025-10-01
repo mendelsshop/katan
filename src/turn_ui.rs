@@ -2,7 +2,7 @@ use bevy::prelude::*;
 use itertools::Itertools;
 
 use crate::{
-    CatanColor, CurrentColor, GameState, Hexagon, Layout, Left, Number, Resources, Robber,
+    CatanColor, CurrentColor, GameState, Hexagon, Knights, Layout, Left, Number, Resources, Robber,
     VictoryPoints,
     cities::City,
     colors::CatanColorRef,
@@ -341,8 +341,12 @@ pub fn setup_top(
                 .spawn((
                     Node {
                         display: Display::Grid,
-                        border: UiRect::all(Val::Px(1.)),
                         ..default()
+                    },
+                    Outline {
+                        width: Val::Px(4.),
+                        offset: Val::Px(0.),
+                        color: Color::NONE,
                     },
                     BackgroundColor(player.1.to_bevy_color()),
                     // TODO: compartmentalize banner
@@ -362,7 +366,7 @@ pub fn setup_top(
     let mut top = commands.spawn(Node {
         display: Display::Grid,
         grid_template_columns: vec![GridTrack::percent(100. / player_count as f32); player_count],
-        border: UiRect::all(Val::Px(1.)),
+        column_gap: Val::Px(5.),
         ..default()
     });
     top.add_children(&banners);
@@ -384,6 +388,7 @@ pub fn top_interaction(
             &Resources,
             &VictoryPoints,
             &BannerRef,
+            &Knights,
         ),
         (
             Or<(
@@ -393,6 +398,7 @@ pub fn top_interaction(
                 Changed<DevelopmentCards>,
                 Changed<Resources>,
                 Changed<VictoryPoints>,
+                Changed<Knights>,
             )>,
         ),
     >,
@@ -406,15 +412,16 @@ pub fn top_interaction(
         resources,
         victory_points,
         banner_ref,
+        knights,
     ) in players
     {
-        println!("update");
         if let Ok((player_banner, mut text)) = banners.get_mut(banner_ref.0) {
             *text = Text::new(format!(
-                "vps: {}, resources: {}, dev cards: {}",
+                "vps: {}, resources: {}, dev cards: {}, knights: {}",
                 victory_points.actual,
                 resources.count(),
-                development_cards.count()
+                development_cards.count(),
+                knights.0
             ));
         }
     }

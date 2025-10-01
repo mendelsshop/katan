@@ -8,7 +8,10 @@ use std::{
 pub const NORMAL_BUTTON: Color = Color::srgb(0.15, 0.15, 0.15);
 pub const HOVERED_BUTTON: Color = Color::srgb(0.25, 0.25, 0.25);
 pub const PRESSED_BUTTON: Color = Color::srgb(0.35, 0.75, 0.35);
-use bevy::{color, prelude::*};
+use bevy::{
+    color::{self, palettes::css},
+    prelude::*,
+};
 
 use crate::{GameState, turn_ui::PlayerBanner};
 
@@ -76,20 +79,22 @@ pub fn set_color(
     mut color_r: ResMut<'_, CurrentColor>,
     color_rotation: ResMut<'_, ColorIterator>,
 
-    mut player_banners: Query<'_, '_, (&mut BackgroundColor, &PlayerBanner)>,
+    mut player_banners: Query<'_, '_, (&mut BackgroundColor, &mut Outline, &PlayerBanner)>,
 ) {
-    if let Some((mut background, _)) = player_banners
+    if let Some((mut background, mut border, _)) = player_banners
         .iter_mut()
-        .find(|(_, banner)| banner.0 == color_r.0)
+        .find(|(_, _, banner)| banner.0 == color_r.0)
     {
-        *background = BackgroundColor(background.0.with_alpha(0.5))
+        *background = BackgroundColor(background.0.with_alpha(0.5));
+        border.color = Color::NONE;
     }
     *color_r = CurrentColor(color_rotation.into_inner().0.next().unwrap());
-    if let Some((mut background, _)) = player_banners
+    if let Some((mut background, mut border, _)) = player_banners
         .iter_mut()
-        .find(|(_, banner)| banner.0 == color_r.0)
+        .find(|(_, _, banner)| banner.0 == color_r.0)
     {
         // TODO: better shinning effect
+        border.color = css::CADET_BLUE.into();
         *background = BackgroundColor(background.0.with_alpha(1.0))
     }
 }
@@ -99,20 +104,22 @@ pub fn set_setup_color(
     mut color_r: ResMut<'_, CurrentSetupColor>,
     color_rotation: ResMut<'_, SetupColorIterator>,
 
-    mut player_banners: Query<'_, '_, (&mut BackgroundColor, &PlayerBanner)>,
+    mut player_banners: Query<'_, '_, (&mut BackgroundColor, &mut Outline, &PlayerBanner)>,
 ) {
     if let Some(color) = color_rotation.into_inner().0.next() {
-        if let Some((mut background, _)) = player_banners
+        if let Some((mut background, mut border, _)) = player_banners
             .iter_mut()
-            .find(|(_, banner)| banner.0 == color_r.0)
+            .find(|(_, _, banner)| banner.0 == color_r.0)
         {
+            border.color = Color::NONE;
             *background = BackgroundColor(background.0.with_alpha(0.5))
         }
         *color_r = CurrentSetupColor(color);
-        if let Some((mut background, _)) = player_banners
+        if let Some((mut background, mut border, _)) = player_banners
             .iter_mut()
-            .find(|(_, banner)| banner.0 == color_r.0)
+            .find(|(_, _, banner)| banner.0 == color_r.0)
         {
+            border.color = css::CADET_BLUE.into();
             *background = BackgroundColor(background.0.with_alpha(1.))
             // TODO: better shinning effect
         }
