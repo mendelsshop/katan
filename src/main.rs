@@ -12,6 +12,7 @@ mod common_ui;
 mod development_card_actions;
 mod development_cards;
 mod dice;
+mod larget_army;
 mod positions;
 mod resources;
 mod resources_management;
@@ -35,6 +36,7 @@ use crate::{
         MonopolyButton, RoadBuildingState, YearOfPlentyButton, YearOfPlentyState,
     },
     development_cards::DevelopmentCard,
+    larget_army::LargestArmyPlugin,
     resources::Resources,
     resources_management::ResourceManagmentPlugin,
     roads::{PlaceRoadButtonState, RoadPlaceButton},
@@ -43,14 +45,13 @@ use crate::{
     },
     towns::{PlaceTownButtonState, TownPlaceButton},
 };
-
 fn main() {
     let mut app = App::new();
     app.add_plugins((DefaultPlugins,));
     app.init_state::<GameState>()
         .add_sub_state::<YearOfPlentyState>()
         .add_sub_state::<RoadBuildingState>();
-    app.add_plugins((ResourceManagmentPlugin,));
+    app.add_plugins((ResourceManagmentPlugin, LargestArmyPlugin));
     app.insert_resource(BoardSize(3));
     app.init_resource::<Robber>();
     app.insert_resource(Resources::new_game());
