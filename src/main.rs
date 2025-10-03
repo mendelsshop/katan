@@ -38,6 +38,7 @@ use crate::{
     },
     development_cards::DevelopmentCard,
     larget_army::LargestArmyPlugin,
+    longest_road::LongestRoadPlugin,
     resources::Resources,
     resources_management::ResourceManagmentPlugin,
     roads::{PlaceRoadButtonState, RoadPlaceButton},
@@ -55,7 +56,7 @@ fn main() {
     app.add_plugins((
         ResourceManagmentPlugin,
         LargestArmyPlugin,
-        LargestArmyPlugin,
+        LongestRoadPlugin,
     ));
     app.insert_resource(BoardSize(3));
     app.init_resource::<Robber>();

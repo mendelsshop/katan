@@ -8,6 +8,7 @@ use crate::{
     colors::CatanColorRef,
     development_cards::DevelopmentCards,
     larget_army::LargetArmyRef,
+    longest_road::LongestRoadRef,
     positions::{BuildingPosition, Position},
     resources::{CITY_RESOURCES, ROAD_RESOURCES, TOWN_RESOURCES},
     roads::Road,
@@ -391,6 +392,7 @@ pub fn top_interaction(
             &BannerRef,
             &Knights,
             Option<&LargetArmyRef>,
+            Option<&LongestRoadRef>,
         ),
         (
             Or<(
@@ -402,6 +404,7 @@ pub fn top_interaction(
                 Changed<VictoryPoints>,
                 Changed<Knights>,
                 Changed<LargetArmyRef>,
+                Changed<LongestRoadRef>,
             )>,
         ),
     >,
@@ -417,17 +420,23 @@ pub fn top_interaction(
         banner_ref,
         knights,
         larget_army,
+        longest_road,
     ) in players
     {
         if let Ok((player_banner, mut text)) = banners.get_mut(banner_ref.0) {
             *text = Text::new(format!(
-                "vps: {}, resources: {}, dev cards: {}, knights: {}{}",
+                "vps: {}, resources: {}, dev cards: {}, knights: {}{}{}",
                 victory_points.actual,
                 resources.count(),
                 development_cards.count(),
                 knights.0,
                 if larget_army.is_some() {
                     "(largest army)"
+                } else {
+                    ""
+                },
+                if longest_road.is_none() {
+                    " , longest road"
                 } else {
                     ""
                 }

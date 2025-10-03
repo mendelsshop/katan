@@ -10,7 +10,7 @@ use itertools::Itertools;
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Resource)]
 struct LongestRoad(Entity, u8);
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Component)]
-pub struct LongestRoadRef(Entity);
+pub struct LongestRoadRef;
 pub struct LongestRoadPlugin;
 impl Plugin for LongestRoadPlugin {
     fn build(&self, app: &mut App) {
@@ -49,7 +49,7 @@ fn longest_road_road_added(
         }
         *current = LongestRoad(color.0.entity, new);
         if let Ok(mut player) = player_q.get_mut(color.0.entity) {
-            commmands.entity(player.0).remove::<LongestRoadRef>();
+            commmands.entity(player.0).insert(LongestRoadRef);
             player.1.actual += 1
         }
     }
@@ -111,7 +111,7 @@ fn longest_road_town_added(
     if let Some(new) = new {
         *current = LongestRoad(new.0, new.1);
         if let Ok(mut player) = player_q.get_mut(new.0) {
-            commmands.entity(player.0).remove::<LongestRoadRef>();
+            commmands.entity(player.0).insert(LongestRoadRef);
             player.1.actual += 1
         }
     } else {
