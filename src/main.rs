@@ -13,6 +13,7 @@ mod development_card_actions;
 mod development_cards;
 mod dice;
 mod larget_army;
+mod longest_road;
 mod positions;
 mod resources;
 mod resources_management;
@@ -51,7 +52,11 @@ fn main() {
     app.init_state::<GameState>()
         .add_sub_state::<YearOfPlentyState>()
         .add_sub_state::<RoadBuildingState>();
-    app.add_plugins((ResourceManagmentPlugin, LargestArmyPlugin));
+    app.add_plugins((
+        ResourceManagmentPlugin,
+        LargestArmyPlugin,
+        LargestArmyPlugin,
+    ));
     app.insert_resource(BoardSize(3));
     app.init_resource::<Robber>();
     app.insert_resource(Resources::new_game());
