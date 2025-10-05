@@ -38,8 +38,8 @@ fn longest_road_road_added(
     let longest_road = longest_road(
         roads_by_color.collect_vec(),
         current.1,
-        false,
-        building_q.into_iter(),
+        true,
+        building_q.into_iter().filter(|b| *b.1 == color.0.color),
     );
 
     if let Some(new) = longest_road.filter(|new| *new > current.1) {
@@ -55,15 +55,33 @@ fn longest_road_road_added(
     }
 }
 
-fn longest_road(
+fn longest_road<'a, 'b, 'c>(
     roads: Vec<crate::roads::RoadQueryItem<'_>>,
     current: u8,
     check_cut_off: bool,
-    buildings: bevy::ecs::query::QueryIter<'_, '_, (&Building, &CatanColor, &BuildingPosition), ()>,
+    buildings: impl Iterator<Item = (&'a Building, &'b CatanColor, &'c BuildingPosition)>,
 ) -> Option<u8> {
     // skip anyone how has road count equal to current longest road (if check_cut_off)
     // always check if less roads then 3
-    None
+    if roads.len() <= current as usize && check_cut_off || roads.len() <= 2 {
+        None
+    } else {
+        roads.iter().fold(
+            // basically strongly connected componenets
+            // only problem, is if you have loop with (other color) house in between it depeends
+            // how the iteration
+            vec![],
+            |mut init: Vec<Vec<_>>, road| {
+                if let Some(i) = init.iter_mut().find(|x| false) {
+                    i.push(road);
+                } else {
+                    init.push(vec![road]);
+                }
+                init
+            },
+        );
+        None
+    }
 }
 fn longest_road_town_added(
     road_q: Query<'_, '_, (&ChildOf, RoadQuery)>,
@@ -85,18 +103,18 @@ fn longest_road_town_added(
     {
         return;
     }
-    let roads_by_color = road_q.iter().into_group_map_by(|(c, _)| c.parent());
+    let roads_by_color = road_q.iter().into_group_map_by(|(c, r)| (c.parent(), *r.1));
 
     let new = roads_by_color
         .into_iter()
-        .filter_map(|(color, roads)| {
+        .filter_map(|((entity, color), roads)| {
             longest_road(
                 roads.into_iter().unzip::<_, _, Vec<_>, Vec<_>>().1,
                 current.1,
                 false,
-                building_q.into_iter(),
+                building_q.into_iter().filter(|b| *b.1 == color),
             )
-            .map(|long| (color, long))
+            .map(|long| (entity, long))
         })
         .max_by_key(|long| long.1);
 
