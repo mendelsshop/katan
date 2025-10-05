@@ -262,7 +262,7 @@ fn main() {
             RoadPlaceButton,
             PlaceRoadButtonState<'_, '_, CurrentColor>,
         >
-            .run_if(in_state(GameState::PlaceRoad)),
+            .run_if(in_state(GameState::PlaceRoad).or(in_state(GameState::RoadBuilding))),
     );
 
     app.add_systems(

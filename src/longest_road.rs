@@ -63,6 +63,7 @@ fn longest_road<'a, 'b, 'c>(
 ) -> Option<u8> {
     // skip anyone how has road count equal to current longest road (if check_cut_off)
     // always check if less roads then 3
+    // road cannot be used twice (so no loops in actual longest road)
     if roads.len() <= current as usize && check_cut_off || roads.len() <= 2 {
         None
     } else {
@@ -105,7 +106,7 @@ fn longest_road_town_added(
     }
     let roads_by_color = road_q.iter().into_group_map_by(|(c, r)| (c.parent(), *r.1));
 
-    let new = roads_by_color
+    let mut new = roads_by_color
         .into_iter()
         .filter_map(|((entity, color), roads)| {
             longest_road(
@@ -116,23 +117,35 @@ fn longest_road_town_added(
             )
             .map(|long| (entity, long))
         })
-        .max_by_key(|long| long.1);
+        .max_set_by_key(|long| long.1);
 
     // possible cases:
-    // house cut into current longest road (either no one has longest road (someone had 5 and it
-    // got cut off) or someone has longest road, proced normally)
+    // Here we have to distinguish between three cases:
 
-    if let Ok(mut player) = player_q.get_mut(current.0) {
-        commmands.entity(player.0).remove::<LongestRoadRef>();
-        player.1.actual -= 2
-    }
-    if let Some(new) = new {
-        *current = LongestRoad(new.0, new.1);
-        if let Ok(mut player) = player_q.get_mut(new.0) {
-            commmands.entity(player.0).insert(LongestRoadRef);
-            player.1.actual += 1
-        }
+    // If the player who up to this point had the Longest Road still meets the requirements for the Longest Road (either alone or together with another player), he keeps the card.
+    //
+    // If another player now meets the requirements for the Longest Road, he receives the card.
+    //
+    // If none of the players - or more than one player - meets the requirements for the Longest Road, none of the players receives the card.
+
+    if let Some(old) = new.pop_if(|(e, _)| *e == current.0) {
+        // same player but less roads (ussually)
+        current.1 = old.1
     } else {
-        *current = LongestRoad(Entity::PLACEHOLDER, 2);
+        if let Ok(mut player) = player_q.get_mut(current.0) {
+            commmands.entity(player.0).remove::<LongestRoadRef>();
+            player.1.actual -= 2
+        }
+        if let [new] = new[..] {
+            // no tie for second
+            *current = LongestRoad(new.0, new.1);
+            if let Ok(mut player) = player_q.get_mut(new.0) {
+                commmands.entity(player.0).insert(LongestRoadRef);
+                player.1.actual += 1
+            }
+        } else {
+            // tie for longest road (not including current longest road holder)
+            *current = LongestRoad(Entity::PLACEHOLDER, 2);
+        }
     }
 }
