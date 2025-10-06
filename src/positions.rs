@@ -5,7 +5,7 @@ use std::{
 };
 
 use bevy::prelude::*;
-#[derive(Component, Debug, PartialEq, Eq, Clone, Copy, PartialOrd, Ord)]
+#[derive(Component, Debug, PartialEq, Eq, Clone, Copy, PartialOrd, Ord, Hash)]
 pub struct Position {
     pub q: i8,
     pub r: i8,
@@ -209,14 +209,14 @@ impl Add for FPosition {
         }
     }
 }
-#[derive(Component, Clone, Copy, Debug)]
+#[derive(Component, Clone, Copy, Debug, Hash, Eq)]
 
 pub enum RoadPosition {
     /// Dont use this constructor use `Self::new`
     Both(Position, Position, Coordinate),
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Coordinate {
     Q,
     R,

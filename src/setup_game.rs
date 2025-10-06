@@ -12,12 +12,13 @@ use crate::{
     cities::City,
     colors::{CatanColor, CatanColorRef},
     development_cards::{DevelopmentCard, DevelopmentCards},
+    longest_road::PlayerLongestRoad,
     positions::{self, BuildingPosition, FPosition, Position},
     resources::{self, Resources},
     roads::Road,
     towns::Town,
 };
-use bevy::prelude::*;
+use bevy::{platform::collections::HashSet, prelude::*};
 use itertools::Itertools;
 use rand::seq::SliceRandom;
 fn draw_board(
@@ -341,6 +342,10 @@ fn generate_pieces(
                 Left::<City>(4, PhantomData),
                 Left::<Road>(15, PhantomData),
                 Resources::new_player(),
+                // maybe initialize this as part of longest road plugin just have system that run
+                // on startup(or eventually game start state) that adds this comonent to each
+                // "player"
+                PlayerLongestRoad(HashSet::new()),
                 DevelopmentCards::new_player(),
                 Ports::new_player(),
                 VictoryPoints {
