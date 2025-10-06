@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use crate::{
     Building, VictoryPoints,
     colors::{CatanColor, CurrentColor},
@@ -68,28 +70,52 @@ fn longest_road<'a, 'b, 'c>(
     roads: Vec<crate::roads::RoadQueryItem<'_>>,
     buildings: impl Iterator<Item = (&'a Building, &'b CatanColor, &'c BuildingPosition)>,
 ) -> Option<HashSet<RoadPosition>> {
+    // maybe just parralize it
     // skip anyone how has road count equal to current longest road (if check_cut_off)
     // always check if less roads then 3
     // road cannot be used twice (so no loops in actual longest road)
     if roads.len() <= 4 {
         None
     } else {
-        roads.iter().fold(
-            // basically strongly connected componenets
-            // only problem, is if you have loop with (other color) house in between it depeends
-            // how the iteration
-            vec![],
-            |mut init: Vec<HashSet<_>>, road| {
-                if let Some(i) = init.iter_mut().find(|x| false) {
-                    i.insert(*road.2);
-                } else {
-                    init.push(HashSet::from([*road.2]));
-                }
-                init
-            },
-        );
-        None
+        // TODO: compute this when adding roads
+        let road_matrix = roads
+            .iter()
+            .tuple_combinations()
+            .filter(|_| todo!("are adjacent (no houses in between)"))
+            .fold(HashMap::new(), |mut matrix, (r1, r2)| {
+                matrix.entry(*r1.2).or_insert(HashSet::new()).insert(*r2.2);
+                matrix.entry(*r2.2).or_insert(HashSet::new()).insert(*r1.2);
+                matrix
+            });
+        // TODO: for each road maybe also count how many roads connected to it (so we can do some
+        // cut offs/min maxing
+        road_matrix
+            .iter()
+            .filter_map(|(road, neighbors)| {
+                find_path(HashSet::from([*road]), neighbors, &road_matrix)
+            })
+            .max_by_key(|path| path.len())
     }
+}
+
+fn find_path(
+    path: HashSet<RoadPosition>,
+    neighbors: &HashSet<RoadPosition>,
+    road_matrix: &HashMap<RoadPosition, HashSet<RoadPosition>>,
+) -> Option<HashSet<RoadPosition>> {
+    neighbors
+        .iter()
+        .filter_map(|neighbor| {
+            let mut path = path.clone();
+            if path.insert(*neighbor) {
+                let neighbors = road_matrix.get(neighbor)?;
+                find_path(path, neighbors, road_matrix)
+            } else {
+                // no double crossing
+                Some(path)
+            }
+        })
+        .max_by_key(|path| path.len())
 }
 fn longest_road_town_added(
     road_q: Query<'_, '_, (&ChildOf, RoadQuery)>,
