@@ -201,7 +201,10 @@ fn longest_road_town_added(
             // we deducat the points here even if the current holder still holds it to get
             // around mutablitity issues
             current_interupted.1.actual -= 2;
-            let mut new = player_q.iter_mut().max_set_by_key(|p| p.2.0.len());
+            let mut new = player_q
+                .iter_mut()
+                .filter(|p| p.2.0.len() >= 5)
+                .max_set_by_key(|p| p.2.0.len());
 
             if let Some(mut new_current) = new.pop_if(|(e, _, _, _)| *e == current.0) {
                 // same player but less roads (ussually)
