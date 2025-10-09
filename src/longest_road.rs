@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use crate::{
-    Building, VictoryPoints,
+    BoardSize, Building, VictoryPoints,
     colors::{CatanColor, CurrentColor},
     positions::{BuildingPosition, RoadPosition},
     roads::RoadQuery,
@@ -36,17 +36,24 @@ fn longest_road_road_added(
     mut current: ResMut<'_, LongestRoad>,
     mut commmands: Commands<'_, '_>,
     color: Res<'_, CurrentColor>,
+    size_r: Res<'_, BoardSize>,
 ) {
     // we could shortcut here if its current player who has longest road, but then total count
     // wouldn't be accurate
     if road_q_changed.iter().count() > 0 {
         return;
     }
+    println!("longest road checking road added");
 
     let roads_by_color = road_q.iter().filter(|q| *q.1 == color.0.color);
     let longest_road = longest_road(
         roads_by_color.collect_vec(),
-        building_q.into_iter().filter(|b| *b.1 == color.0.color),
+        building_q
+            .into_iter()
+            .filter(|b| *b.1 == color.0.color)
+            .map(|b| *b.2)
+            .collect_vec(),
+        size_r.0,
     );
 
     if let Some(new) = longest_road {
@@ -68,7 +75,8 @@ fn longest_road_road_added(
 
 fn longest_road<'a, 'b, 'c>(
     roads: Vec<crate::roads::RoadQueryItem<'_>>,
-    buildings: impl Iterator<Item = (&'a Building, &'b CatanColor, &'c BuildingPosition)>,
+    buildings: Vec<BuildingPosition>,
+    size_r: u8,
 ) -> Option<HashSet<RoadPosition>> {
     // maybe just parralize it
     // skip anyone how has road count equal to current longest road (if check_cut_off)
@@ -81,7 +89,10 @@ fn longest_road<'a, 'b, 'c>(
         let road_matrix = roads
             .iter()
             .tuple_combinations()
-            .filter(|_| todo!("are adjacent (no houses in between)"))
+            .filter(|(r1, r2)| {
+                r1.2.intersect(r2.2, Some(size_r))
+                    .is_some_and(|b| buildings.clone().contains(&b))
+            })
             .fold(HashMap::new(), |mut matrix, (r1, r2)| {
                 matrix.entry(*r1.2).or_insert(HashSet::new()).insert(*r2.2);
                 matrix.entry(*r2.2).or_insert(HashSet::new()).insert(*r1.2);
@@ -138,24 +149,33 @@ fn longest_road_town_added(
     >,
     mut current: ResMut<'_, LongestRoad>,
     mut commmands: Commands<'_, '_>,
+    size_r: Res<'_, BoardSize>,
 ) {
     if current.0 == Entity::PLACEHOLDER || building_q_changed.iter().count() > 0 {
         return;
     }
-    if let Some(mut current_interupted) =
-        player_q.iter_mut().find(|player| {
-            player.2.0.iter().tuple_combinations().any(|(r1, r2)| {
-                todo!("merge roads into building postion and see if its new buildings make sure color mismatch between building and road)")
+    println!("longest road checking town added");
+    if let Some(mut current_interupted) = player_q.iter_mut().find(|player| {
+        player.2.0.iter().tuple_combinations().any(|(r1, r2)| {
+            r1.intersect(r2, Some(size_r.0)).is_some_and(|b| {
+                building_q_changed
+                    .iter()
+                    .filter(|b| b.1 != player.3)
+                    .map(|b| b.2)
+                    .contains(&b)
             })
         })
-    {
+    }) {
         // updated interupted players longest road count
         let roads_by_color = road_q.iter().filter(|q| q.0.parent() == current.0);
         let new = longest_road(
             roads_by_color.into_iter().unzip::<_, _, Vec<_>, Vec<_>>().1,
             building_q
                 .into_iter()
-                .filter(|b| b.1 == current_interupted.3),
+                .filter(|b| b.1 == current_interupted.3)
+                .map(|b| *b.2)
+                .collect_vec(),
+            size_r.0,
         );
         if let Some(new) = new {
             // update current holders longest road count

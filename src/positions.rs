@@ -235,6 +235,24 @@ impl RoadPosition {
             .filter(|c| other_point_is_close(p1, p2, c) && not_off_board);
         c.map(|c| Self::Both(p1, p2, c))
     }
+    pub fn intersect(&self, other: &Self, size: Option<u8>) -> Option<BuildingPosition> {
+        match (self, other) {
+            (
+                RoadPosition::Both(position_road, position1_road, coordinate_road),
+                RoadPosition::Both(position_road1, position1_road1, coordinate_road1),
+            ) => {
+                if coordinate_road == coordinate_road1 {
+                    None
+                } else if position_road == position_road1 || position1_road == position_road1 {
+                    BuildingPosition::new(*position_road, *position1_road, *position1_road1, size)
+                } else if position_road == position1_road1 || position1_road == position1_road1 {
+                    BuildingPosition::new(*position_road, *position1_road, *position_road1, size)
+                } else {
+                    None
+                }
+            }
+        }
+    }
     pub fn neighboring_two(&self, size: Option<u8>) -> (Option<Position>, Option<Position>) {
         match self {
             Self::Both(p1, p2, coordinate) => {
