@@ -238,8 +238,8 @@ impl RoadPosition {
     pub fn intersect(&self, other: &Self, size: Option<u8>) -> Option<BuildingPosition> {
         match (self, other) {
             (
-                RoadPosition::Both(position_road, position1_road, coordinate_road),
-                RoadPosition::Both(position_road1, position1_road1, coordinate_road1),
+                Self::Both(position_road, position1_road, coordinate_road),
+                Self::Both(position_road1, position1_road1, coordinate_road1),
             ) => {
                 if coordinate_road == coordinate_road1 {
                     None
@@ -296,7 +296,7 @@ impl RoadPosition {
     }
 }
 
-fn other_point_is_close(p1: Position, p2: Position, c: &Coordinate) -> bool {
+const fn other_point_is_close(p1: Position, p2: Position, c: &Coordinate) -> bool {
     match c {
         Coordinate::Q => p1.r.abs_diff(p2.r) <= 1 && p1.s.abs_diff(p2.s) <= 1,
         Coordinate::R => p1.q.abs_diff(p2.q) <= 1 && p1.s.abs_diff(p2.s) <= 1,
@@ -343,7 +343,7 @@ impl BuildingPosition {
     }
     pub fn rotate_right(&self) -> Self {
         match self {
-            BuildingPosition::All(position, position1, position2) => unsafe {
+            Self::All(position, position1, position2) => unsafe {
                 Self::new_unchecked(
                     position.rotate_right(),
                     position1.rotate_right(),
@@ -355,7 +355,7 @@ impl BuildingPosition {
 
     pub fn rotate_right_n(&self, n: u8) -> Self {
         match self {
-            BuildingPosition::All(position, position1, position2) => unsafe {
+            Self::All(position, position1, position2) => unsafe {
                 Self::new_unchecked(
                     position.rotate_right_n(n),
                     position1.rotate_right_n(n),
@@ -364,11 +364,7 @@ impl BuildingPosition {
             },
         }
     }
-    pub unsafe fn new_unchecked(
-        mut p1: Position,
-        mut p2: Position,
-        mut p3: Position,
-    ) -> BuildingPosition {
+    pub unsafe fn new_unchecked(mut p1: Position, mut p2: Position, mut p3: Position) -> Self {
         if p2 < p3 {
             mem::swap(&mut p2, &mut p3);
         }
@@ -404,7 +400,7 @@ impl Add<Position> for BuildingPosition {
     type Output = Self;
     fn add(self, rhs: Position) -> Self::Output {
         match self {
-            BuildingPosition::All(position, position1, position2) => unsafe {
+            Self::All(position, position1, position2) => unsafe {
                 Self::new_unchecked(position + rhs, position1 + rhs, position2 + rhs)
             },
         }

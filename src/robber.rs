@@ -30,10 +30,10 @@ pub fn counter_text_update(
     robber_spinner_query: Query<'_, '_, &RobberResourceSpinner>,
 ) {
     for (mut text, resources) in &mut interaction_query {
-        if let Ok(resources) = robber_spinner_query.get(resources.0) {
-            if let Ok(counter) = counter_query.get(resources.resource.0) {
-                **text = counter.get(resources.resource.1).to_string();
-            }
+        if let Ok(resources) = robber_spinner_query.get(resources.0)
+            && let Ok(counter) = counter_query.get(resources.resource.0)
+        {
+            **text = counter.get(resources.resource.1).to_string();
         }
     }
 }

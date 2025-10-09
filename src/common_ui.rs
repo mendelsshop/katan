@@ -45,7 +45,7 @@ where
 {
     fn interact(&mut self, c: &Up<C>) {
         if let Ok(c) = self.0.get(c.0) {
-            self.1.increment(c)
+            self.1.increment(c);
         }
     }
 
@@ -68,7 +68,7 @@ where
 {
     fn interact(&mut self, c: &Down<C>) {
         if let Ok(c) = self.0.get(c.0) {
-            self.1.deref_mut().decrement(c)
+            self.1.deref_mut().decrement(c);
         }
     }
 
@@ -95,14 +95,14 @@ pub fn button_system_with_generic<C: Component, T: SystemParam>(
                 Interaction::Pressed => {
                     param.interact(c);
 
-                    *background_color = PRESSED_BUTTON.into()
+                    *background_color = PRESSED_BUTTON.into();
                 }
                 Interaction::Hovered => *background_color = HOVERED_BUTTON.into(),
                 Interaction::None => *background_color = NORMAL_BUTTON.into(),
             }
         } else {
             // TODO: have disable button color
-            *background_color = NORMAL_BUTTON.into()
+            *background_color = NORMAL_BUTTON.into();
         }
     }
 }
@@ -151,7 +151,7 @@ where
                 children![
                     (
                         Value(entity, PhantomData::<U>),
-                        Text::new("".to_string()),
+                        Text::new(String::new()),
                         Node {
                             display: Display::Grid,
                             ..default()

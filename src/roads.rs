@@ -274,7 +274,7 @@ where
             substate,
         } = self;
 
-        let color_r: &C = &color_r;
+        let color_r: &C = color_r;
         let current_color: CatanColor = (*color_r).into();
         let current_color_entity: Entity = (*color_r).into();
         commands
@@ -307,9 +307,9 @@ where
                     substate_mut.as_deref_mut().zip(substate.as_ref())
                 {
                     if *substate.get() == RoadBuildingState::Road1 {
-                        substate_mut.set(RoadBuildingState::Road2)
+                        substate_mut.set(RoadBuildingState::Road2);
                     } else {
-                        game_state_mut.set(GameState::Turn)
+                        game_state_mut.set(GameState::Turn);
                     }
                 }
             }

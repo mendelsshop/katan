@@ -48,7 +48,7 @@ pub enum Resource {
     Ore,
 }
 impl Resource {
-    pub fn color(&self) -> Color {
+    pub const fn color(&self) -> Color {
         match self {
             Self::Wood => Color::srgb_u8(161, 102, 47),
             Self::Brick => Color::srgb_u8(198, 74, 60),

@@ -239,7 +239,7 @@ where
             ports,
         } = self;
 
-        let color_r: &C = &color_r;
+        let color_r: &C = color_r;
         let current_color: CatanColor = (*color_r).into();
         let current_color_entity: Entity = (*color_r).into();
         commands

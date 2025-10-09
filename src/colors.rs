@@ -95,7 +95,7 @@ pub fn set_color(
     {
         // TODO: better shinning effect
         border.color = css::CADET_BLUE.into();
-        *background = BackgroundColor(background.0.with_alpha(1.0))
+        *background = BackgroundColor(background.0.with_alpha(1.0));
     }
 }
 
@@ -112,7 +112,7 @@ pub fn set_setup_color(
             .find(|(_, _, banner)| banner.0 == color_r.0)
         {
             border.color = Color::NONE;
-            *background = BackgroundColor(background.0.with_alpha(0.5))
+            *background = BackgroundColor(background.0.with_alpha(0.5));
         }
         *color_r = CurrentSetupColor(color);
         if let Some((mut background, mut border, _)) = player_banners
@@ -120,7 +120,7 @@ pub fn set_setup_color(
             .find(|(_, _, banner)| banner.0 == color_r.0)
         {
             border.color = css::CADET_BLUE.into();
-            *background = BackgroundColor(background.0.with_alpha(1.))
+            *background = BackgroundColor(background.0.with_alpha(1.));
             // TODO: better shinning effect
         }
     } else {

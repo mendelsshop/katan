@@ -66,16 +66,8 @@ impl ButtonInteraction<TradeButton> for TradeState<'_, '_> {
                             },
                             Visibility::Hidden,
                             children![
+                                Text::new(self.trade.to_string()),
                                 (
-                                    Node {
-                                        ..Default::default()
-                                    },
-                                    Text::new(self.trade.to_string())
-                                ),
-                                (
-                                    Node {
-                                        ..Default::default()
-                                    },
                                     Button,
                                     Text::new("ok"),
                                     RejectTrade {
@@ -84,9 +76,6 @@ impl ButtonInteraction<TradeButton> for TradeState<'_, '_> {
                                     },
                                 ),
                                 (
-                                    Node {
-                                        ..Default::default()
-                                    },
                                     Button,
                                     Text::new("x"),
                                     AcceptTrade {
@@ -101,7 +90,7 @@ impl ButtonInteraction<TradeButton> for TradeState<'_, '_> {
     }
     fn verify(&mut self, _: &TradeButton) -> bool {
         let (giving, taking) = self.trade.given_and_taken();
-        giving.len() > 0 && taking.len() > 0
+        !giving.is_empty() && !taking.is_empty()
     }
 }
 #[derive(Component)]
@@ -153,8 +142,8 @@ impl ButtonInteraction<BankTradeButton> for BankTradeState<'_, '_> {
             .player_resources_and_ports
             .get_mut(self.current_color.0.entity)
         {
-            player_resources.add_assign(trading_resources)
-        };
+            player_resources.add_assign(trading_resources);
+        }
     }
 }
 pub fn show_player_trade(
@@ -172,7 +161,7 @@ pub fn show_player_resources(
     res: Res<'_, CurrentColor>,
 ) {
     for resource in player_resources {
-        println!("{resource:?}")
+        println!("{resource:?}");
     }
     if let Ok(resources) = player_resources.get(res.0.entity) {
         for (mut text, slider_ref) in player_resources_nodes {

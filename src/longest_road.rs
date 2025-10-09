@@ -69,7 +69,7 @@ fn longest_road_road_added(
                 player.1.actual += 2;
                 if let Ok(mut player) = player_q.get_mut(current.0) {
                     commmands.entity(player.0).remove::<LongestRoadRef>();
-                    player.1.actual -= 2
+                    player.1.actual -= 2;
                 }
                 *current = LongestRoad(color.0.entity, len as u8);
             }
@@ -109,7 +109,7 @@ fn longest_road<'a, 'b, 'c>(
             .filter_map(|(road, neighbors)| {
                 find_path(HashSet::from([*road]), neighbors, &road_matrix)
             })
-            .max_by_key(|path| path.len())
+            .max_by_key(bevy::platform::collections::HashSet::len)
     }
 }
 
@@ -130,7 +130,7 @@ fn find_path(
                 Some(path)
             }
         })
-        .max_by_key(|path| path.len())
+        .max_by_key(bevy::platform::collections::HashSet::len)
 }
 fn longest_road_town_added(
     road_q: Query<'_, '_, (&ChildOf, RoadQuery)>,
@@ -185,7 +185,7 @@ fn longest_road_town_added(
         );
         if let Some(new) = new {
             // update current holders longest road count
-            current_interupted.2.0 = new
+            current_interupted.2.0 = new;
         }
         // if interuppted is the current holder than update longest road
         if current_interupted.0 == current.0 {
@@ -214,7 +214,7 @@ fn longest_road_town_added(
                     // no tie for second
                     *current = LongestRoad(new_player.0, new_player.2.0.len() as u8);
                     commmands.entity(new_player.0).insert(LongestRoadRef);
-                    new_player.1.actual += 2
+                    new_player.1.actual += 2;
                 } else {
                     // tie for longest road (not including current longest road holder)
                     *current = LongestRoad(Entity::PLACEHOLDER, 4);

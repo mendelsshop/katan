@@ -228,8 +228,8 @@ pub struct Ports {
     two_for_one_ore: bool,
 }
 impl Ports {
-    pub fn new_player() -> Self {
-        Ports {
+    pub const fn new_player() -> Self {
+        Self {
             three_for_one: false,
             two_for_one_wood: false,
             two_for_one_brick: false,
@@ -238,7 +238,7 @@ impl Ports {
             two_for_one_ore: false,
         }
     }
-    pub fn get_trade_rate(&self, resource: resources::Resource) -> u8 {
+    pub const fn get_trade_rate(&self, resource: resources::Resource) -> u8 {
         if match resource {
             resources::Resource::Wood => self.two_for_one_wood,
             resources::Resource::Brick => self.two_for_one_brick,
@@ -323,8 +323,8 @@ fn building_postions_on_ring(n: i8) -> impl Iterator<Item = BuildingPosition> {
         unsafe { BuildingPosition::new_unchecked(base, base + up_right, base + right) };
     let row = iter::once(right_building).chain((1..n).flat_map(move |i| {
         [
-            left_building + Position::new(1 * i, 0, -1 * i, None).unwrap(),
-            right_building + Position::new(1 * i, 0, -1 * i, None).unwrap(),
+            left_building + Position::new(i, 0, -i, None).unwrap(),
+            right_building + Position::new(i, 0, -i, None).unwrap(),
         ]
     }));
     (0..6).flat_map(move |i| row.clone().map(move |town| town.rotate_right_n(i)))

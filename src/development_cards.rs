@@ -197,7 +197,7 @@ pub fn setup_show_dev_cards(
                     (count > 0).then_some((card_type, count))
                 });
                 let player_vps = player_dev_cards.get(DevelopmentCard::VictoryPoint);
-                let count = dev_button_iter.clone().count() + if player_vps > 0 { 1 } else { 0 };
+                let count = dev_button_iter.clone().count() + usize::from(player_vps > 0);
                 if player_vps > 0 {
                     builder.spawn((
                         Node {
@@ -225,8 +225,7 @@ pub fn setup_show_dev_cards(
                             },
                             BorderColor(Color::BLACK),
                             Transform::from_rotation(Quat::from_rotation_z(
-                                (((i + if player_vps > 0 { 1 } else { 0 }) as f32
-                                    - count as f32 / 2.)
+                                (((i + usize::from(player_vps > 0)) as f32 - count as f32 / 2.)
                                     * 10.)
                                     .to_radians(),
                             )),

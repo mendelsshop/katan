@@ -297,7 +297,7 @@ fn main() {
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default, States)]
-enum GameState {
+pub enum GameState {
     #[default]
     RobberDiscardResources,
     Nothing,
@@ -375,8 +375,8 @@ enum Port {
 impl Port {
     pub fn color(&self) -> Color {
         match self {
-            Port::TwoForOne(resource) => resource.color(),
-            Port::ThreeForOne => Color::srgb_u8(194, 178, 128),
+            Self::TwoForOne(resource) => resource.color(),
+            Self::ThreeForOne => Color::srgb_u8(194, 178, 128),
         }
         .darker(0.02)
     }
@@ -423,12 +423,12 @@ struct Left<T>(pub u8, PhantomData<T>);
 #[derive(Component, PartialEq, Default, Clone, Copy)]
 struct Building;
 
-#[derive(Component, PartialEq, Default, Clone, Copy, Debug)]
+#[derive(Component, PartialEq, Eq, Default, Clone, Copy, Debug)]
 pub struct VictoryPoints {
     pub actual: u8,
     pub from_development_cards: u8,
 }
-#[derive(Component, PartialEq, Default, Clone, Copy, Debug)]
+#[derive(Component, PartialEq, Eq, Default, Clone, Copy, Debug)]
 pub struct Knights(pub u8);
 fn setup(
     mut next_state: ResMut<'_, NextState<GameState>>,

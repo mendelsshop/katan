@@ -88,7 +88,7 @@ pub fn robber(mut state: ResMut<'_, NextState<GameState>>, mut knights: Mut<'_, 
 #[derive(SubStates, Clone, Copy, PartialEq, Eq, Hash, Debug, Default)]
 #[source(GameState = GameState::RoadBuilding)]
 
-pub(crate) enum RoadBuildingState {
+pub enum RoadBuildingState {
     #[default]
     Road1,
     Road2,
@@ -138,7 +138,7 @@ pub fn monopoly_setup(mut commands: Commands<'_, '_>) {
         ));
     });
 }
-pub(crate) fn monopoly_interaction(
+pub fn monopoly_interaction(
     mut interaction_query: Query<
         '_,
         '_,
@@ -192,7 +192,7 @@ pub struct YearOfPlentyButton(resources::Resource);
 #[derive(SubStates, Clone, Copy, PartialEq, Eq, Hash, Debug, Default)]
 #[source(GameState = GameState::YearOfPlenty)]
 
-pub(crate) enum YearOfPlentyState {
+pub enum YearOfPlentyState {
     #[default]
     Resource1,
     Resource2,
@@ -238,7 +238,7 @@ pub fn setup_year_of_plenty(mut commands: Commands<'_, '_>) {
         ));
     });
 }
-pub(crate) fn year_of_plenty_interaction(
+pub fn year_of_plenty_interaction(
     mut interaction_query: Query<
         '_,
         '_,
