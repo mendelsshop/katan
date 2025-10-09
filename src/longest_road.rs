@@ -40,23 +40,27 @@ fn longest_road_road_added(
 ) {
     // we could shortcut here if its current player who has longest road, but then total count
     // wouldn't be accurate
-    if road_q_changed.iter().count() > 0 {
+    if road_q_changed.iter().count() <= 0 {
         return;
     }
-    println!("longest road checking road added");
+    println!(
+        "longest road checking road added {:?}",
+        road_q_changed.iter().map(|m| m.2).collect_vec()
+    );
 
     let roads_by_color = road_q.iter().filter(|q| *q.1 == color.0.color);
     let longest_road = longest_road(
         roads_by_color.collect_vec(),
         building_q
             .into_iter()
-            .filter(|b| *b.1 == color.0.color)
+            .filter(|b| *b.1 != color.0.color)
             .map(|b| *b.2)
             .collect_vec(),
         size_r.0,
     );
 
     if let Some(new) = longest_road {
+        println!("new longest road {new:?} {}", new.len());
         if let Ok(mut player) = player_q.get_mut(color.0.entity) {
             let len = new.len();
             player.2.0 = new;
@@ -91,7 +95,7 @@ fn longest_road<'a, 'b, 'c>(
             .tuple_combinations()
             .filter(|(r1, r2)| {
                 r1.2.intersect(r2.2, Some(size_r))
-                    .is_some_and(|b| buildings.clone().contains(&b))
+                    .is_some_and(|b| !buildings.clone().contains(&b))
             })
             .fold(HashMap::new(), |mut matrix, (r1, r2)| {
                 matrix.entry(*r1.2).or_insert(HashSet::new()).insert(*r2.2);
@@ -151,7 +155,7 @@ fn longest_road_town_added(
     mut commmands: Commands<'_, '_>,
     size_r: Res<'_, BoardSize>,
 ) {
-    if current.0 == Entity::PLACEHOLDER || building_q_changed.iter().count() > 0 {
+    if current.0 == Entity::PLACEHOLDER || building_q_changed.iter().count() <= 0 {
         return;
     }
     println!("longest road checking town added");
@@ -162,6 +166,8 @@ fn longest_road_town_added(
                     .iter()
                     .filter(|b| b.1 != player.3)
                     .map(|b| b.2)
+                    // reason we don't "not" this is because we are looking roads intersections
+                    // that got interupted
                     .contains(&b)
             })
         })
@@ -172,7 +178,7 @@ fn longest_road_town_added(
             roads_by_color.into_iter().unzip::<_, _, Vec<_>, Vec<_>>().1,
             building_q
                 .into_iter()
-                .filter(|b| b.1 == current_interupted.3)
+                .filter(|b| b.1 != current_interupted.3)
                 .map(|b| *b.2)
                 .collect_vec(),
             size_r.0,
