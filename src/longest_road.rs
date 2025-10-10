@@ -65,11 +65,13 @@ fn longest_road_road_added(
             let len = new.len();
             player.2.0 = new;
             if len as u8 > current.1 {
-                commmands.entity(player.0).insert(LongestRoadRef);
-                player.1.actual += 2;
-                if let Ok(mut player) = player_q.get_mut(current.0) {
-                    commmands.entity(player.0).remove::<LongestRoadRef>();
-                    player.1.actual -= 2;
+                if current.0 != color.0.entity {
+                    commmands.entity(player.0).insert(LongestRoadRef);
+                    player.1.actual += 2;
+                    if let Ok(mut player) = player_q.get_mut(current.0) {
+                        commmands.entity(player.0).remove::<LongestRoadRef>();
+                        player.1.actual -= 2;
+                    }
                 }
                 *current = LongestRoad(color.0.entity, len as u8);
             }
