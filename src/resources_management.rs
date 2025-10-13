@@ -416,47 +416,46 @@ pub fn reset_trading_resources(mut resources: ResMut<'_, TradingResources>) {
 pub struct ResourceManagmentPlugin;
 impl Plugin for ResourceManagmentPlugin {
     fn build(&self, app: &mut App) {
-        app.insert_resource(TradingResources::default());
-        app.add_systems(
-            OnTransition {
-                // you might think, that we would do this after the last town (with SetupTown), but due
-                // to how the color/player changing logic for setup its not acutally so
-                exited: GameState::SetupRoad,
-                entered: GameState::Roll,
-            },
-            setup_players_resources,
-        );
-
-        app.add_systems(Update, show_player_resources);
-        app.add_systems(Update, show_player_trade);
-        // TODO: maybe remove the Changed<Resources> for this one, so new players cards always show
-        app.add_systems(OnEnter(GameState::Roll), show_player_resources);
-        app.add_systems(OnEnter(GameState::Roll), reset_trading_resources);
-        app.add_systems(
-            Update,
-            (common_ui::spinner_buttons_interactions::<
-                TradingResourceSpinner,
-                TradingSpinnerState<'_, '_>,
-            >(),)
-                .run_if(in_state(GameState::Turn)),
-        );
-        app.add_systems(
-            Update,
-            (common_ui::button_system_with_generic::<TradeButton, TradeState<'_, '_>>,)
-                .run_if(in_state(GameState::Turn)),
-        );
-        app.add_systems(
-            Update,
-            (common_ui::button_system_with_generic::<BankTradeButton, BankTradeState<'_, '_>>,)
-                .run_if(in_state(GameState::Turn)),
-        );
-        app.add_systems(
-            Update,
-            (common_ui::button_system_with_generic::<
-                TradingResourceResetButton,
-                ResMut<'_, TradingResources>,
-            >,)
-                .run_if(in_state(GameState::Turn)),
-        );
+        app.insert_resource(TradingResources::default())
+            .add_systems(
+                OnTransition {
+                    // you might think, that we would do this after the last town (with SetupTown), but due
+                    // to how the color/player changing logic for setup its not acutally so
+                    exited: GameState::SetupRoad,
+                    entered: GameState::Roll,
+                },
+                setup_players_resources,
+            )
+            .add_systems(Update, show_player_resources)
+            .add_systems(Update, show_player_trade)
+            // TODO: maybe remove the Changed<Resources> for this one, so new players cards always show
+            .add_systems(OnEnter(GameState::Roll), show_player_resources)
+            .add_systems(OnEnter(GameState::Roll), reset_trading_resources)
+            .add_systems(
+                Update,
+                (common_ui::spinner_buttons_interactions::<
+                    TradingResourceSpinner,
+                    TradingSpinnerState<'_, '_>,
+                >(),)
+                    .run_if(in_state(GameState::Turn)),
+            )
+            .add_systems(
+                Update,
+                (common_ui::button_system_with_generic::<TradeButton, TradeState<'_, '_>>,)
+                    .run_if(in_state(GameState::Turn)),
+            )
+            .add_systems(
+                Update,
+                (common_ui::button_system_with_generic::<BankTradeButton, BankTradeState<'_, '_>>,)
+                    .run_if(in_state(GameState::Turn)),
+            )
+            .add_systems(
+                Update,
+                (common_ui::button_system_with_generic::<
+                    TradingResourceResetButton,
+                    ResMut<'_, TradingResources>,
+                >,)
+                    .run_if(in_state(GameState::Turn)),
+            );
     }
 }

@@ -21,9 +21,9 @@ pub struct PlayerLongestRoad(pub HashSet<RoadPosition>);
 impl Plugin for LongestRoadPlugin {
     fn build(&self, app: &mut App) {
         // start at 2 so when someone gets 3 it will be updated
-        app.insert_resource(LongestRoad(Entity::PLACEHOLDER, 4));
-        app.add_systems(Update, longest_road_road_added);
-        app.add_systems(Update, longest_road_town_added);
+        app.insert_resource(LongestRoad(Entity::PLACEHOLDER, 4))
+            .add_systems(Update, longest_road_road_added)
+            .add_systems(Update, longest_road_town_added);
     }
 }
 

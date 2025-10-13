@@ -36,7 +36,7 @@ pub struct LargestArmyPlugin;
 impl Plugin for LargestArmyPlugin {
     fn build(&self, app: &mut App) {
         // start at two so when there is 3 it will be updated
-        app.insert_resource(LargetArmy(2, Entity::PLACEHOLDER));
-        app.add_systems(Update, update_larget_army);
+        app.insert_resource(LargetArmy(2, Entity::PLACEHOLDER))
+            .add_systems(Update, update_larget_army);
     }
 }

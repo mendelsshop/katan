@@ -48,255 +48,245 @@ use crate::{
     towns::{PlaceTownButtonState, TownPlaceButton},
 };
 fn main() {
-    let mut app = App::new();
-    app.add_plugins((DefaultPlugins,));
-    app.init_state::<GameState>()
+    App::new()
+        .add_plugins((DefaultPlugins,))
+        .init_state::<AppState>()
+        .add_sub_state::<GameState>()
         .add_sub_state::<YearOfPlentyState>()
-        .add_sub_state::<RoadBuildingState>();
-    app.add_plugins((
-        ResourceManagmentPlugin,
-        LargestArmyPlugin,
-        LongestRoadPlugin,
-    ));
-    app.insert_resource(BoardSize(3));
-    app.init_resource::<Robber>();
-    app.insert_resource(Resources::new_game());
-    // TODO: is there way to init resource
-    // without giving a value
-    app.insert_resource(PreRobberDiscardLeft(0));
-    app.insert_resource(CurrentColor(CatanColorRef {
-        color: CatanColor::White,
-        entity: Entity::PLACEHOLDER,
-    }));
-    app.insert_resource(CurrentSetupColor(CatanColorRef {
-        color: CatanColor::White,
-        entity: Entity::PLACEHOLDER,
-    }));
-    app.add_systems(Startup, setup);
-
-    app.add_systems(
-        OnEnter(GameState::Roll),
-        (
-            cleanup_ui::<DevelopmentCard>,
-            development_cards::setup_show_dev_cards,
-        )
-            .chain(),
-    );
-    app.add_systems(
-        PostUpdate,
-        (
-            development_cards::show_dev_cards,
-            development_card_actions::development_card_action_interaction,
-        )
-            .run_if(in_state(GameState::Turn)),
-    );
-    app.add_systems(OnEnter(GameState::SetupRoad), roads::place_setup_road);
-    app.add_systems(OnEnter(GameState::SetupTown), towns::place_setup_town);
-    app.add_systems(
-        OnEnter(GameState::SetupTown),
-        turn_ui::setup_top.run_if(run_once),
-    );
-
-    app.add_systems(Update, turn_ui::top_interaction);
-    app.add_systems(OnEnter(GameState::PlaceRobber), robber::place_robber);
-    app.add_systems(
-        OnEnter(GameState::RobberDiscardResources),
-        robber::take_extra_resources,
-    );
-    app.add_systems(
-        OnExit(GameState::SetupRoad),
-        cleanup_button::<RoadPlaceButton>,
-    );
-    app.add_systems(
-        OnExit(GameState::SetupTown),
-        cleanup_button::<TownPlaceButton>,
-    );
-    app.add_systems(
-        OnExit(GameState::PlaceRoad),
-        cleanup_button::<RoadPlaceButton>,
-    );
-
-    app.add_systems(
-        OnExit(RoadBuildingState::Road1),
-        cleanup_button::<RoadPlaceButton>,
-    );
-    app.add_systems(
-        OnExit(RoadBuildingState::Road2),
-        cleanup_button::<RoadPlaceButton>,
-    );
-    app.add_systems(
-        OnExit(GameState::PlaceTown),
-        cleanup_button::<TownPlaceButton>,
-    );
-    app.add_systems(OnExit(GameState::PlaceCity), cleanup_button::<BuildingRef>);
-
-    app.add_systems(
-        OnExit(GameState::PlaceRobber),
-        cleanup_button::<RobberButton>,
-    );
-    app.add_systems(
-        OnExit(GameState::RobberPickColor),
-        cleanup_button::<RobberChooseColorButton>,
-    );
-    app.add_systems(
-        OnExit(GameState::Monopoly),
-        cleanup_button::<MonopolyButton>,
-    );
-    app.add_systems(
-        OnEnter(GameState::Monopoly),
-        development_card_actions::monopoly_setup,
-    );
-
-    app.add_systems(
-        Update,
-        development_card_actions::monopoly_interaction.run_if(in_state(GameState::Monopoly)),
-    );
-    app.add_systems(
-        OnExit(GameState::YearOfPlenty),
-        cleanup_button::<YearOfPlentyButton>,
-    );
-    app.add_systems(
-        OnEnter(GameState::YearOfPlenty),
-        development_card_actions::setup_year_of_plenty,
-    );
-
-    app.add_systems(
-        Update,
-        development_card_actions::year_of_plenty_interaction
-            .run_if(in_state(GameState::YearOfPlenty)),
-    );
-
-    app.add_systems(OnEnter(GameState::PlaceRoad), roads::place_normal_road::<1>);
-    app.add_systems(Update, development_cards::show_dev_cards);
-    app.add_systems(
-        OnEnter(RoadBuildingState::Road1),
-        roads::place_normal_road::<0>,
-    );
-    app.add_systems(
-        OnEnter(RoadBuildingState::Road2),
-        roads::place_normal_road::<0>,
-    );
-    app.add_systems(OnEnter(GameState::PlaceTown), towns::place_normal_town);
-    app.add_systems(OnEnter(GameState::PlaceCity), cities::place_normal_city);
-    app.add_systems(
-        OnTransition {
-            // you might think, that we would do this after the last town (with SetupTown), but due
-            // to how the color/player changing logic for setup its not acutally so
-            exited: GameState::SetupRoad,
-            entered: GameState::Roll,
-        },
-        turn_ui::show_turn_ui,
-    );
-
-    app.add_systems(
-        Update,
-        turn_ui::turn_ui_road_interaction.run_if(in_state(GameState::Turn)),
-    );
-
-    app.add_systems(
-        Update,
-        turn_ui::turn_ui_town_interaction.run_if(in_state(GameState::Turn)),
-    );
-    app.add_systems(
-        Update,
-        turn_ui::turn_ui_city_interaction.run_if(in_state(GameState::Turn)),
-    );
-    app.add_systems(
-        Update,
-        turn_ui::turn_ui_roll_interaction.run_if(in_state(GameState::Roll)),
-    );
-
-    app.add_systems(
-        Update,
-        robber::choose_player_to_take_from_interaction.run_if(in_state(GameState::RobberPickColor)),
-    );
-    app.add_systems(
-        Update,
-        robber::place_robber_interaction.run_if(in_state(GameState::PlaceRobber)),
-    );
-    app.add_systems(
-        Update,
-        // TODO: if in turn or place state
-        turn_ui::turn_ui_next_interaction.run_if({
-            move |current_state: Option<Res<'_, State<GameState>>>| match current_state {
-                Some(current_state) => ![
-                    GameState::PlaceRobber,
-                    GameState::Monopoly,
-                    GameState::YearOfPlenty,
-                    GameState::RobberPickColor,
-                    GameState::Roll,
-                    GameState::RobberDiscardResources,
-                    GameState::RoadBuilding,
-                ]
-                .contains(&current_state),
-                None => true,
-            }
-        }),
-    );
-    app.add_systems(OnEnter(GameState::SetupRoad), colors::set_setup_color);
-    app.add_systems(OnEnter(GameState::Roll), colors::set_color);
-
-    app.add_systems(
-        Update,
-        development_cards::buy_development_card_interaction.run_if(in_state(GameState::Turn)),
-    );
-    app.add_systems(
-        Update,
-        common_ui::button_system_with_generic::<
-            TownPlaceButton,
-            PlaceTownButtonState<'_, '_, CurrentSetupColor>,
-        >
-            .run_if(in_state(GameState::SetupTown)),
-    );
-    app.add_systems(
-        Update,
-        common_ui::button_system_with_generic::<
-            RoadPlaceButton,
-            PlaceRoadButtonState<'_, '_, CurrentSetupColor>,
-        >
-            .run_if(in_state(GameState::SetupRoad)),
-    );
-    app.add_systems(
-        Update,
-        common_ui::button_system_with_generic::<
-            RoadPlaceButton,
-            PlaceRoadButtonState<'_, '_, CurrentColor>,
-        >
-            .run_if(in_state(GameState::PlaceRoad).or(in_state(GameState::RoadBuilding))),
-    );
-
-    app.add_systems(
-        Update,
-        common_ui::button_system_with_generic::<
-            TownPlaceButton,
-            PlaceTownButtonState<'_, '_, CurrentColor>,
-        >
-            .run_if(in_state(GameState::PlaceTown)),
-    );
-
-    app.add_systems(
-        Update,
-        (
+        .add_sub_state::<RoadBuildingState>()
+        .add_plugins((
+            ResourceManagmentPlugin,
+            LargestArmyPlugin,
+            LongestRoadPlugin,
+        ))
+        .insert_resource(BoardSize(3))
+        .init_resource::<Robber>()
+        .insert_resource(Resources::new_game())
+        // TODO: is there way to init resource
+        // without giving a value
+        .insert_resource(PreRobberDiscardLeft(0))
+        .insert_resource(CurrentColor(CatanColorRef {
+            color: CatanColor::White,
+            entity: Entity::PLACEHOLDER,
+        }))
+        .insert_resource(CurrentSetupColor(CatanColorRef {
+            color: CatanColor::White,
+            entity: Entity::PLACEHOLDER,
+        }))
+        .add_systems(Startup, setup)
+        .add_systems(
+            OnEnter(GameState::Roll),
             (
-                robber::counter_sumbit_interaction,
-                robber::counter_text_update,
+                cleanup_ui::<DevelopmentCard>,
+                development_cards::setup_show_dev_cards,
             )
-                .run_if(in_state(GameState::RobberDiscardResources)),
-            (common_ui::spinner_buttons_interactions::<
-                RobberResourceSpinner,
-                Query<'static, 'static, &'_ mut Resources>,
-            >(),)
-                .run_if(in_state(GameState::RobberDiscardResources)),
-        ),
-    );
-    app.add_systems(
-        Update,
-        cities::place_normal_city_interaction.run_if(in_state(GameState::PlaceCity)),
-    );
-    app.run();
+                .chain(),
+        )
+        .add_systems(
+            PostUpdate,
+            (
+                development_cards::show_dev_cards,
+                development_card_actions::development_card_action_interaction,
+            )
+                .run_if(in_state(GameState::Turn)),
+        )
+        .add_systems(OnEnter(GameState::SetupRoad), roads::place_setup_road)
+        .add_systems(OnEnter(GameState::SetupTown), towns::place_setup_town)
+        .add_systems(
+            OnEnter(GameState::SetupTown),
+            turn_ui::setup_top.run_if(run_once),
+        )
+        .add_systems(Update, turn_ui::top_interaction)
+        .add_systems(OnEnter(GameState::PlaceRobber), robber::place_robber)
+        .add_systems(
+            OnEnter(GameState::RobberDiscardResources),
+            robber::take_extra_resources,
+        )
+        .add_systems(
+            OnExit(GameState::SetupRoad),
+            cleanup_button::<RoadPlaceButton>,
+        )
+        .add_systems(
+            OnExit(GameState::SetupTown),
+            cleanup_button::<TownPlaceButton>,
+        )
+        .add_systems(
+            OnExit(GameState::PlaceRoad),
+            cleanup_button::<RoadPlaceButton>,
+        )
+        .add_systems(
+            OnExit(RoadBuildingState::Road1),
+            cleanup_button::<RoadPlaceButton>,
+        )
+        .add_systems(
+            OnExit(RoadBuildingState::Road2),
+            cleanup_button::<RoadPlaceButton>,
+        )
+        .add_systems(
+            OnExit(GameState::PlaceTown),
+            cleanup_button::<TownPlaceButton>,
+        )
+        .add_systems(OnExit(GameState::PlaceCity), cleanup_button::<BuildingRef>)
+        .add_systems(
+            OnExit(GameState::PlaceRobber),
+            cleanup_button::<RobberButton>,
+        )
+        .add_systems(
+            OnExit(GameState::RobberPickColor),
+            cleanup_button::<RobberChooseColorButton>,
+        )
+        .add_systems(
+            OnExit(GameState::Monopoly),
+            cleanup_button::<MonopolyButton>,
+        )
+        .add_systems(
+            OnEnter(GameState::Monopoly),
+            development_card_actions::monopoly_setup,
+        )
+        .add_systems(
+            Update,
+            development_card_actions::monopoly_interaction.run_if(in_state(GameState::Monopoly)),
+        )
+        .add_systems(
+            OnExit(GameState::YearOfPlenty),
+            cleanup_button::<YearOfPlentyButton>,
+        )
+        .add_systems(
+            OnEnter(GameState::YearOfPlenty),
+            development_card_actions::setup_year_of_plenty,
+        )
+        .add_systems(
+            Update,
+            development_card_actions::year_of_plenty_interaction
+                .run_if(in_state(GameState::YearOfPlenty)),
+        )
+        .add_systems(OnEnter(GameState::PlaceRoad), roads::place_normal_road::<1>)
+        .add_systems(Update, development_cards::show_dev_cards)
+        .add_systems(
+            OnEnter(RoadBuildingState::Road1),
+            roads::place_normal_road::<0>,
+        )
+        .add_systems(
+            OnEnter(RoadBuildingState::Road2),
+            roads::place_normal_road::<0>,
+        )
+        .add_systems(OnEnter(GameState::PlaceTown), towns::place_normal_town)
+        .add_systems(OnEnter(GameState::PlaceCity), cities::place_normal_city)
+        .add_systems(
+            OnTransition {
+                // you might think, that we would do this after the last town (with SetupTown), but due
+                // to how the color/player changing logic for setup its not acutally so
+                exited: GameState::SetupRoad,
+                entered: GameState::Roll,
+            },
+            turn_ui::show_turn_ui,
+        )
+        .add_systems(
+            Update,
+            turn_ui::turn_ui_road_interaction.run_if(in_state(GameState::Turn)),
+        )
+        .add_systems(
+            Update,
+            turn_ui::turn_ui_town_interaction.run_if(in_state(GameState::Turn)),
+        )
+        .add_systems(
+            Update,
+            turn_ui::turn_ui_city_interaction.run_if(in_state(GameState::Turn)),
+        )
+        .add_systems(
+            Update,
+            turn_ui::turn_ui_roll_interaction.run_if(in_state(GameState::Roll)),
+        )
+        .add_systems(
+            Update,
+            robber::choose_player_to_take_from_interaction
+                .run_if(in_state(GameState::RobberPickColor)),
+        )
+        .add_systems(
+            Update,
+            robber::place_robber_interaction.run_if(in_state(GameState::PlaceRobber)),
+        )
+        .add_systems(
+            Update,
+            // TODO: if in turn or place state
+            turn_ui::turn_ui_next_interaction.run_if({
+                move |current_state: Option<Res<'_, State<GameState>>>| match current_state {
+                    Some(current_state) => ![
+                        GameState::PlaceRobber,
+                        GameState::Monopoly,
+                        GameState::YearOfPlenty,
+                        GameState::RobberPickColor,
+                        GameState::Roll,
+                        GameState::RobberDiscardResources,
+                        GameState::RoadBuilding,
+                    ]
+                    .contains(&current_state),
+                    None => true,
+                }
+            }),
+        )
+        .add_systems(OnEnter(GameState::SetupRoad), colors::set_setup_color)
+        .add_systems(OnEnter(GameState::Roll), colors::set_color)
+        .add_systems(
+            Update,
+            development_cards::buy_development_card_interaction.run_if(in_state(GameState::Turn)),
+        )
+        .add_systems(
+            Update,
+            common_ui::button_system_with_generic::<
+                TownPlaceButton,
+                PlaceTownButtonState<'_, '_, CurrentSetupColor>,
+            >
+                .run_if(in_state(GameState::SetupTown)),
+        )
+        .add_systems(
+            Update,
+            common_ui::button_system_with_generic::<
+                RoadPlaceButton,
+                PlaceRoadButtonState<'_, '_, CurrentSetupColor>,
+            >
+                .run_if(in_state(GameState::SetupRoad)),
+        )
+        .add_systems(
+            Update,
+            common_ui::button_system_with_generic::<
+                RoadPlaceButton,
+                PlaceRoadButtonState<'_, '_, CurrentColor>,
+            >
+                .run_if(in_state(GameState::PlaceRoad).or(in_state(GameState::RoadBuilding))),
+        )
+        .add_systems(
+            Update,
+            common_ui::button_system_with_generic::<
+                TownPlaceButton,
+                PlaceTownButtonState<'_, '_, CurrentColor>,
+            >
+                .run_if(in_state(GameState::PlaceTown)),
+        )
+        .add_systems(
+            Update,
+            (
+                (
+                    robber::counter_sumbit_interaction,
+                    robber::counter_text_update,
+                )
+                    .run_if(in_state(GameState::RobberDiscardResources)),
+                (common_ui::spinner_buttons_interactions::<
+                    RobberResourceSpinner,
+                    Query<'static, 'static, &'_ mut Resources>,
+                >(),)
+                    .run_if(in_state(GameState::RobberDiscardResources)),
+            ),
+        )
+        .add_systems(
+            Update,
+            cities::place_normal_city_interaction.run_if(in_state(GameState::PlaceCity)),
+        )
+        .run();
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default, States)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default, SubStates)]
+#[source(AppState = AppState::InGame)]
 pub enum GameState {
     #[default]
     RobberDiscardResources,
@@ -316,6 +306,12 @@ pub enum GameState {
     RobberPickColor,
     // picking which place to put robber on
     PlaceRobber,
+}
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default, States)]
+pub enum AppState {
+    Menu,
+    #[default]
+    InGame,
 }
 #[derive(Component, PartialEq, Debug, Clone, Copy)]
 enum Number {
