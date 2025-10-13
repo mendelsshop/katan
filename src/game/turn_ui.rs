@@ -1,12 +1,13 @@
 use bevy::prelude::*;
 use itertools::Itertools;
 
-use crate::{
+use super::{
     CatanColor, CurrentColor, GameState, Hexagon, Knights, Layout, Left, Number, Resources, Robber,
     VictoryPoints,
     cities::City,
     colors::CatanColorRef,
     development_cards::DevelopmentCards,
+    dice,
     larget_army::LargetArmyRef,
     longest_road::{LongestRoadRef, PlayerLongestRoad},
     positions::{BuildingPosition, Position},
@@ -55,7 +56,7 @@ pub fn turn_ui_roll_interaction(
             Interaction::Pressed => {
                 button.set_changed();
 
-                crate::dice::full_roll_dice(
+                dice::full_roll_dice(
                     board,
                     towns,
                     cities,

@@ -6,7 +6,7 @@ use std::{
 use bevy::{ecs::system::SystemParam, prelude::*};
 use itertools::Itertools;
 
-use crate::{
+use super::{
     GameState, Layout,
     colors::{CatanColor, CatanColorRef, CurrentColor},
     common_ui::{self, ButtonInteraction, SpinnerButtonInteraction, Value},

@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use crate::{
+use super::{
     CatanColor, GameState, Hexagon, Number, Resources, Robber,
     cities::City,
     positions::{BuildingPosition, Position},

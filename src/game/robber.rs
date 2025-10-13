@@ -5,7 +5,7 @@ use bevy::{
 };
 use itertools::Itertools;
 
-use crate::{
+use super::{
     Building, GameState,
     colors::{
         CatanColor, CatanColorRef, CurrentColor, HOVERED_BUTTON, NORMAL_BUTTON, PRESSED_BUTTON,

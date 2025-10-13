@@ -13,7 +13,7 @@ use bevy::{
     prelude::*,
 };
 
-use crate::{GameState, turn_ui::PlayerBanner};
+use super::{GameState, turn_ui::PlayerBanner};
 
 #[derive(Debug, Resource, Clone, Copy)]
 

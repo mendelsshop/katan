@@ -4,7 +4,7 @@ use bevy::{
 };
 use itertools::Itertools;
 
-use crate::{
+use super::{
     BoardSize, Building, GameState, Left, UI,
     colors::{CatanColor, CurrentColor, NORMAL_BUTTON},
     common_ui::ButtonInteraction,

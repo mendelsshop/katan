@@ -1,7 +1,14 @@
 use bevy::{ecs::system::SystemParam, prelude::*};
 
-use crate::{
-    BoardSize, Building, GameState, Left, Port, UI, VictoryPoints,
+use super::BoardSize;
+use super::Left;
+
+use super::Building;
+use super::GameState;
+use super::UI;
+use super::VictoryPoints;
+use super::{
+    Port,
     colors::{CatanColor, CurrentColor, CurrentSetupColor, NORMAL_BUTTON},
     common_ui::ButtonInteraction,
     positions::{BuildingPosition, RoadPosition},

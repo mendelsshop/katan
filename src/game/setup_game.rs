@@ -7,7 +7,7 @@ use std::{
     ops::{Add, AddAssign},
 };
 
-use crate::{
+use super::{
     Hexagon, Knights, Layout, Left, Number, Port, Robber, VictoryPoints,
     cities::City,
     colors::{CatanColor, CatanColorRef},

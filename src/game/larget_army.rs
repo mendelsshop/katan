@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use crate::{Knights, VictoryPoints};
+use super::{Knights, VictoryPoints};
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Resource)]
 struct LargetArmy(pub u8, pub Entity);
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Component)]

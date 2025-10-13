@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use crate::{
+use super::{
     Building, GameState, Left, VictoryPoints,
     colors::{CatanColor, CurrentColor, HOVERED_BUTTON, NORMAL_BUTTON, PRESSED_BUTTON},
     positions::BuildingPosition,

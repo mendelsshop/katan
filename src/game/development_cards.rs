@@ -3,7 +3,7 @@ use std::ops::{Add, AddAssign};
 use bevy::prelude::*;
 use itertools::Itertools;
 
-use crate::{
+use super::{
     Layout, VictoryPoints,
     colors::{CatanColor, CurrentColor, HOVERED_BUTTON, NORMAL_BUTTON, PRESSED_BUTTON},
     development_card_actions::DevelopmentCardShow,
@@ -93,7 +93,13 @@ impl DevelopmentCards {
         self.knight + self.monopoly + self.year_of_plenty + self.road_building + self.victory_point
     }
     pub fn new_player() -> Self {
-        Self::default()
+        Self {
+            knight: 4,
+            monopoly: core::default::Default::default(),
+            year_of_plenty: 1,
+            road_building: 1,
+            victory_point: core::default::Default::default(),
+        }
     }
 }
 

@@ -1,10 +1,10 @@
 use std::collections::HashMap;
 
-use crate::{
+use super::{
     BoardSize, Building, VictoryPoints,
     colors::{CatanColor, CurrentColor},
     positions::{BuildingPosition, RoadPosition},
-    roads::RoadQuery,
+    roads::{self, RoadQuery},
 };
 use bevy::{platform::collections::HashSet, prelude::*};
 use itertools::Itertools;
@@ -80,7 +80,7 @@ fn longest_road_road_added(
 }
 
 fn longest_road<'a, 'b, 'c>(
-    roads: Vec<crate::roads::RoadQueryItem<'_>>,
+    roads: Vec<roads::RoadQueryItem<'_>>,
     buildings: Vec<BuildingPosition>,
     size_r: u8,
 ) -> Option<HashSet<RoadPosition>> {
