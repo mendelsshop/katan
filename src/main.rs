@@ -27,7 +27,7 @@ fn setup(mut commands: Commands<'_, '_>) {
 }
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default, States)]
 pub enum AppState {
-    Menu,
     #[default]
+    Menu,
     InGame,
 }

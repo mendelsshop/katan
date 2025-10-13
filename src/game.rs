@@ -24,7 +24,7 @@ use self::{
         SetupColorIterator,
     },
     development_card_actions::{
-        MonopolyButton, RoadBuildingState, YearOfPlentyButton, YearOfPlentyState, robber,
+        MonopolyButton, RoadBuildingState, YearOfPlentyButton, YearOfPlentyState,
     },
     development_cards::DevelopmentCard,
     larget_army::LargestArmyPlugin,
