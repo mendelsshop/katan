@@ -1,6 +1,6 @@
 use bevy::{
+    camera::{RenderTarget, visibility::RenderLayers},
     prelude::*,
-    render::{camera::RenderTarget, view::RenderLayers},
     window,
 };
 use itertools::Itertools;
@@ -376,7 +376,7 @@ fn setup_take_extra_resources(
                 resource_ref: resources_entity,
             },
             BackgroundColor(NORMAL_BUTTON),
-            BorderColor(Color::BLACK),
+            BorderColor::all(Color::BLACK),
             WindowRef(window),
             Text::new("confirm".to_string()),
         ),

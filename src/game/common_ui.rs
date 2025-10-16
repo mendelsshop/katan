@@ -129,7 +129,7 @@ where
             border: UiRect::all(Val::Px(3.0)),
             ..default()
         },
-        BorderColor(Color::BLACK),
+        BorderColor::all(Color::BLACK),
         children![
             (
                 Up(entity, PhantomData::<U>),

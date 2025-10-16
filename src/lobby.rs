@@ -22,7 +22,7 @@ impl Plugin for LobbyPlugin {
 }
 pub fn setup_lobby(mut commands: Commands<'_, '_>) {
     commands.spawn((
-        StateScoped(MenuState::Lobby),
+        DespawnOnExit(MenuState::Lobby),
         Node {
             display: Display::Grid,
             grid_template_rows: vec![GridTrack::percent(50.), GridTrack::percent(50.)],

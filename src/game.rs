@@ -458,7 +458,7 @@ fn layout(commands: &mut Commands<'_, '_>) -> Layout {
                 border: UiRect::all(Val::Px(1.)),
                 ..default()
             },
-            BorderColor(Color::BLACK),
+            BorderColor::all(Color::BLACK),
             // children![Text("banner".to_string()),],
         ))
         .id();
@@ -470,7 +470,7 @@ fn layout(commands: &mut Commands<'_, '_>) -> Layout {
 
                 ..default()
             },
-            BorderColor(Color::BLACK),
+            BorderColor::all(Color::BLACK),
             children![Text("settings".to_string()),],
         ))
         .id();
@@ -488,7 +488,7 @@ fn layout(commands: &mut Commands<'_, '_>) -> Layout {
                 border: UiRect::all(Val::Px(1.)),
                 ..default()
             },
-            BorderColor(Color::BLACK),
+            BorderColor::all(Color::BLACK),
         ))
         .id();
     let resources_layout = commands
@@ -500,7 +500,7 @@ fn layout(commands: &mut Commands<'_, '_>) -> Layout {
                 border: UiRect::all(Val::Px(1.)),
                 ..default()
             },
-            BorderColor(Color::BLACK),
+            BorderColor::all(Color::BLACK),
         ))
         .id();
     let mut card_layout = commands.spawn((
@@ -514,7 +514,7 @@ fn layout(commands: &mut Commands<'_, '_>) -> Layout {
             border: UiRect::all(Val::Px(1.)),
             ..default()
         },
-        BorderColor(Color::BLACK),
+        BorderColor::all(Color::BLACK),
     ));
     card_layout.add_children(&[
         settings_pull_out_layout,
@@ -529,7 +529,7 @@ fn layout(commands: &mut Commands<'_, '_>) -> Layout {
                 border: UiRect::all(Val::Px(1.)),
                 ..default()
             },
-            BorderColor(Color::BLACK),
+            BorderColor::all(Color::BLACK),
         ))
         .id();
     let ui_layout = commands
@@ -539,7 +539,7 @@ fn layout(commands: &mut Commands<'_, '_>) -> Layout {
                 border: UiRect::all(Val::Px(1.)),
                 ..default()
             },
-            BorderColor(Color::BLACK),
+            BorderColor::all(Color::BLACK),
         ))
         .id();
     let mut main_ui_layout = commands.spawn((
@@ -549,7 +549,7 @@ fn layout(commands: &mut Commands<'_, '_>) -> Layout {
             border: UiRect::all(Val::Px(1.)),
             ..default()
         },
-        BorderColor(Color::BLACK),
+        BorderColor::all(Color::BLACK),
     ));
     main_ui_layout.add_children(&[board_layout, ui_layout]);
     let main_ui_layout = main_ui_layout.id();
@@ -561,7 +561,7 @@ fn layout(commands: &mut Commands<'_, '_>) -> Layout {
                 ..default()
             },
             children![Text("chat".to_string()),],
-            BorderColor(Color::BLACK),
+            BorderColor::all(Color::BLACK),
         ))
         .id();
     let mut main_layout = commands.spawn((Node {

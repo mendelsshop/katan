@@ -80,7 +80,7 @@ fn longest_road_road_added(
 }
 
 fn longest_road<'a, 'b, 'c>(
-    roads: Vec<roads::RoadQueryItem<'_>>,
+    roads: Vec<roads::RoadQueryItem<'_, '_>>,
     buildings: Vec<BuildingPosition>,
     size_r: u8,
 ) -> Option<HashSet<RoadPosition>> {

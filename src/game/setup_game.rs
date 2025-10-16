@@ -29,7 +29,7 @@ fn draw_board(
     commands: &mut Commands<'_, '_>,
     layout: Layout,
 ) {
-    let text_justification = JustifyText::Center;
+    let text_justification = Justify::Center;
 
     for q in port_q {
         let mesh = meshes.add(Circle::new(30.0));

@@ -139,6 +139,7 @@ pub fn buy_development_card_interaction(
     mut resources: ResMut<'_, Resources>,
     interaction_query: Single<
         '_,
+        '_,
         (
             &DevelopmentCardButton,
             &Interaction,
@@ -211,7 +212,7 @@ pub fn setup_show_dev_cards(
                             border: UiRect::all(Val::Px(1.)),
                             ..default()
                         },
-                        BorderColor(Color::BLACK),
+                        BorderColor::all(Color::BLACK),
                         Transform::from_rotation(Quat::from_rotation_z(
                             ((0 as f32 - count as f32 / 2.) * 10.).to_radians(),
                         )),
@@ -229,7 +230,7 @@ pub fn setup_show_dev_cards(
                                 border: UiRect::all(Val::Px(1.)),
                                 ..default()
                             },
-                            BorderColor(Color::BLACK),
+                            BorderColor::all(Color::BLACK),
                             Transform::from_rotation(Quat::from_rotation_z(
                                 (((i + usize::from(player_vps > 0)) as f32 - count as f32 / 2.)
                                     * 10.)
@@ -292,7 +293,7 @@ pub fn show_dev_cards(
                             border: UiRect::all(Val::Px(1.)),
                             ..default()
                         },
-                        BorderColor(Color::BLACK),
+                        BorderColor::all(Color::BLACK),
                         Transform::from_rotation(Quat::from_rotation_z(
                             ((i as f32 - count as f32 / 2.) * 10.).to_radians(),
                         )),

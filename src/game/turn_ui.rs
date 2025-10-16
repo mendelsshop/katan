@@ -79,7 +79,12 @@ pub fn turn_ui_roll_interaction(
 }
 pub fn turn_ui_next_interaction(
     mut game_state: ResMut<'_, NextState<GameState>>,
-    interaction_query: Single<'_, (&NextButton, &Interaction, &mut Button), Changed<Interaction>>,
+    interaction_query: Single<
+        '_,
+        '_,
+        (&NextButton, &Interaction, &mut Button),
+        Changed<Interaction>,
+    >,
 ) {
     let (_, interaction, mut button) = interaction_query.into_inner();
     // for (entity, interaction, mut button) in &mut interaction_query {
@@ -99,7 +104,12 @@ pub fn turn_ui_next_interaction(
 // TODO: combine with turn_ui_road_interaction
 pub fn turn_ui_city_interaction(
     mut game_state: ResMut<'_, NextState<GameState>>,
-    interaction_query: Single<'_, (&CityButton, &Interaction, &mut Button), Changed<Interaction>>,
+    interaction_query: Single<
+        '_,
+        '_,
+        (&CityButton, &Interaction, &mut Button),
+        Changed<Interaction>,
+    >,
     player_resources: Query<'_, '_, &Resources, With<CatanColor>>,
     color_r: Res<'_, CurrentColor>,
 ) {
@@ -126,7 +136,12 @@ pub fn turn_ui_city_interaction(
 }
 pub fn turn_ui_town_interaction(
     mut game_state: ResMut<'_, NextState<GameState>>,
-    interaction_query: Single<'_, (&TownButton, &Interaction, &mut Button), Changed<Interaction>>,
+    interaction_query: Single<
+        '_,
+        '_,
+        (&TownButton, &Interaction, &mut Button),
+        Changed<Interaction>,
+    >,
     player_resources: Query<'_, '_, &Resources, With<CatanColor>>,
     color_r: Res<'_, CurrentColor>,
 ) {
@@ -153,7 +168,12 @@ pub fn turn_ui_town_interaction(
 }
 pub fn turn_ui_road_interaction(
     mut game_state: ResMut<'_, NextState<GameState>>,
-    interaction_query: Single<'_, (&RoadButton, &Interaction, &mut Button), Changed<Interaction>>,
+    interaction_query: Single<
+        '_,
+        '_,
+        (&RoadButton, &Interaction, &mut Button),
+        Changed<Interaction>,
+    >,
     player_resources: Query<'_, '_, &Resources, With<CatanColor>>,
     color_r: Res<'_, CurrentColor>,
 ) {
@@ -260,7 +280,7 @@ pub fn show_turn_ui(
                     offset: Val::Px(0.),
                     color: Color::BLACK,
                 },
-                BorderColor(Color::BLACK),
+                BorderColor::all(Color::BLACK),
             )
         ],
     ));
@@ -287,9 +307,9 @@ pub fn show_turn_ui(
                 Transform::from_rotation(Quat::from_rotation_z(6.)),
                 Button,
                 Text::new("0"),
-                BorderColor(Color::BLACK),
+                BorderColor::all(Color::BLACK),
                 TextColor(Color::BLACK),
-                TextLayout::new_with_justify(JustifyText::Center),
+                TextLayout::new_with_justify(Justify::Center),
                 BackgroundColor(Color::WHITE),
                 Outline {
                     width: Val::Px(4.),
@@ -314,9 +334,9 @@ pub fn show_turn_ui(
                     offset: Val::Px(0.),
                     color: Color::BLACK,
                 },
-                BorderColor(Color::BLACK),
+                BorderColor::all(Color::BLACK),
                 BackgroundColor(Color::WHITE),
-                TextLayout::new_with_justify(JustifyText::Center),
+                TextLayout::new_with_justify(Justify::Center),
                 TextColor(Color::BLACK),
                 Button,
                 Text::new("0"),

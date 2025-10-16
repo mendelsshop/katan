@@ -148,7 +148,7 @@ impl ButtonInteraction<BankTradeButton> for BankTradeState<'_, '_> {
 }
 pub fn show_player_trade(
     resources: Res<'_, TradingResources>,
-    mut text_query: Single<'_, (&TradingText, &mut Text)>,
+    mut text_query: Single<'_, '_, (&TradingText, &mut Text)>,
 ) {
     if resources.is_changed() {
         **text_query.1 = format!("{}", resources.into_inner());
