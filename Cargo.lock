@@ -2143,6 +2143,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "bevy_ui_widgets"
+version = "0.17.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0f131e13aa2ea9f8fa9af92aadfd6cf7f47d561d21510cf76854b46808c9b9bf"
+dependencies = [
+ "accesskit 0.21.1",
+ "bevy_a11y 0.17.2",
+ "bevy_app 0.17.2",
+ "bevy_ecs 0.17.2",
+ "bevy_input 0.17.2",
+ "bevy_input_focus 0.17.2",
+ "bevy_log 0.17.2",
+ "bevy_math 0.17.2",
+ "bevy_picking",
+ "bevy_reflect 0.17.2",
+ "bevy_ui",
+]
+
+[[package]]
 name = "bevy_utils"
 version = "0.16.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4177,6 +4196,7 @@ dependencies = [
  "bevy_ggrs",
  "bevy_matchbox",
  "bevy_simple_text_input",
+ "bevy_ui_widgets",
  "getrandom 0.3.4",
  "itertools 0.14.0",
  "rand 0.9.2",
