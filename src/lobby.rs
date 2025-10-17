@@ -43,7 +43,7 @@ impl ButtonInteraction<JoinButton> for JoinButtonState<'_, '_> {
     fn interact(&mut self, _: &JoinButton) {
         self.commands
             .insert_resource(MatchboxSocket::new_unreliable(format!(
-                "{}/katan/?next={}",
+                "{}/katan?next={}",
                 self.server_query.0, self.room_query.0
             )));
     }
@@ -140,7 +140,7 @@ pub fn setup_lobby(mut commands: Commands<'_, '_>) {
                             font_size: 34.,
                             ..default()
                         },
-                        Text::new("room:   ")
+                        Text::new("players:")
                     ),
                     (
                         Room,
