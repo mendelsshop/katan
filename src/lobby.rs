@@ -10,9 +10,10 @@ use bevy::{
     input_focus::{InputDispatchPlugin, InputFocus},
     prelude::*,
 };
+use bevy_matchbox::MatchboxSocket;
 use bevy_simple_text_input::{
     TextInput, TextInputInactive, TextInputPlugin, TextInputSystem, TextInputTextColor,
-    TextInputTextFont,
+    TextInputTextFont, TextInputValue,
 };
 
 pub struct LobbyPlugin;
@@ -34,11 +35,20 @@ pub struct JoinButton;
 
 #[derive(SystemParam)]
 pub struct JoinButtonState<'w, 's> {
-    room_query: Single<'w, 's, &'static Room>,
-    server_query: Single<'w, 's, &'static Server>,
+    room_query: Single<'w, 's, &'static TextInputValue, With<Room>>,
+    server_query: Single<'w, 's, &'static TextInputValue, With<Server>>,
+    commands: Commands<'w, 's>,
 }
 impl ButtonInteraction<JoinButton> for JoinButtonState<'_, '_> {
-    fn interact(&mut self, _: &JoinButton) {}
+    fn interact(&mut self, _: &JoinButton) {
+        self.commands
+            .insert_resource(MatchboxSocket::new_unreliable(format!(
+                "{}/katan/?next={}",
+                self.server_query.0, self.room_query.0
+            )));
+    }
+
+    // TODO: url verification and room verification
 }
 
 impl Plugin for LobbyPlugin {

@@ -5,11 +5,11 @@ use bevy::{
 };
 use itertools::Itertools;
 
+use crate::utils::{HOVERED_BUTTON, NORMAL_BUTTON, PRESSED_BUTTON};
+
 use super::{
     Building, GameState,
-    colors::{
-        CatanColor, CatanColorRef, CurrentColor, HOVERED_BUTTON, NORMAL_BUTTON, PRESSED_BUTTON,
-    },
+    colors::{CatanColor, CatanColorRef, CurrentColor},
     common_ui::{self, SpinnerButtonInteraction, Value},
     positions::{BuildingPosition, FPosition, Position, generate_postions},
     resources::{self, Resources, take_resource},

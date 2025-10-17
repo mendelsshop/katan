@@ -4,9 +4,11 @@ use bevy::{
 };
 use itertools::Itertools;
 
+use crate::utils::NORMAL_BUTTON;
+
 use super::{
     BoardSize, Building, GameState, Left, UI,
-    colors::{CatanColor, CurrentColor, NORMAL_BUTTON},
+    colors::{CatanColor, CurrentColor},
     common_ui::ButtonInteraction,
     development_card_actions::RoadBuildingState,
     positions::{self, BuildingPosition, Coordinate, Position, RoadPosition},

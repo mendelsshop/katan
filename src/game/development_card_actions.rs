@@ -2,9 +2,11 @@ use std::mem;
 
 use bevy::prelude::*;
 
+use crate::utils::{HOVERED_BUTTON, NORMAL_BUTTON, PRESSED_BUTTON};
+
 use super::{
     GameState, Knights, Layout,
-    colors::{CatanColor, CurrentColor, HOVERED_BUTTON, NORMAL_BUTTON, PRESSED_BUTTON},
+    colors::{CatanColor, CurrentColor},
     development_cards::{DevelopmentCard, DevelopmentCards},
     resources::{self, Resources},
 };

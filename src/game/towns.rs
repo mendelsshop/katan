@@ -1,5 +1,7 @@
 use bevy::{ecs::system::SystemParam, prelude::*};
 
+use crate::utils::NORMAL_BUTTON;
+
 use super::BoardSize;
 use super::Left;
 
@@ -9,7 +11,7 @@ use super::UI;
 use super::VictoryPoints;
 use super::{
     Port,
-    colors::{CatanColor, CurrentColor, CurrentSetupColor, NORMAL_BUTTON},
+    colors::{CatanColor, CurrentColor, CurrentSetupColor},
     common_ui::ButtonInteraction,
     positions::{BuildingPosition, RoadPosition},
     resources::{Resources, TOWN_RESOURCES},

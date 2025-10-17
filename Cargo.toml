@@ -14,3 +14,6 @@ bevy_ui_widgets = "0.17.2"
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 bevy_ggrs = { version = "0.19", features = ["wasm-bindgen"] }
 getrandom = { version = "0.3.4", features = ["wasm_js"] }
+# TODO: remove when bevy matchbox updates
+[patch."crates-io"]
+bevy_matchbox =  {git  = "https://github.com/johanhelsing/matchbox", branch = "bevy-0.17"}

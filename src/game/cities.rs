@@ -1,8 +1,10 @@
 use bevy::prelude::*;
 
+use crate::utils::{HOVERED_BUTTON, NORMAL_BUTTON, PRESSED_BUTTON};
+
 use super::{
     Building, GameState, Left, VictoryPoints,
-    colors::{CatanColor, CurrentColor, HOVERED_BUTTON, NORMAL_BUTTON, PRESSED_BUTTON},
+    colors::{CatanColor, CurrentColor},
     positions::BuildingPosition,
     resources::{CITY_RESOURCES, Resources},
     towns::Town,
