@@ -8,7 +8,7 @@ use bevy::{
     prelude::*,
 };
 
-use super::colors::{HOVERED_BUTTON, NORMAL_BUTTON, PRESSED_BUTTON};
+use crate::utils::{HOVERED_BUTTON, NORMAL_BUTTON, PRESSED_BUTTON};
 
 // https://www.reddit.com/r/bevy/comments/18xgcm8/comment/kg5jmwp/
 // The extra generic here lets me implement for each component

@@ -1,5 +1,12 @@
-use crate::AppState;
+use crate::{
+    AppState,
+    common_ui::{self, ButtonInteraction},
+    utils::{
+        BACKGROUND_COLOR, BORDER_COLOR_ACTIVE, BORDER_COLOR_INACTIVE, NORMAL_BUTTON, TEXT_COLOR,
+    },
+};
 use bevy::{
+    ecs::system::SystemParam,
     input_focus::{InputDispatchPlugin, InputFocus},
     prelude::*,
 };
@@ -7,10 +14,6 @@ use bevy_simple_text_input::{
     TextInput, TextInputInactive, TextInputPlugin, TextInputSystem, TextInputTextColor,
     TextInputTextFont,
 };
-const BORDER_COLOR_ACTIVE: Color = Color::srgb(0.75, 0.52, 0.99);
-const BORDER_COLOR_INACTIVE: Color = Color::srgb(0.25, 0.25, 0.25);
-const TEXT_COLOR: Color = Color::srgb(0.9, 0.9, 0.9);
-const BACKGROUND_COLOR: Color = Color::srgb(0.15, 0.15, 0.15);
 
 pub struct LobbyPlugin;
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default, SubStates)]
@@ -26,11 +29,27 @@ pub struct Server;
 #[derive(Component, PartialEq, Eq, Debug, Clone, Copy)]
 pub struct Room;
 
+#[derive(Component, PartialEq, Eq, Debug, Clone, Copy)]
+pub struct JoinButton;
+
+#[derive(SystemParam)]
+pub struct JoinButtonState<'w, 's> {
+    room_query: Single<'w, 's, &'static Room>,
+    server_query: Single<'w, 's, &'static Server>,
+}
+impl ButtonInteraction<JoinButton> for JoinButtonState<'_, '_> {
+    fn interact(&mut self, _: &JoinButton) {}
+}
+
 impl Plugin for LobbyPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(InputDispatchPlugin)
             .add_plugins(TextInputPlugin)
             .add_systems(Update, focus.before(TextInputSystem))
+            .add_systems(
+                Update,
+                common_ui::button_system_with_generic::<JoinButton, JoinButtonState<'_, '_>>,
+            )
             .add_systems(OnEnter(AppState::Menu), setup_lobby);
     }
 }
@@ -39,9 +58,16 @@ pub fn setup_lobby(mut commands: Commands<'_, '_>) {
         DespawnOnExit(MenuState::Lobby),
         Node {
             display: Display::Grid,
-            grid_template_rows: vec![GridTrack::percent(50.), GridTrack::percent(50.)],
+            grid_template_rows: vec![
+                GridTrack::max_content(),
+                GridTrack::max_content(),
+                GridTrack::max_content(),
+            ],
+            row_gap: Val::Percent(1.),
             width: Val::Percent(100.0),
             height: Val::Percent(100.0),
+            justify_content: JustifyContent::SpaceAround,
+            align_content: AlignContent::Center,
             ..Default::default()
         },
         children![
@@ -49,20 +75,25 @@ pub fn setup_lobby(mut commands: Commands<'_, '_>) {
                 Node {
                     display: Display::Grid,
                     grid_template_columns: vec![
-                        GridTrack::percent(25.),
-                        GridTrack::percent(25.),
-                        GridTrack::percent(25.),
-                        GridTrack::percent(25.),
+                        GridTrack::max_content(),
+                        GridTrack::minmax(
+                            MinTrackSizingFunction::Px(200.),
+                            MaxTrackSizingFunction::MaxContent
+                        ),
                     ],
                     ..Default::default()
                 },
-                bevy_ui_widgets::observe(background_node_click),
                 children![
-                    Text::new("server:"),
+                    (
+                        TextFont {
+                            font_size: 34.,
+                            ..default()
+                        },
+                        Text::new("server: ")
+                    ),
                     (
                         Server,
                         Node {
-                            width: Val::Px(200.0),
                             border: UiRect::all(Val::Px(5.0)),
                             padding: UiRect::all(Val::Px(5.0)),
                             ..default()
@@ -75,14 +106,35 @@ pub fn setup_lobby(mut commands: Commands<'_, '_>) {
                             font_size: 34.,
                             ..default()
                         }),
-                        bevy_ui_widgets::observe(text_input_click),
+                        bevy_ui_widgets::observe(text_input_in),
+                        bevy_ui_widgets::observe(text_input_out),
                         TextInputTextColor(TextColor(TEXT_COLOR)),
                     ),
-                    Text::new("room:"),
+                ]
+            ),
+            (
+                Node {
+                    display: Display::Grid,
+                    grid_template_columns: vec![
+                        GridTrack::max_content(),
+                        GridTrack::minmax(
+                            MinTrackSizingFunction::Px(200.),
+                            MaxTrackSizingFunction::MaxContent
+                        ),
+                    ],
+                    ..Default::default()
+                },
+                children![
+                    (
+                        TextFont {
+                            font_size: 34.,
+                            ..default()
+                        },
+                        Text::new("room:   ")
+                    ),
                     (
                         Room,
                         Node {
-                            width: Val::Px(200.0),
                             border: UiRect::all(Val::Px(5.0)),
                             padding: UiRect::all(Val::Px(5.0)),
                             ..default()
@@ -95,12 +147,30 @@ pub fn setup_lobby(mut commands: Commands<'_, '_>) {
                             font_size: 34.,
                             ..default()
                         }),
-                        bevy_ui_widgets::observe(text_input_click),
+                        bevy_ui_widgets::observe(text_input_in),
+                        bevy_ui_widgets::observe(text_input_out),
                         TextInputTextColor(TextColor(TEXT_COLOR)),
                     ),
                 ]
             ),
-            (Text::new("join"), Button)
+            (
+                JoinButton,
+                TextFont {
+                    font_size: 34.,
+                    ..default()
+                },
+                Text::new("join"),
+                Node {
+                    border: UiRect::all(Val::Px(5.0)),
+                    padding: UiRect::all(Val::Px(5.0)),
+                    justify_self: JustifySelf::Center,
+                    justify_content: JustifyContent::End,
+                    ..Default::default()
+                },
+                BackgroundColor(NORMAL_BUTTON),
+                BorderColor::all(BORDER_COLOR_INACTIVE),
+                Button
+            )
         ],
     ));
 }
@@ -123,15 +193,12 @@ fn focus(
         }
     }
 }
-fn background_node_click(
-    mut trigger: On<'_, '_, Pointer<Over>>,
-    mut focus: ResMut<'_, InputFocus>,
-) {
+fn text_input_out(mut trigger: On<'_, '_, Pointer<Out>>, mut focus: ResMut<'_, InputFocus>) {
     focus.0 = None;
     trigger.propagate(false);
 }
 
-fn text_input_click(mut trigger: On<'_, '_, Pointer<Over>>, mut focus: ResMut<'_, InputFocus>) {
+fn text_input_in(mut trigger: On<'_, '_, Pointer<Over>>, mut focus: ResMut<'_, InputFocus>) {
     focus.0 = Some(trigger.event_target());
     trigger.propagate(false);
 }

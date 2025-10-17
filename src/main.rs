@@ -6,8 +6,10 @@
     clippy::missing_panics_doc
 )]
 
+mod common_ui;
 mod game;
 mod lobby;
+mod utils;
 
 use bevy::prelude::*;
 
