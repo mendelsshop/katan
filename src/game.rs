@@ -1,4 +1,4 @@
-use crate::common_ui;
+use crate::{common_ui, lobby::GgrsSessionConfig};
 pub use std::marker::PhantomData;
 mod cities;
 mod colors;
@@ -15,7 +15,8 @@ mod robber;
 mod setup_game;
 mod towns;
 mod turn_ui;
-use bevy::prelude::*;
+use bevy::{platform::collections::HashMap, prelude::*};
+use bevy_ggrs::{LocalInputs, ReadInputs};
 
 use self::{
     cities::BuildingRef,
@@ -40,11 +41,15 @@ use self::{
 use crate::AppState;
 pub struct GamePlugin;
 
+fn read_local_inputs(mut commands: Commands<'_, '_>) {
+    commands.insert_resource(LocalInputs::<GgrsSessionConfig>(HashMap::new()));
+}
 impl Plugin for GamePlugin {
     fn build(&self, app: &mut App) {
         app.add_sub_state::<GameState>()
             .add_sub_state::<YearOfPlentyState>()
             .add_sub_state::<RoadBuildingState>()
+            .add_systems(ReadInputs, read_local_inputs)
             .add_plugins((
                 ResourceManagmentPlugin,
                 LargestArmyPlugin,
