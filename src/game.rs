@@ -430,7 +430,6 @@ fn game_setup(
     meshes: ResMut<'_, Assets<Mesh>>,
     materials: ResMut<'_, Assets<ColorMaterial>>,
 ) {
-    commands.spawn(Camera2d);
     let layout = layout(&mut commands);
     commands.insert_resource(layout);
     // this has to be set dynamically

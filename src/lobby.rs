@@ -10,7 +10,7 @@ use bevy::{
     input_focus::{InputDispatchPlugin, InputFocus},
     prelude::*,
 };
-use bevy_ggrs::{ggrs::DesyncDetection, prelude::*, ggrs};
+use bevy_ggrs::{ggrs, ggrs::DesyncDetection, prelude::*};
 use bevy_matchbox::prelude::*;
 use bevy_simple_text_input::{
     TextInput, TextInputInactive, TextInputPlugin, TextInputSystem, TextInputTextColor,
