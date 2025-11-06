@@ -1,3 +1,4 @@
+use crate::game::{GgrsSessionConfig, PlayerCount};
 use crate::{
     AppState,
     common_ui::{self, ButtonInteraction},
@@ -17,7 +18,6 @@ use bevy_simple_text_input::{
     TextInputTextFont, TextInputValue,
 };
 
-pub type GgrsSessionConfig = bevy_ggrs::GgrsConfig<u8, PeerId>;
 pub struct LobbyPlugin;
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default, SubStates)]
 #[source(AppState = AppState::Menu)]
@@ -168,7 +168,7 @@ pub fn setup_lobby(mut commands: Commands<'_, '_>) {
                         BorderColor::all(BORDER_COLOR_INACTIVE),
                         BackgroundColor(BACKGROUND_COLOR),
                         TextInput,
-                        TextInputValue("4".to_owned()),
+                        TextInputValue("2".to_owned()),
                         TextInputTextFont(TextFont {
                             font_size: 34.,
                             ..default()
@@ -236,9 +236,11 @@ fn wait_for_players(
     // create a GGRS P2P session
     let mut session_builder = ggrs::SessionBuilder::<GgrsSessionConfig>::new()
         .with_num_players(num_players)
-        .with_desync_detection_mode(DesyncDetection::On { interval: 1 });
+        // .with_desync_detection_mode(DesyncDetection::On { interval: 1 });
+        .with_desync_detection_mode(DesyncDetection::Off);
 
     for (i, player) in players.into_iter().enumerate() {
+        println!("adding player {i} {player:?}");
         session_builder = session_builder
             .add_player(player, i)
             .expect("failed to add player");
@@ -252,6 +254,7 @@ fn wait_for_players(
         .start_p2p_session(socket)
         .expect("failed to start session");
 
+    commands.insert_resource(PlayerCount(num_players as u8));
     commands.insert_resource(bevy_ggrs::Session::P2P(ggrs_session));
     next_state.set(AppState::InGame);
 }

@@ -1,5 +1,14 @@
-use crate::{common_ui, lobby::GgrsSessionConfig};
+use crate::{
+    common_ui,
+    game::{
+        longest_road::PlayerLongestRoad,
+        positions::{BuildingPosition, RoadPosition},
+        roads::{Road, RoadUI},
+        setup_game::Ports,
+    },
+};
 pub use std::marker::PhantomData;
+use std::ops::{AddAssign, SubAssign};
 mod cities;
 mod colors;
 mod development_card_actions;
@@ -15,8 +24,18 @@ mod robber;
 mod setup_game;
 mod towns;
 mod turn_ui;
-use bevy::{platform::collections::HashMap, prelude::*};
-use bevy_ggrs::{LocalInputs, ReadInputs};
+use bevy::{
+    core_pipeline::core_2d::graph::input, platform::collections::HashMap, prelude::*,
+    window::PrimaryWindow,
+};
+use bevy_ggrs::{
+    GgrsSchedule, LocalInputs, LocalPlayers, PlayerInputs, ReadInputs, RollbackApp,
+    RollbackFrameRate, Session, ggrs::GgrsEvent,
+};
+use bevy_matchbox::prelude::PeerId;
+use itertools::Itertools;
+use rand::seq::SliceRandom;
+use serde::{Deserialize, Serialize};
 
 use self::{
     cities::BuildingRef,
@@ -39,11 +58,93 @@ use self::{
     towns::{PlaceTownButtonState, TownPlaceButton},
 };
 use crate::AppState;
+
+#[derive(PartialEq, Clone, Copy, Default, Deserialize, Serialize, Debug)]
+pub enum Input {
+    #[default]
+    None,
+    // player, place, cost multiplier
+    AddRoad(Entity, RoadPosition, Resources),
+    AddCity,
+    AddTown,
+    TakeDevelopmentCard,
+    Roll,
+    YearOfPlenty,
+    Monopoly,
+    // person picked from, and card picked, if there is a discard(cards discarded if needed)
+    Knight, // interactive(KnightDiscard)
+    KnightDiscard,
+    Trade,         // interactive(TradeResponce)
+    TradeResponce, // interactive(TradeAccept)
+    TradeAccept,
+    BankTrade,
+    RoadBuilding,
+}
+pub type GgrsSessionConfig = bevy_ggrs::GgrsConfig<Input, PeerId>;
 pub struct GamePlugin;
 
-fn read_local_inputs(mut commands: Commands<'_, '_>) {
-    commands.insert_resource(LocalInputs::<GgrsSessionConfig>(HashMap::new()));
+fn read_local_inputs(
+    mut commands: Commands<'_, '_>,
+    local_players: Res<'_, LocalPlayers>,
+    windows: Query<'_, '_, &Window, With<PrimaryWindow>>,
+    inputs: Option<Res<'_, LocalInputs<GgrsSessionConfig>>>,
+) {
+    // at some point we should clear the input
+    if inputs.is_none() {
+        commands.insert_resource(LocalInputs::<GgrsSessionConfig>(
+            // updating of the input should happen on the fly
+            local_players.0.iter().map(|h| (*h, Input::None)).collect(),
+        ));
+    }
 }
+
+fn update_from_inputs(
+    inputs: Res<'_, PlayerInputs<GgrsSessionConfig>>,
+    players: Query<'_, '_, (Entity, &PlayerHandle, &mut Resources, &CatanColor)>,
+    mut bank: ResMut<'_, Resources>,
+    mut commands: Commands<'_, '_>,
+    mut meshes: ResMut<'_, Assets<Mesh>>,
+    mut materials: ResMut<'_, Assets<ColorMaterial>>,
+) {
+    let count = inputs.iter().filter(|(i, _)| *i != Input::None).count();
+    if count != 0 {
+        println!("new {:?}", inputs.iter().collect_vec());
+    }
+    for (_entity, player_handle, mut player_resources, color) in players {
+        let (input, _state) = inputs[player_handle.0];
+        match input {
+            Input::None => {}
+            Input::AddRoad(entity, road_position, cost) => {
+                println!("new road");
+                bank.add_assign(cost);
+                player_resources.sub_assign(cost);
+                commands
+                    .entity(entity)
+                    .with_child((Road, road_position, *color));
+                commands.spawn(RoadUI::bundle(
+                    road_position,
+                    &mut meshes,
+                    &mut materials,
+                    *color,
+                ));
+            }
+            Input::AddCity => todo!(),
+            Input::AddTown => todo!(),
+            Input::TakeDevelopmentCard => todo!(),
+            Input::Roll => todo!(),
+            Input::YearOfPlenty => todo!(),
+            Input::Monopoly => todo!(),
+            Input::Knight => todo!(),
+            Input::KnightDiscard => todo!(),
+            Input::Trade => todo!(),
+            Input::TradeResponce => todo!(),
+            Input::TradeAccept => todo!(),
+            Input::BankTrade => todo!(),
+            Input::RoadBuilding => todo!(),
+        }
+    }
+}
+const FPS: usize = 60;
 impl Plugin for GamePlugin {
     fn build(&self, app: &mut App) {
         app.add_sub_state::<GameState>()
@@ -55,6 +156,31 @@ impl Plugin for GamePlugin {
                 LargestArmyPlugin,
                 LongestRoadPlugin,
             ))
+            .insert_resource(RollbackFrameRate(FPS))
+            .rollback_component_with_copy::<towns::Town>()
+            .rollback_component_with_copy::<Left<towns::Town>>()
+            .rollback_component_with_copy::<Left<cities::City>>()
+            .rollback_component_with_copy::<Resources>()
+            .rollback_component_with_copy::<Ports>()
+            .rollback_component_with_copy::<VictoryPoints>()
+            .rollback_component_with_clone::<PlayerLongestRoad>()
+            .rollback_component_with_copy::<Knights>()
+            .rollback_component_with_copy::<Left<roads::Road>>()
+            .rollback_component_with_clone::<Mesh2d>()
+            .rollback_component_with_copy::<CatanColorRef>()
+            .rollback_resource_with_copy::<Robber>()
+            .rollback_component_with_clone::<MeshMaterial2d<ColorMaterial>>()
+            .rollback_component_with_clone::<Node>()
+            .rollback_component_with_copy::<Transform>()
+            .rollback_component_with_copy::<BuildingPosition>()
+            .rollback_component_with_copy::<CatanColor>()
+            .rollback_component_with_copy::<RoadPosition>()
+            .rollback_component_with_copy::<cities::City>()
+            .rollback_component_with_copy::<roads::Road>()
+            .add_systems(
+                Update,
+                handle_ggrs_events.run_if(in_state(AppState::InGame)),
+            )
             .insert_resource(BoardSize(3))
             .init_resource::<Robber>()
             .insert_resource(Resources::new_game())
@@ -243,13 +369,31 @@ impl Plugin for GamePlugin {
                 >
                     .run_if(in_state(GameState::SetupTown)),
             )
+            .add_systems(GgrsSchedule, update_from_inputs.ambiguous_with_all())
             .add_systems(
-                Update,
-                common_ui::button_system_with_generic::<
+                ReadInputs,
+                ((common_ui::button_system_with_generic::<
                     RoadPlaceButton,
                     PlaceRoadButtonState<'_, '_, CurrentSetupColor>,
                 >
-                    .run_if(in_state(GameState::SetupRoad)),
+                    .run_if(in_state(GameState::SetupRoad))),),
+            )
+            .add_systems(
+                Update,
+                |road: Query<'_, '_, (&RoadPosition, &CatanColor), Added<Road>>,
+                 mut meshes: ResMut<'_, Assets<Mesh>>,
+
+                 mut materials: ResMut<'_, Assets<ColorMaterial>>,
+                 mut commands: Commands<'_, '_>| {
+                    for (road_position, catan_color) in road {
+                        commands.spawn(RoadUI::bundle(
+                            *road_position,
+                            &mut meshes,
+                            &mut materials,
+                            *catan_color,
+                        ));
+                    }
+                },
             )
             .add_systems(
                 Update,
@@ -311,6 +455,9 @@ pub enum GameState {
     PlaceRobber,
 }
 
+// for players input with ggrs
+#[derive(Component, PartialEq, Debug, Clone, Copy)]
+pub struct PlayerHandle(pub usize);
 #[derive(Component, PartialEq, Debug, Clone, Copy)]
 enum Number {
     Number(u8),
@@ -409,7 +556,7 @@ pub trait UI {
 // TODO: maybe we should impose an order on postions for stuff like roads so that comparing them is
 // easeier (i.e. first postion is smallest ....)
 
-#[derive(Component, PartialEq, Eq, Debug)]
+#[derive(Component, PartialEq, Eq, Debug, Copy, Clone)]
 struct Left<T>(pub u8, PhantomData<T>);
 
 // town city "enherit" from building make some quries easier
@@ -424,18 +571,35 @@ pub struct VictoryPoints {
 }
 #[derive(Component, PartialEq, Eq, Default, Clone, Copy, Debug)]
 pub struct Knights(pub u8);
+#[derive(Resource, PartialEq, Eq, Default, Clone, Copy, Debug)]
+pub struct PlayerCount(pub u8);
 fn game_setup(
     mut next_state: ResMut<'_, NextState<GameState>>,
     mut commands: Commands<'_, '_>,
     meshes: ResMut<'_, Assets<Mesh>>,
     materials: ResMut<'_, Assets<ColorMaterial>>,
+    player_count: Res<'_, PlayerCount>,
 ) {
     let layout = layout(&mut commands);
     commands.insert_resource(layout);
     // this has to be set dynamically
-    let catan_colors = vec![CatanColor::White, CatanColor::Green].into_iter();
-    // let catan_colors = vec![CatanColor::White].into_iter();
-    let catan_colors = setup_game::setup(&mut commands, meshes, materials, layout, catan_colors);
+    let mut catan_colors = vec![
+        CatanColor::White,
+        CatanColor::Green,
+        CatanColor::Red,
+        CatanColor::Blue,
+    ];
+    catan_colors.shuffle(&mut rand::rng());
+
+    let catan_colors = catan_colors.into_iter();
+    let catan_colors = setup_game::setup(
+        &mut commands,
+        meshes,
+        materials,
+        layout,
+        catan_colors,
+        player_count,
+    );
     next_state.set(GameState::SetupRoad);
 
     commands.insert_resource(ColorIterator(catan_colors.clone().cycle()));
@@ -597,5 +761,27 @@ fn layout(commands: &mut Commands<'_, '_>) -> Layout {
         ui: ui_layout,
         chat: chat_layout,
         setting_pull_out: settings_pull_out_layout,
+    }
+}
+fn handle_ggrs_events(mut session: ResMut<'_, Session<GgrsSessionConfig>>) {
+    if let Session::P2P(s) = session.as_mut() {
+        for event in s.events() {
+            match event {
+                GgrsEvent::Disconnected { .. } | GgrsEvent::NetworkInterrupted { .. } => {
+                    // warn!("GGRS event: {event:?}")
+                }
+                GgrsEvent::DesyncDetected {
+                    local_checksum,
+                    remote_checksum,
+                    frame,
+                    ..
+                } => {
+                    error!(
+                        "Desync on frame {frame}. Local checksum: {local_checksum:X}, remote checksum: {remote_checksum:X}"
+                    );
+                }
+                _ => info!("GGRS event: {event:?}"),
+            }
+        }
     }
 }

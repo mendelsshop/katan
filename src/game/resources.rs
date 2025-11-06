@@ -2,6 +2,7 @@ use std::ops::{Add, AddAssign, Mul, Sub, SubAssign};
 
 use bevy::prelude::*;
 use rand::seq::IteratorRandom;
+use serde::{Deserialize, Serialize};
 
 pub const CITY_RESOURCES: Resources = Resources {
     wood: 0,
@@ -31,7 +32,7 @@ pub const DEVELOPMENT_CARD_RESOURCES: Resources = Resources {
     wheat: 1,
     ore: 1,
 };
-#[derive(Debug, Component, Resource, Clone, Copy, Default)]
+#[derive(Debug, Component, Resource, Clone, Copy, Default, Serialize, Deserialize, PartialEq)]
 pub struct Resources {
     pub wood: u8,
     pub brick: u8,

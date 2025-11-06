@@ -155,7 +155,7 @@ pub fn show_player_trade(
     }
 }
 pub fn show_player_resources(
-    player_resources: Query<'_, '_, (&CatanColor, &Resources), Changed<Resources>>,
+    player_resources: Query<'_, '_, (Entity, (&CatanColor, &Resources)), Changed<Resources>>,
     player_resources_nodes: Query<'_, '_, (&mut Text, &Value<TradingResourceSpinner>)>,
     sliders: Query<'_, '_, &TradingResourceSpinner>,
     res: Res<'_, CurrentColor>,
@@ -163,7 +163,7 @@ pub fn show_player_resources(
     for resource in player_resources {
         println!("{resource:?}");
     }
-    if let Ok(resources) = player_resources.get(res.0.entity) {
+    if let Ok((_, resources)) = player_resources.get(res.0.entity) {
         for (mut text, slider_ref) in player_resources_nodes {
             if let Ok(resource_slider) = sliders.get(slider_ref.0) {
                 **text = resources.1.get(resource_slider.0).to_string();

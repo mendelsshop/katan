@@ -7,6 +7,8 @@ use std::{
     ops::{Add, AddAssign},
 };
 
+use crate::game::{GgrsSessionConfig, PlayerCount};
+
 use super::{
     Hexagon, Knights, Layout, Left, Number, Port, Robber, VictoryPoints,
     cities::City,
@@ -19,6 +21,10 @@ use super::{
     towns::Town,
 };
 use bevy::{platform::collections::HashSet, prelude::*};
+use bevy_ggrs::{
+    AddRollbackCommandExtension, Session,
+    ggrs::{P2PSession, PlayerHandle},
+};
 use itertools::Itertools;
 use rand::seq::SliceRandom;
 fn draw_board(
@@ -112,7 +118,7 @@ fn generate_development_cards(commands: &mut Commands<'_, '_>) {
     development_cards.shuffle(&mut rand::rng());
 
     for card in development_cards {
-        commands.spawn(card);
+        commands.spawn(card).add_rollback();
     }
 }
 fn generate_board(commands: &mut Commands<'_, '_>) -> Vec<(Position, Hexagon, Number)> {
@@ -332,30 +338,36 @@ fn building_postions_on_ring(n: i8) -> impl Iterator<Item = BuildingPosition> {
 fn generate_pieces(
     commands: &mut Commands<'_, '_>,
     colors: vec::IntoIter<CatanColor>,
+    player_count: u8,
 ) -> impl Iterator<Item = CatanColorRef> {
-    colors.map(|color| CatanColorRef {
-        color,
-        entity: commands
-            .spawn((
-                color,
-                Left::<Town>(5, PhantomData),
-                Left::<City>(4, PhantomData),
-                Left::<Road>(15, PhantomData),
-                Resources::new_player(),
-                // maybe initialize this as part of longest road plugin just have system that run
-                // on startup(or eventually game start state) that adds this comonent to each
-                // "player"
-                PlayerLongestRoad(HashSet::new()),
-                DevelopmentCards::new_player(),
-                Ports::new_player(),
-                VictoryPoints {
-                    actual: 0,
-                    from_development_cards: 0,
-                },
-                Knights(0),
-            ))
-            .id(),
-    })
+    colors
+        .enumerate()
+        .take(player_count as usize)
+        .map(|(handle, color)| CatanColorRef {
+            color,
+            entity: commands
+                .spawn((
+                    color,
+                    Left::<Town>(5, PhantomData),
+                    Left::<City>(4, PhantomData),
+                    Left::<Road>(15, PhantomData),
+                    super::PlayerHandle(handle),
+                    Resources::new_player(),
+                    // maybe initialize this as part of longest road plugin just have system that run
+                    // on startup(or eventually game start state) that adds this comonent to each
+                    // "player"
+                    PlayerLongestRoad(HashSet::new()),
+                    DevelopmentCards::new_player(),
+                    Ports::new_player(),
+                    VictoryPoints {
+                        actual: 0,
+                        from_development_cards: 0,
+                    },
+                    Knights(0),
+                ))
+                .add_rollback()
+                .id(),
+        })
 }
 fn generate_ports(commands: &mut Commands<'_, '_>) -> Vec<(BuildingPosition, Port)> {
     // very hacky and order dependent
@@ -390,6 +402,7 @@ pub fn setup(
     materials: ResMut<'_, Assets<ColorMaterial>>,
     layout: Layout,
     colors: vec::IntoIter<CatanColor>,
+    player_count: Res<'_, PlayerCount>,
 ) -> vec::IntoIter<CatanColorRef> {
     draw_board(
         generate_board(commands).into_iter(),
@@ -400,5 +413,7 @@ pub fn setup(
         layout,
     );
     generate_development_cards(commands);
-    generate_pieces(commands, colors).collect_vec().into_iter()
+    generate_pieces(commands, colors, player_count.0)
+        .collect_vec()
+        .into_iter()
 }

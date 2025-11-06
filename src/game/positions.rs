@@ -1,11 +1,14 @@
 use itertools::Itertools;
+use serde::{Deserialize, Serialize};
 use std::{
     mem,
     ops::{Add, Div},
 };
 
 use bevy::prelude::*;
-#[derive(Component, Debug, PartialEq, Eq, Clone, Copy, PartialOrd, Ord, Hash)]
+#[derive(
+    Component, Debug, PartialEq, Eq, Clone, Copy, PartialOrd, Ord, Hash, Deserialize, Serialize,
+)]
 pub struct Position {
     pub q: i8,
     pub r: i8,
@@ -209,14 +212,14 @@ impl Add for FPosition {
         }
     }
 }
-#[derive(Component, Clone, Copy, Debug, Hash, Eq)]
+#[derive(Component, Clone, Copy, Debug, Hash, Eq, Deserialize, Serialize)]
 
 pub enum RoadPosition {
     /// Dont use this constructor use `Self::new`
     Both(Position, Position, Coordinate),
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, Hash, PartialEq, Eq, Deserialize, Serialize)]
 pub enum Coordinate {
     Q,
     R,

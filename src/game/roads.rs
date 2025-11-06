@@ -1,7 +1,10 @@
+use bevy_ggrs::{LoadWorld, LocalInputs, LocalPlayers};
+
 use bevy::{
     ecs::{query::QueryData, system::SystemParam},
     prelude::*,
 };
+use bevy_ggrs::AddRollbackCommandExtension;
 use itertools::Itertools;
 
 use crate::utils::NORMAL_BUTTON;
@@ -221,6 +224,7 @@ impl UI for RoadUI {
         materials: &mut ResMut<'_, Assets<ColorMaterial>>,
         color: CatanColor,
     ) -> impl Bundle {
+        println!("new row ui bundle");
         let (x, y) = pos.positon_to_pixel_coordinates();
         let mesh1 = meshes.add(Rectangle::new(10.0, 70.));
         (
@@ -253,6 +257,7 @@ pub struct PlaceRoadButtonState<'w, 's, C: Resource> {
     kind_free_and_resources_q:
         Query<'w, 's, (&'static mut Resources, &'static mut Left<Road>), With<CatanColor>>,
 
+    local_players: Res<'w, LocalPlayers>,
     substate_mut: Option<ResMut<'w, NextState<RoadBuildingState>>>,
     substate: Option<Res<'w, State<RoadBuildingState>>>,
 }
@@ -274,14 +279,31 @@ where
             kind_free_and_resources_q,
             substate_mut,
             substate,
+            local_players,
         } = self;
 
         let color_r: &C = color_r;
         let current_color: CatanColor = (*color_r).into();
         let current_color_entity: Entity = (*color_r).into();
-        commands
-            .entity(current_color_entity)
-            .with_child((Road, current_color, *position));
+        let road = commands
+            .spawn((Road, current_color, *position))
+            .add_rollback()
+            .id();
+        println!("set input");
+        commands.insert_resource(LocalInputs::<super::GgrsSessionConfig>(
+            // updating of the input should happen on the fly
+            local_players
+                .0
+                .iter()
+                .map(|h| {
+                    (
+                        *h,
+                        super::Input::AddRoad(current_color_entity, *position, *cost),
+                    )
+                })
+                .collect(),
+        ));
+        commands.entity(current_color_entity).add_child(road);
         let kind_left = kind_free_and_resources_q.get_mut(current_color_entity).ok();
         if let Some((mut resources, mut left)) = kind_left {
             *resources -= *cost;
@@ -318,6 +340,6 @@ where
 
             GameState::SetupRoad => game_state_mut.set(GameState::SetupTown),
         }
-        commands.spawn(RoadUI::bundle(*position, meshes, materials, current_color));
+        // commands.spawn(RoadUI::bundle(*position, meshes, materials, current_color));
     }
 }
