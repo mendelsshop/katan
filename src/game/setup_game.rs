@@ -1,6 +1,6 @@
 //! functions to generate initial game state
 //! like hex placement
-use crate::game::{GgrsSessionConfig, PlayerCount};
+use crate::game::PlayerCount;
 use rand_xoshiro::Xoshiro256PlusPlus;
 use std::{
     iter,
@@ -21,10 +21,7 @@ use super::{
     towns::Town,
 };
 use bevy::{platform::collections::HashSet, prelude::*};
-use bevy_ggrs::{
-    AddRollbackCommandExtension, Session,
-    ggrs::{P2PSession, PlayerHandle},
-};
+use bevy_ggrs::AddRollbackCommandExtension;
 use itertools::Itertools;
 use rand::{Rng, SeedableRng, seq::SliceRandom};
 fn draw_board(

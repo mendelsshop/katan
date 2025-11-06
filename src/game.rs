@@ -24,17 +24,13 @@ mod robber;
 mod setup_game;
 mod towns;
 mod turn_ui;
-use bevy::{
-    core_pipeline::core_2d::graph::input, platform::collections::HashMap, prelude::*,
-    window::PrimaryWindow,
-};
+use bevy::prelude::*;
 use bevy_ggrs::{
     GgrsSchedule, LocalInputs, LocalPlayers, PlayerInputs, ReadInputs, RollbackApp,
     RollbackFrameRate, Session, ggrs::GgrsEvent,
 };
 use bevy_matchbox::prelude::PeerId;
 use itertools::Itertools;
-use rand::seq::SliceRandom;
 use serde::{Deserialize, Serialize};
 
 use self::{
@@ -59,7 +55,7 @@ use self::{
 };
 use crate::AppState;
 
-#[derive(PartialEq, Clone, Copy, Default, Deserialize, Serialize, Debug, Resource)]
+#[derive(PartialEq, Eq, Clone, Copy, Default, Deserialize, Serialize, Debug, Resource)]
 pub enum Input {
     #[default]
     None,
@@ -94,7 +90,7 @@ fn read_local_inputs(
         local_players
             .0
             .iter()
-            .map(|h| (*h, current_inputs.clone()))
+            .map(|h| (*h, *current_inputs))
             .collect(),
     ));
     *current_inputs = Input::None;
@@ -461,7 +457,7 @@ pub enum GameState {
 }
 
 // for players input with ggrs
-#[derive(Component, PartialEq, Debug, Clone, Copy)]
+#[derive(Component, PartialEq, Eq, Debug, Clone, Copy)]
 pub struct PlayerHandle(pub usize);
 #[derive(Component, PartialEq, Debug, Clone, Copy)]
 enum Number {

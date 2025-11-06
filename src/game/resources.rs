@@ -32,7 +32,9 @@ pub const DEVELOPMENT_CARD_RESOURCES: Resources = Resources {
     wheat: 1,
     ore: 1,
 };
-#[derive(Debug, Component, Resource, Clone, Copy, Default, Serialize, Deserialize, PartialEq)]
+#[derive(
+    Debug, Component, Resource, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq,
+)]
 pub struct Resources {
     pub wood: u8,
     pub brick: u8,
