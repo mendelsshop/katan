@@ -1,4 +1,4 @@
-use crate::game::{GgrsSessionConfig, PlayerCount};
+use crate::game::{GgrsSessionConfig, PlayerCount, SessionSeed};
 use crate::{
     AppState,
     common_ui::{self, ButtonInteraction},
@@ -231,7 +231,7 @@ fn wait_for_players(
         let peer_id = peer.0.as_u64_pair();
         seed ^= peer_id.0 ^ peer_id.1;
     }
-    // commands.insert_resource(SessionSeed(seed));
+    commands.insert_resource(SessionSeed(seed));
 
     // create a GGRS P2P session
     let mut session_builder = ggrs::SessionBuilder::<GgrsSessionConfig>::new()

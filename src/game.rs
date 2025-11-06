@@ -100,6 +100,8 @@ fn read_local_inputs(
     *current_inputs = Input::None;
 }
 
+#[derive(Resource, Default, Clone, Copy, Debug, Deref, DerefMut)]
+pub struct SessionSeed(pub u64);
 fn update_from_inputs(
     inputs: Res<'_, PlayerInputs<GgrsSessionConfig>>,
     players: Query<'_, '_, (Entity, &PlayerHandle, &mut Resources, &CatanColor)>,
@@ -582,26 +584,17 @@ fn game_setup(
     meshes: ResMut<'_, Assets<Mesh>>,
     materials: ResMut<'_, Assets<ColorMaterial>>,
     player_count: Res<'_, PlayerCount>,
+    seed: Res<'_, SessionSeed>,
 ) {
     let layout = layout(&mut commands);
     commands.insert_resource(layout);
-    // this has to be set dynamically
-    let mut catan_colors = vec![
-        CatanColor::White,
-        CatanColor::Green,
-        CatanColor::Red,
-        CatanColor::Blue,
-    ];
-    catan_colors.shuffle(&mut rand::rng());
-
-    let catan_colors = catan_colors.into_iter();
     let catan_colors = setup_game::setup(
         &mut commands,
         meshes,
         materials,
         layout,
-        catan_colors,
         player_count,
+        seed.0,
     );
     next_state.set(GameState::SetupRoad);
 

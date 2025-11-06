@@ -1,13 +1,13 @@
 //! functions to generate initial game state
 //! like hex placement
+use crate::game::{GgrsSessionConfig, PlayerCount};
+use rand_xoshiro::Xoshiro256PlusPlus;
 use std::{
     iter,
     marker::PhantomData,
     mem::swap,
     ops::{Add, AddAssign},
 };
-
-use crate::game::{GgrsSessionConfig, PlayerCount};
 
 use super::{
     Hexagon, Knights, Layout, Left, Number, Port, Robber, VictoryPoints,
@@ -26,7 +26,7 @@ use bevy_ggrs::{
     ggrs::{P2PSession, PlayerHandle},
 };
 use itertools::Itertools;
-use rand::seq::SliceRandom;
+use rand::{Rng, SeedableRng, seq::SliceRandom};
 fn draw_board(
     q: impl Iterator<Item = (Position, Hexagon, Number)>,
     port_q: impl Iterator<Item = (BuildingPosition, Port)>,
@@ -87,7 +87,7 @@ fn draw_board(
         }
     }
 }
-fn generate_development_cards(commands: &mut Commands<'_, '_>) {
+fn generate_development_cards(commands: &mut Commands<'_, '_>, rng: &mut Xoshiro256PlusPlus) {
     let mut development_cards = [
         DevelopmentCard::Knight,
         DevelopmentCard::Knight,
@@ -115,13 +115,16 @@ fn generate_development_cards(commands: &mut Commands<'_, '_>) {
         DevelopmentCard::YearOfPlenty,
         DevelopmentCard::YearOfPlenty,
     ];
-    development_cards.shuffle(&mut rand::rng());
+    development_cards.shuffle(rng);
 
     for card in development_cards {
         commands.spawn(card).add_rollback();
     }
 }
-fn generate_board(commands: &mut Commands<'_, '_>) -> Vec<(Position, Hexagon, Number)> {
+fn generate_board(
+    commands: &mut Commands<'_, '_>,
+    rng: &mut Xoshiro256PlusPlus,
+) -> Vec<(Position, Hexagon, Number)> {
     let mut numbers = [
         (Number::Number(2)),
         (Number::Number(3)),
@@ -142,7 +145,7 @@ fn generate_board(commands: &mut Commands<'_, '_>) -> Vec<(Position, Hexagon, Nu
         (Number::Number(11)),
         (Number::Number(12)),
     ];
-    numbers.shuffle(&mut rand::rng());
+    numbers.shuffle(rng);
     let inhabited_hexagons = [
         Hexagon::Wheat,
         Hexagon::Wheat,
@@ -171,7 +174,7 @@ fn generate_board(commands: &mut Commands<'_, '_>) -> Vec<(Position, Hexagon, Nu
 
     // 1 for first layer 6 for second layer 12 for third layer
 
-    inhabited.shuffle(&mut rand::rng());
+    inhabited.shuffle(rng);
     let (inhabited, mut desert): (Vec<_>, Vec<_>) = positions::generate_postions(3)
         .zip(inhabited)
         .map(|(position, (hex, number))| (position, hex, number))
@@ -179,7 +182,7 @@ fn generate_board(commands: &mut Commands<'_, '_>) -> Vec<(Position, Hexagon, Nu
     let (reds, normal_number): (Vec<_>, Vec<_>) = inhabited
         .into_iter()
         .partition(|(_, _, n)| Number::Number(8) == *n || Number::Number(6) == *n);
-    let mut inhabited = fix_numbers(reds, normal_number);
+    let mut inhabited = fix_numbers(reds, normal_number, rng);
     if let Some(desert) = desert.first() {
         commands.insert_resource(Robber(desert.0));
     }
@@ -194,6 +197,7 @@ fn generate_board(commands: &mut Commands<'_, '_>) -> Vec<(Position, Hexagon, Nu
 fn fix_numbers(
     mut reds: Vec<(Position, Hexagon, Number)>,
     mut normal: Vec<(Position, Hexagon, Number)>,
+    rng: &mut Xoshiro256PlusPlus,
 ) -> Vec<(Position, Hexagon, Number)> {
     let cube_direction_vectors = [
         Position { q: 1, r: 0, s: -1 },
@@ -213,7 +217,7 @@ fn fix_numbers(
         used.append(&mut new_used);
         reds.iter_mut().filter(|p| touches(p.0)).for_each(|red| {
             let mut new_hexagon =
-                normal.swap_remove((rand::random::<u8>() % normal.len() as u8) as usize);
+                normal.swap_remove((rng.random::<u8>() % normal.len() as u8) as usize);
 
             swap(&mut red.1, &mut new_hexagon.1);
             swap(&mut red.0, &mut new_hexagon.0);
@@ -337,9 +341,19 @@ fn building_postions_on_ring(n: i8) -> impl Iterator<Item = BuildingPosition> {
 }
 fn generate_pieces(
     commands: &mut Commands<'_, '_>,
-    colors: vec::IntoIter<CatanColor>,
     player_count: u8,
+    rng: &mut Xoshiro256PlusPlus,
 ) -> impl Iterator<Item = CatanColorRef> {
+    let mut catan_colors = vec![
+        CatanColor::White,
+        CatanColor::Green,
+        CatanColor::Red,
+        CatanColor::Blue,
+    ];
+    catan_colors.shuffle(rng);
+
+    let colors = catan_colors.into_iter();
+
     colors
         .enumerate()
         .take(player_count as usize)
@@ -369,7 +383,10 @@ fn generate_pieces(
                 .id(),
         })
 }
-fn generate_ports(commands: &mut Commands<'_, '_>) -> Vec<(BuildingPosition, Port)> {
+fn generate_ports(
+    commands: &mut Commands<'_, '_>,
+    rng: &mut Xoshiro256PlusPlus,
+) -> Vec<(BuildingPosition, Port)> {
     // very hacky and order dependent
     let positions = generate_port_positions(3);
     let mut ports = [
@@ -384,7 +401,7 @@ fn generate_ports(commands: &mut Commands<'_, '_>) -> Vec<(BuildingPosition, Por
         Port::TwoForOne(resources::Resource::Ore),
     ];
 
-    ports.shuffle(&mut rand::rng());
+    ports.shuffle(rng);
     positions
         // we duplicate each port type because the postions iterator just returns each port postion
         // seperatly even though a port in the game occupies two intersections, we represent each
@@ -401,19 +418,20 @@ pub fn setup(
     meshes: ResMut<'_, Assets<Mesh>>,
     materials: ResMut<'_, Assets<ColorMaterial>>,
     layout: Layout,
-    colors: vec::IntoIter<CatanColor>,
     player_count: Res<'_, PlayerCount>,
+    seed: u64,
 ) -> vec::IntoIter<CatanColorRef> {
+    let mut rng = Xoshiro256PlusPlus::seed_from_u64(seed);
     draw_board(
-        generate_board(commands).into_iter(),
-        generate_ports(commands).into_iter(),
+        generate_board(commands, &mut rng).into_iter(),
+        generate_ports(commands, &mut rng).into_iter(),
         materials,
         meshes,
         commands,
         layout,
     );
-    generate_development_cards(commands);
-    generate_pieces(commands, colors, player_count.0)
+    generate_development_cards(commands, &mut rng);
+    generate_pieces(commands, player_count.0, &mut rng)
         .collect_vec()
         .into_iter()
 }
