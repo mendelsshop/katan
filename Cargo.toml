@@ -16,3 +16,5 @@ serde = { version = "1.0.228", features = ["derive"] }
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 bevy_ggrs = { version = "0.19", features = ["wasm-bindgen"] }
 getrandom = { version = "0.3.4", features = ["wasm_js"] }
+[patch.crates-io]
+ggrs = { git =  "https://github.com/mendelsshop/ggrs" } 
