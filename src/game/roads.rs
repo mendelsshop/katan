@@ -10,7 +10,7 @@ use itertools::Itertools;
 use crate::utils::NORMAL_BUTTON;
 
 use super::{
-    BoardSize, Building, GameState, Left, UI,
+    BoardSize, Building, GameState, Input, Left, UI,
     colors::{CatanColor, CurrentColor},
     common_ui::ButtonInteraction,
     development_card_actions::RoadBuildingState,
@@ -257,7 +257,7 @@ pub struct PlaceRoadButtonState<'w, 's, C: Resource> {
     kind_free_and_resources_q:
         Query<'w, 's, (&'static mut Resources, &'static mut Left<Road>), With<CatanColor>>,
 
-    local_players: Res<'w, LocalPlayers>,
+    input: ResMut<'w, Input>,
     substate_mut: Option<ResMut<'w, NextState<RoadBuildingState>>>,
     substate: Option<Res<'w, State<RoadBuildingState>>>,
 }
@@ -279,7 +279,7 @@ where
             kind_free_and_resources_q,
             substate_mut,
             substate,
-            local_players,
+            input,
         } = self;
 
         let color_r: &C = color_r;
@@ -290,19 +290,8 @@ where
             .add_rollback()
             .id();
         println!("set input");
-        commands.insert_resource(LocalInputs::<super::GgrsSessionConfig>(
-            // updating of the input should happen on the fly
-            local_players
-                .0
-                .iter()
-                .map(|h| {
-                    (
-                        *h,
-                        super::Input::AddRoad(current_color_entity, *position, *cost),
-                    )
-                })
-                .collect(),
-        ));
+        // updating of the input should happen on the fly
+        **input = Input::AddRoad(current_color_entity, *position, *cost);
         commands.entity(current_color_entity).add_child(road);
         let kind_left = kind_free_and_resources_q.get_mut(current_color_entity).ok();
         if let Some((mut resources, mut left)) = kind_left {

@@ -59,7 +59,7 @@ use self::{
 };
 use crate::AppState;
 
-#[derive(PartialEq, Clone, Copy, Default, Deserialize, Serialize, Debug)]
+#[derive(PartialEq, Clone, Copy, Default, Deserialize, Serialize, Debug, Resource)]
 pub enum Input {
     #[default]
     None,
@@ -86,16 +86,18 @@ pub struct GamePlugin;
 fn read_local_inputs(
     mut commands: Commands<'_, '_>,
     local_players: Res<'_, LocalPlayers>,
-    windows: Query<'_, '_, &Window, With<PrimaryWindow>>,
-    inputs: Option<Res<'_, LocalInputs<GgrsSessionConfig>>>,
+    mut current_inputs: ResMut<'_, Input>,
 ) {
     // at some point we should clear the input
-    if inputs.is_none() {
-        commands.insert_resource(LocalInputs::<GgrsSessionConfig>(
-            // updating of the input should happen on the fly
-            local_players.0.iter().map(|h| (*h, Input::None)).collect(),
-        ));
-    }
+    commands.insert_resource(LocalInputs::<GgrsSessionConfig>(
+        // updating of the input should happen on the fly
+        local_players
+            .0
+            .iter()
+            .map(|h| (*h, current_inputs.clone()))
+            .collect(),
+    ));
+    *current_inputs = Input::None;
 }
 
 fn update_from_inputs(
@@ -156,6 +158,7 @@ impl Plugin for GamePlugin {
                 LargestArmyPlugin,
                 LongestRoadPlugin,
             ))
+            .insert_resource(Input::None)
             .insert_resource(RollbackFrameRate(FPS))
             .rollback_component_with_copy::<towns::Town>()
             .rollback_component_with_copy::<Left<towns::Town>>()
