@@ -287,16 +287,9 @@ where
             .spawn((Road, current_color, *position))
             .add_rollback()
             .id();
-        println!("set input");
         // updating of the input should happen on the fly
         **input = Input::AddRoad(current_color_entity, *position, *cost);
         commands.entity(current_color_entity).add_child(road);
-        let kind_left = kind_free_and_resources_q.get_mut(current_color_entity).ok();
-        if let Some((mut resources, mut left)) = kind_left {
-            *resources -= *cost;
-            left.0 -= 1;
-        }
-        **resources += *cost;
         match *game_state.get() {
             GameState::Nothing
             | GameState::Monopoly

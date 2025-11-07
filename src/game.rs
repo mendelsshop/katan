@@ -6,6 +6,7 @@ use crate::{
         positions::{BuildingPosition, RoadPosition},
         roads::{Road, RoadUI},
         setup_game::Ports,
+        towns::{Town, TownUI},
         turn_ui::PlayerBanner,
     },
 };
@@ -29,7 +30,8 @@ mod turn_ui;
 use bevy::prelude::*;
 use bevy_ggrs::{
     GgrsSchedule, LocalInputs, LocalPlayers, PlayerInputs, ReadInputs, RollbackApp,
-    RollbackFrameRate, Session, ggrs::GgrsEvent,
+    RollbackFrameRate, Session,
+    ggrs::{GgrsEvent, InputStatus},
 };
 use bevy_matchbox::prelude::PeerId;
 use itertools::Itertools;
@@ -65,7 +67,7 @@ pub enum Input {
     // player, place, cost multiplier
     AddRoad(Entity, RoadPosition, Resources),
     AddCity,
-    AddTown,
+    AddTown(Entity, BuildingPosition, Resources, bool),
     TakeDevelopmentCard,
     Roll,
     YearOfPlenty,
@@ -103,7 +105,22 @@ fn read_local_inputs(
 pub struct SessionSeed(pub u64);
 fn update_from_inputs(
     inputs: Res<'_, PlayerInputs<GgrsSessionConfig>>,
-    players: Query<'_, '_, (Entity, &PlayerHandle, &mut Resources, &CatanColor)>,
+    players: Query<
+        '_,
+        '_,
+        (
+            Entity,
+            &PlayerHandle,
+            &mut Resources,
+            &CatanColor,
+            &mut VictoryPoints,
+            &mut Ports,
+            &mut Left<Road>,
+            &mut Left<Town>,
+        ),
+    >,
+
+    ports: Query<'_, '_, (&'_ BuildingPosition, &'_ Port)>,
     mut player_banners: Query<'_, '_, (&mut BackgroundColor, &mut Outline, &PlayerBanner)>,
     mut bank: ResMut<'_, Resources>,
     mut commands: Commands<'_, '_>,
@@ -119,10 +136,27 @@ fn update_from_inputs(
 ) {
     let count = inputs.iter().filter(|(i, _)| *i != Input::None).count();
     if count != 0 {
-        println!("new {:?}", inputs.iter().collect_vec());
+        println!(
+            "new {:?} {:?}",
+            inputs.iter().collect_vec(),
+            game_state.get()
+        );
     }
-    for (_entity, player_handle, mut player_resources, color) in players {
+    for (
+        _entity,
+        player_handle,
+        mut player_resources,
+        color,
+        mut vps,
+        mut player_ports,
+        mut roads_left,
+        mut towns_left,
+    ) in players
+    {
         let (input, _state) = inputs[player_handle.0];
+        if _state == InputStatus::Predicted {
+            continue;
+        }
         match input {
             Input::None => {}
             Input::NextColor => {
@@ -160,9 +194,42 @@ fn update_from_inputs(
                     &mut materials,
                     *color,
                 ));
+
+                roads_left.0 -= 1;
             }
             Input::AddCity => todo!(),
-            Input::AddTown => todo!(),
+            Input::AddTown(entity, town_position, cost, next) => {
+                println!("new road");
+                bank.add_assign(cost);
+                player_resources.sub_assign(cost);
+                commands
+                    .entity(entity)
+                    .with_child((Town, town_position, *color));
+                commands.spawn(TownUI::bundle(
+                    town_position,
+                    &mut meshes,
+                    &mut materials,
+                    *color,
+                ));
+                if let Some((_, port)) = ports
+                    .iter()
+                    .find(|(port_position, _)| **port_position == town_position)
+                {
+                    *player_ports += *port;
+                }
+
+                vps.actual += 1;
+                towns_left.0 -= 1;
+                if next {
+                    set_setup_color(
+                        &mut mut_game_state,
+                        &mut setup_color_r,
+                        &mut setup_color_rotation,
+                        &local_players,
+                        &mut player_banners,
+                    );
+                }
+            }
             Input::TakeDevelopmentCard => todo!(),
             Input::Roll => todo!(),
             Input::YearOfPlenty => todo!(),
@@ -422,7 +489,7 @@ impl Plugin for GamePlugin {
                 Update,
                 common_ui::button_system_with_generic::<
                     TownPlaceButton,
-                    PlaceTownButtonState<'_, '_, CurrentSetupColor>,
+                    PlaceTownButtonState<'_, CurrentSetupColor>,
                 >
                     .run_if(in_state(GameState::SetupTown)),
             )
@@ -464,7 +531,7 @@ impl Plugin for GamePlugin {
                 Update,
                 common_ui::button_system_with_generic::<
                     TownPlaceButton,
-                    PlaceTownButtonState<'_, '_, CurrentColor>,
+                    PlaceTownButtonState<'_, CurrentColor>,
                 >
                     .run_if(in_state(GameState::PlaceTown)),
             )

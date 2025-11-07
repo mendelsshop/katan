@@ -318,7 +318,7 @@ impl PartialEq for RoadPosition {
     }
 }
 
-#[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Component, PartialEq, Eq, Clone, Copy, Deserialize, Serialize, Debug, Resource)]
 pub enum BuildingPosition {
     /// Do not use this
     /// so we can garuntee p1 > p2 > p3

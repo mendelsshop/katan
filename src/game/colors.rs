@@ -119,6 +119,7 @@ pub fn set_setup_color(
     player_banners: &mut Query<'_, '_, (&mut BackgroundColor, &mut Outline, &PlayerBanner)>,
 ) {
     if let Some(color) = color_rotation.0.next() {
+        println!("next color {color:?}");
         if let Some((mut background, mut border, _)) = player_banners
             .iter_mut()
             .find(|(_, _, banner)| banner.0 == color_r.0)
@@ -143,6 +144,7 @@ pub fn set_setup_color(
             GameState::NotActiveSetup,
         );
     } else {
+        println!("done");
         // TODO: will this happen fast enough so that the last player wont have option to do it a
         // 3rd time
         game_state.set(GameState::NotActive);

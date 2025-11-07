@@ -9,15 +9,12 @@ use super::Left;
 use super::Building;
 use super::GameState;
 use super::UI;
-use super::VictoryPoints;
 use super::{
-    Port,
     colors::{CatanColor, CurrentColor, CurrentSetupColor},
     common_ui::ButtonInteraction,
     positions::{BuildingPosition, RoadPosition},
     resources::{Resources, TOWN_RESOURCES},
     roads::{RoadQuery, RoadQueryItem},
-    setup_game::Ports,
 };
 
 #[derive(Component, Clone, Copy, Debug)]
@@ -209,29 +206,13 @@ impl UI for TownUI {
     }
 }
 #[derive(SystemParam)]
-pub struct PlaceTownButtonState<'w, 's, C: Resource> {
-    resources: ResMut<'w, Resources>,
+pub struct PlaceTownButtonState<'w, C: Resource> {
     game_state: Res<'w, State<GameState>>,
     game_state_mut: ResMut<'w, NextState<GameState>>,
     color_r: Res<'w, C>,
-    commands: Commands<'w, 's>,
-    meshes: ResMut<'w, Assets<Mesh>>,
-    materials: ResMut<'w, Assets<ColorMaterial>>,
-    kind_free_ports_and_resources_q: Query<
-        'w,
-        's,
-        (
-            &'static mut Resources,
-            &'static mut Ports,
-            &'static mut Left<Town>,
-            &'static mut VictoryPoints,
-        ),
-        With<CatanColor>,
-    >,
-    ports: Query<'w, 's, (&'static BuildingPosition, &'static Port)>,
     input: ResMut<'w, Input>,
 }
-impl<C: Resource> ButtonInteraction<TownPlaceButton> for PlaceTownButtonState<'_, '_, C>
+impl<C: Resource> ButtonInteraction<TownPlaceButton> for PlaceTownButtonState<'_, C>
 where
     CatanColor: From<C>,
     bevy::prelude::Entity: From<C>,
@@ -239,42 +220,20 @@ where
 {
     fn interact(&mut self, TownPlaceButton(cost, position): &TownPlaceButton) {
         let PlaceTownButtonState {
-            resources,
             game_state,
             game_state_mut,
             color_r,
-            commands,
-            meshes,
-            materials,
-            kind_free_ports_and_resources_q,
-            ports,
             input,
         } = self;
 
         let color_r: &C = color_r;
-        let current_color: CatanColor = (*color_r).into();
         let current_color_entity: Entity = (*color_r).into();
-        commands
-            .entity(current_color_entity)
-            .with_child((Town, current_color, *position));
-        let player_resources_ports_and_towns_left = kind_free_ports_and_resources_q
-            .get_mut(current_color_entity)
-            .ok();
-        if let Some((mut resources, mut player_ports, mut left, mut points)) =
-            player_resources_ports_and_towns_left
-        {
-            *resources -= *cost;
-            left.0 -= 1;
-            points.actual += 1;
-
-            if let Some((_, port)) = ports
-                .iter()
-                .find(|(port_position, _)| port_position == &position)
-            {
-                *player_ports += *port;
-            }
-        }
-        **resources += *cost;
+        **input = Input::AddTown(
+            current_color_entity,
+            *position,
+            *cost,
+            *game_state.get() == GameState::SetupTown,
+        );
         match *game_state.get() {
             GameState::Nothing
             | GameState::NotActive
@@ -295,8 +254,7 @@ where
                 game_state_mut.set(GameState::Turn);
             }
 
-            GameState::SetupTown => **input = Input::NextColor,
+            GameState::SetupTown => (),
         }
-        commands.spawn(TownUI::bundle(*position, meshes, materials, current_color));
     }
 }
