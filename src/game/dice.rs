@@ -1,5 +1,7 @@
 use bevy::prelude::*;
 
+use crate::game::Input;
+
 use super::{
     CatanColor, GameState, Hexagon, Number, Resources, Robber,
     cities::City,
@@ -13,28 +15,12 @@ fn roll_dice() -> (u8, u8, u8) {
     (dice1 + dice2, dice1, dice2)
 }
 pub fn full_roll_dice(
-    board: Query<'_, '_, (&Hexagon, &Number, &Position)>,
-    towns: Query<'_, '_, (&ChildOf, &Town, &BuildingPosition), With<CatanColor>>,
-    cities: Query<'_, '_, (&ChildOf, &City, &BuildingPosition), With<CatanColor>>,
     player_resources: Query<'_, '_, &mut Resources, With<CatanColor>>,
-    resources: ResMut<'_, Resources>,
-    robber: Res<'_, Robber>,
-    mut die_q: Query<'_, '_, (&mut Text, &mut Transform), With<DieButton>>,
     mut game_state: ResMut<'_, NextState<GameState>>,
+    mut input: ResMut<'_, Input>,
 ) {
     let (roll, d1, d2) = roll_dice();
     // assumes two dice
-    die_q
-        .iter_mut()
-        .zip([d1, d2])
-        .for_each(|(mut die_ui, new_roll)| {
-            *die_ui.1 = die_ui
-                .1
-                .with_rotation(Quat::from_rotation_z(rand::random_range((-25.)..4.)));
-            // TODO: maybe make dice move not only rotate
-
-            **die_ui.0 = new_roll.to_string();
-        });
 
     // TODO: what happens when 7 rolled
     if roll == 7 {
@@ -47,19 +33,29 @@ pub fn full_roll_dice(
         // we only do this if no robber
         // if there is robber there a bunch of other states that me must go through
         game_state.set(GameState::Turn);
-        distribute_resources(
-            roll,
-            board,
-            towns,
-            cities,
-            player_resources,
-            resources,
-            robber,
-        );
+        *input = Input::Roll(roll, d1, d2);
     }
 }
 
-fn distribute_resources<'a>(
+pub fn update_dice(
+    die_q: &mut Query<'_, '_, (&mut Text, &mut Transform), With<DieButton>>,
+    d1: u8,
+    d2: u8,
+) {
+    die_q
+        .iter_mut()
+        .zip([d1, d2])
+        .for_each(|(mut die_ui, new_roll)| {
+            *die_ui.1 = die_ui
+                .1
+                .with_rotation(Quat::from_rotation_z(rand::random_range((-25.)..4.)));
+            // TODO: maybe make dice move not only rotate
+
+            **die_ui.0 = new_roll.to_string();
+        });
+}
+
+pub fn distribute_resources<'a>(
     roll: u8,
 
     board: Query<'_, '_, (&Hexagon, &Number, &Position)>,

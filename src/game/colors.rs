@@ -112,25 +112,28 @@ pub fn set_color(
 
 pub fn set_setup_color(
     game_state: &mut ResMut<'_, NextState<GameState>>,
-    color_r: &mut ResMut<'_, CurrentSetupColor>,
-    color_rotation: &mut ResMut<'_, SetupColorIterator>,
+    setup_color_r: &mut ResMut<'_, CurrentSetupColor>,
+    setup_color_rotation: &mut ResMut<'_, SetupColorIterator>,
 
     local_players: &Res<'_, LocalPlayers>,
     player_banners: &mut Query<'_, '_, (&mut BackgroundColor, &mut Outline, &PlayerBanner)>,
+
+    color_r: &mut ResMut<'_, CurrentColor>,
+    color_rotation: &mut ResMut<'_, ColorIterator>,
 ) {
-    if let Some(color) = color_rotation.0.next() {
+    if let Some(color) = setup_color_rotation.0.next() {
         println!("next color {color:?}");
         if let Some((mut background, mut border, _)) = player_banners
             .iter_mut()
-            .find(|(_, _, banner)| banner.0 == color_r.0)
+            .find(|(_, _, banner)| banner.0 == setup_color_r.0)
         {
             border.color = Color::NONE;
             *background = BackgroundColor(background.0.with_alpha(0.5));
         }
-        **color_r = CurrentSetupColor(color);
+        **setup_color_r = CurrentSetupColor(color);
         if let Some((mut background, mut border, _)) = player_banners
             .iter_mut()
-            .find(|(_, _, banner)| banner.0 == color_r.0)
+            .find(|(_, _, banner)| banner.0 == setup_color_r.0)
         {
             border.color = css::CADET_BLUE.into();
             *background = BackgroundColor(background.0.with_alpha(1.));
@@ -139,7 +142,7 @@ pub fn set_setup_color(
         super::next_player(
             game_state,
             local_players,
-            color_r.0,
+            setup_color_r.0,
             GameState::SetupRoad,
             GameState::NotActiveSetup,
         );
@@ -148,5 +151,12 @@ pub fn set_setup_color(
         // TODO: will this happen fast enough so that the last player wont have option to do it a
         // 3rd time
         game_state.set(GameState::NotActive);
+        set_color(
+            color_r,
+            color_rotation,
+            local_players,
+            game_state,
+            player_banners,
+        );
     }
 }

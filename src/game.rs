@@ -1,13 +1,14 @@
 use crate::{
     common_ui,
     game::{
+        cities::City,
         colors::{set_color, set_setup_color},
         longest_road::PlayerLongestRoad,
-        positions::{BuildingPosition, RoadPosition},
+        positions::{BuildingPosition, Position, RoadPosition},
         roads::{Road, RoadUI},
         setup_game::Ports,
         towns::{Town, TownUI},
-        turn_ui::PlayerBanner,
+        turn_ui::{DieButton, PlayerBanner},
     },
 };
 pub use std::marker::PhantomData;
@@ -69,7 +70,7 @@ pub enum Input {
     AddCity,
     AddTown(Entity, BuildingPosition, Resources, bool),
     TakeDevelopmentCard,
-    Roll,
+    Roll(u8, u8, u8),
     YearOfPlenty,
     Monopoly,
     // person picked from, and card picked, if there is a discard(cards discarded if needed)
@@ -170,6 +171,8 @@ fn update_from_inputs(
                         &mut setup_color_rotation,
                         &local_players,
                         &mut player_banners,
+                        &mut color_r,
+                        &mut color_rotation,
                     );
                 } else {
                     set_color(
@@ -227,13 +230,17 @@ fn update_from_inputs(
                         &mut setup_color_rotation,
                         &local_players,
                         &mut player_banners,
+                        &mut color_r,
+                        &mut color_rotation,
                     );
                 }
             }
             Input::TakeDevelopmentCard => todo!(),
-            Input::Roll => todo!(),
+            Input::Roll(number, d1, d2) => { // handeld by update_from_input_roll
+            }
             Input::YearOfPlenty => todo!(),
             Input::Monopoly => todo!(),
+            // if knight is from roll update dice visually
             Input::Knight => todo!(),
             Input::KnightDiscard => todo!(),
             Input::Trade => todo!(),
@@ -241,6 +248,38 @@ fn update_from_inputs(
             Input::TradeAccept => todo!(),
             Input::BankTrade => todo!(),
             Input::RoadBuilding => todo!(),
+        }
+    }
+}
+
+fn update_from_inputs_roll(
+    inputs: Res<'_, PlayerInputs<GgrsSessionConfig>>,
+    players: Query<'_, '_, &PlayerHandle>,
+
+    player_resources_q: Query<'_, '_, &mut Resources, With<CatanColor>>,
+
+    mut die_q: Query<'_, '_, (&mut Text, &mut Transform), With<DieButton>>,
+
+    board: Query<'_, '_, (&Hexagon, &Number, &Position)>,
+    towns: Query<'_, '_, (&ChildOf, &Town, &BuildingPosition), With<CatanColor>>,
+    cities: Query<'_, '_, (&ChildOf, &City, &BuildingPosition), With<CatanColor>>,
+
+    resources: ResMut<'_, Resources>,
+    robber: Res<'_, Robber>,
+) {
+    for player in players {
+        if let (Input::Roll(roll, d1, d2), InputStatus::Confirmed) = inputs[player.0] {
+            dice::update_dice(&mut die_q, d1, d2);
+            dice::distribute_resources(
+                roll,
+                board,
+                towns,
+                cities,
+                player_resources_q,
+                resources,
+                robber,
+            );
+            break;
         }
     }
 }
@@ -401,15 +440,6 @@ impl Plugin for GamePlugin {
             .add_systems(OnEnter(GameState::PlaceTown), towns::place_normal_town)
             .add_systems(OnEnter(GameState::PlaceCity), cities::place_normal_city)
             .add_systems(
-                OnTransition {
-                    // you might think, that we would do this after the last town (with SetupTown), but due
-                    // to how the color/player changing logic for setup its not acutally so
-                    exited: GameState::SetupRoad,
-                    entered: GameState::Roll,
-                },
-                turn_ui::show_turn_ui,
-            )
-            .add_systems(
                 Update,
                 turn_ui::turn_ui_road_interaction.run_if(in_state(GameState::Turn)),
             )
@@ -439,10 +469,13 @@ impl Plugin for GamePlugin {
                 (
                     turn_ui::setup_top,
                     (|mut game_state: ResMut<'_, NextState<GameState>>,
-                      mut color_r: ResMut<'_, CurrentSetupColor>,
-                      mut color_rotation: ResMut<'_, SetupColorIterator>,
+                      mut color_r: ResMut<'_, CurrentColor>,
+                      mut color_rotation: ResMut<'_, ColorIterator>,
 
                       local_players: Res<'_, LocalPlayers>,
+
+                      mut setup_color_r: ResMut<'_, CurrentSetupColor>,
+                      mut setup_color_rotation: ResMut<'_, SetupColorIterator>,
                       mut player_banners: Query<
                         '_,
                         '_,
@@ -450,12 +483,15 @@ impl Plugin for GamePlugin {
                     >| {
                         set_setup_color(
                             &mut game_state,
-                            &mut color_r,
-                            &mut color_rotation,
+                            &mut setup_color_r,
+                            &mut setup_color_rotation,
                             &local_players,
                             &mut player_banners,
+                            &mut color_r,
+                            &mut color_rotation,
                         );
                     }),
+                    turn_ui::show_turn_ui,
                 )
                     .chain(),
             )
@@ -472,6 +508,10 @@ impl Plugin for GamePlugin {
                             GameState::Roll,
                             GameState::RobberDiscardResources,
                             GameState::RoadBuilding,
+                            GameState::NotActive,
+                            GameState::NotActiveSetup,
+                            GameState::Start,
+                            GameState::Nothing,
                         ]
                         .contains(&current_state),
                         None => true,
@@ -493,7 +533,10 @@ impl Plugin for GamePlugin {
                 >
                     .run_if(in_state(GameState::SetupTown)),
             )
-            .add_systems(GgrsSchedule, update_from_inputs.ambiguous_with_all())
+            .add_systems(
+                GgrsSchedule,
+                (update_from_inputs, update_from_inputs_roll).ambiguous_with_all(),
+            )
             .add_systems(
                 ReadInputs,
                 ((common_ui::button_system_with_generic::<

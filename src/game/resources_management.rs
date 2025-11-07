@@ -417,15 +417,7 @@ pub struct ResourceManagmentPlugin;
 impl Plugin for ResourceManagmentPlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(TradingResources::default())
-            .add_systems(
-                OnTransition {
-                    // you might think, that we would do this after the last town (with SetupTown), but due
-                    // to how the color/player changing logic for setup its not acutally so
-                    exited: GameState::SetupRoad,
-                    entered: GameState::Roll,
-                },
-                setup_players_resources,
-            )
+            .add_systems(OnEnter(GameState::Start), setup_players_resources)
             .add_systems(Update, show_player_resources)
             .add_systems(Update, show_player_trade)
             // TODO: maybe remove the Changed<Resources> for this one, so new players cards always show

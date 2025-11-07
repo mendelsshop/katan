@@ -323,6 +323,5 @@ where
 
             GameState::SetupRoad => game_state_mut.set(GameState::SetupTown),
         }
-        // commands.spawn(RoadUI::bundle(*position, meshes, materials, current_color));
     }
 }

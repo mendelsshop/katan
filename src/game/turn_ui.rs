@@ -4,7 +4,7 @@ use itertools::Itertools;
 use crate::game::{Input, PlayerHandle};
 
 use super::{
-    CatanColor, CurrentColor, GameState, Hexagon, Knights, Layout, Left, Number, Resources, Robber,
+    CatanColor, CurrentColor, GameState, Knights, Layout, Left, Resources,
     VictoryPoints,
     cities::City,
     colors::CatanColorRef,
@@ -12,7 +12,6 @@ use super::{
     dice,
     larget_army::LargetArmyRef,
     longest_road::{LongestRoadRef, PlayerLongestRoad},
-    positions::{BuildingPosition, Position},
     resources::{CITY_RESOURCES, ROAD_RESOURCES, TOWN_RESOURCES},
     roads::Road,
     towns::Town,
@@ -45,29 +44,15 @@ pub fn turn_ui_roll_interaction(
         (&DieButton, &Interaction, &mut Button),
         Changed<Interaction>,
     >,
-    board: Query<'_, '_, (&Hexagon, &Number, &Position)>,
-    towns: Query<'_, '_, (&ChildOf, &Town, &BuildingPosition), With<CatanColor>>,
-    cities: Query<'_, '_, (&ChildOf, &City, &BuildingPosition), With<CatanColor>>,
     player_resources: Query<'_, '_, &mut Resources, With<CatanColor>>,
-    resources: ResMut<'_, Resources>,
-    robber: Res<'_, Robber>,
-    die_q: Query<'_, '_, (&mut Text, &mut Transform), With<DieButton>>,
+    input: ResMut<'_, Input>,
 ) {
     for (_, interaction, mut button) in &mut interaction_query {
         match *interaction {
             Interaction::Pressed => {
                 button.set_changed();
 
-                dice::full_roll_dice(
-                    board,
-                    towns,
-                    cities,
-                    player_resources,
-                    resources,
-                    robber,
-                    die_q,
-                    game_state,
-                );
+                dice::full_roll_dice(player_resources, game_state, input);
 
                 button.set_changed();
                 break;
