@@ -1,6 +1,6 @@
 //! functions to generate initial game state
 //! like hex placement
-use crate::game::PlayerCount;
+use crate::game::{PlayerCount, PlayerHandle};
 use rand_xoshiro::Xoshiro256PlusPlus;
 use std::{
     iter,
@@ -356,13 +356,14 @@ fn generate_pieces(
         .take(player_count as usize)
         .map(|(handle, color)| CatanColorRef {
             color,
+            handle: PlayerHandle(handle),
             entity: commands
                 .spawn((
                     color,
                     Left::<Town>(5, PhantomData),
                     Left::<City>(4, PhantomData),
                     Left::<Road>(15, PhantomData),
-                    super::PlayerHandle(handle),
+                    PlayerHandle(handle),
                     Resources::new_player(),
                     // maybe initialize this as part of longest road plugin just have system that run
                     // on startup(or eventually game start state) that adds this comonent to each

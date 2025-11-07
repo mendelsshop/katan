@@ -5,7 +5,10 @@ use bevy::{
 };
 use itertools::Itertools;
 
-use crate::utils::{HOVERED_BUTTON, NORMAL_BUTTON, PRESSED_BUTTON};
+use crate::{
+    game::PlayerHandle,
+    utils::{HOVERED_BUTTON, NORMAL_BUTTON, PRESSED_BUTTON},
+};
 
 use super::{
     Building, GameState,
@@ -93,7 +96,7 @@ pub fn place_robber_interaction(
     building_q: Query<'_, '_, (&ChildOf, &CatanColor, &'_ BuildingPosition), With<Building>>,
     current_color: Res<'_, CurrentColor>,
     mut robber: ResMut<'_, Robber>,
-    player_resources: Query<'_, '_, (&CatanColor, &mut Resources)>,
+    player_resources: Query<'_, '_, (&CatanColor, &mut Resources, &PlayerHandle)>,
     commands: Commands<'_, '_>,
     state: ResMut<'_, NextState<GameState>>,
 ) {
@@ -129,7 +132,7 @@ fn choose_player_to_take_from<'a>(
     position: &Position,
     color: CurrentColor,
     building_q: Query<'_, '_, (&ChildOf, &CatanColor, &'_ BuildingPosition), With<Building>>,
-    mut player_resources: Query<'_, '_, (&CatanColor, &mut Resources)>,
+    mut player_resources: Query<'_, '_, (&CatanColor, &mut Resources, &PlayerHandle)>,
     mut commands: Commands<'_, '_>,
     mut state: ResMut<'_, NextState<GameState>>,
 ) {
@@ -148,13 +151,15 @@ fn choose_player_to_take_from<'a>(
             .then_some(CatanColorRef {
                 entity: p.parent(),
                 color: *c,
+                handle: *player_resources.get(p.parent()).unwrap().2,
             })
         })
         .unique()
         .collect_vec();
     if colors.len() == 1 {
         let other_color = colors.remove(0);
-        let (_, mut other_color_resources) = player_resources.get_mut(other_color.entity).unwrap();
+        let (_, mut other_color_resources, _) =
+            player_resources.get_mut(other_color.entity).unwrap();
         let put_resources = take_resource(&mut other_color_resources);
         let mut current_resources = player_resources.get_mut(color.0.entity).unwrap();
         put_resources(&mut current_resources.1);

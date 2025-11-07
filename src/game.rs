@@ -1,10 +1,12 @@
 use crate::{
     common_ui,
     game::{
+        colors::{set_color, set_setup_color},
         longest_road::PlayerLongestRoad,
         positions::{BuildingPosition, RoadPosition},
         roads::{Road, RoadUI},
         setup_game::Ports,
+        turn_ui::PlayerBanner,
     },
 };
 pub use std::marker::PhantomData;
@@ -59,6 +61,7 @@ use crate::AppState;
 pub enum Input {
     #[default]
     None,
+    NextColor,
     // player, place, cost multiplier
     AddRoad(Entity, RoadPosition, Resources),
     AddCity,
@@ -101,10 +104,18 @@ pub struct SessionSeed(pub u64);
 fn update_from_inputs(
     inputs: Res<'_, PlayerInputs<GgrsSessionConfig>>,
     players: Query<'_, '_, (Entity, &PlayerHandle, &mut Resources, &CatanColor)>,
+    mut player_banners: Query<'_, '_, (&mut BackgroundColor, &mut Outline, &PlayerBanner)>,
     mut bank: ResMut<'_, Resources>,
     mut commands: Commands<'_, '_>,
     mut meshes: ResMut<'_, Assets<Mesh>>,
     mut materials: ResMut<'_, Assets<ColorMaterial>>,
+    mut mut_game_state: ResMut<'_, NextState<GameState>>,
+    game_state: ResMut<'_, State<GameState>>,
+    mut setup_color_r: ResMut<'_, CurrentSetupColor>,
+    mut color_r: ResMut<'_, CurrentColor>,
+    mut setup_color_rotation: ResMut<'_, SetupColorIterator>,
+    mut color_rotation: ResMut<'_, ColorIterator>,
+    local_players: Res<'_, LocalPlayers>,
 ) {
     let count = inputs.iter().filter(|(i, _)| *i != Input::None).count();
     if count != 0 {
@@ -114,6 +125,28 @@ fn update_from_inputs(
         let (input, _state) = inputs[player_handle.0];
         match input {
             Input::None => {}
+            Input::NextColor => {
+                if matches!(
+                    *game_state.get(),
+                    GameState::NotActiveSetup | GameState::SetupTown
+                ) {
+                    set_setup_color(
+                        &mut mut_game_state,
+                        &mut setup_color_r,
+                        &mut setup_color_rotation,
+                        &local_players,
+                        &mut player_banners,
+                    );
+                } else {
+                    set_color(
+                        &mut color_r,
+                        &mut color_rotation,
+                        &local_players,
+                        &mut mut_game_state,
+                        &mut player_banners,
+                    );
+                }
+            }
             Input::AddRoad(entity, road_position, cost) => {
                 println!("new road");
                 bank.add_assign(cost);
@@ -191,10 +224,12 @@ impl Plugin for GamePlugin {
             .insert_resource(CurrentColor(CatanColorRef {
                 color: CatanColor::White,
                 entity: Entity::PLACEHOLDER,
+                handle: PlayerHandle(0),
             }))
             .insert_resource(CurrentSetupColor(CatanColorRef {
                 color: CatanColor::White,
                 entity: Entity::PLACEHOLDER,
+                handle: PlayerHandle(0),
             }))
             .add_systems(OnEnter(AppState::InGame), game_setup)
             .add_systems(
@@ -215,10 +250,6 @@ impl Plugin for GamePlugin {
             )
             .add_systems(OnEnter(GameState::SetupRoad), roads::place_setup_road)
             .add_systems(OnEnter(GameState::SetupTown), towns::place_setup_town)
-            .add_systems(
-                OnEnter(GameState::SetupTown),
-                turn_ui::setup_top.run_if(run_once),
-            )
             .add_systems(
                 Update,
                 turn_ui::top_interaction.run_if(in_state(AppState::InGame)),
@@ -337,6 +368,31 @@ impl Plugin for GamePlugin {
                 robber::place_robber_interaction.run_if(in_state(GameState::PlaceRobber)),
             )
             .add_systems(
+                OnEnter(GameState::Start),
+                (
+                    turn_ui::setup_top,
+                    (|mut game_state: ResMut<'_, NextState<GameState>>,
+                      mut color_r: ResMut<'_, CurrentSetupColor>,
+                      mut color_rotation: ResMut<'_, SetupColorIterator>,
+
+                      local_players: Res<'_, LocalPlayers>,
+                      mut player_banners: Query<
+                        '_,
+                        '_,
+                        (&mut BackgroundColor, &mut Outline, &PlayerBanner),
+                    >| {
+                        set_setup_color(
+                            &mut game_state,
+                            &mut color_r,
+                            &mut color_rotation,
+                            &local_players,
+                            &mut player_banners,
+                        );
+                    }),
+                )
+                    .chain(),
+            )
+            .add_systems(
                 Update,
                 // TODO: if in turn or place state
                 turn_ui::turn_ui_next_interaction.run_if({
@@ -355,8 +411,8 @@ impl Plugin for GamePlugin {
                     }
                 }),
             )
-            .add_systems(OnEnter(GameState::SetupRoad), colors::set_setup_color)
-            .add_systems(OnEnter(GameState::Roll), colors::set_color)
+            // .add_systems(OnEnter(GameState::SetupRoad), colors::set_setup_color)
+            // .add_systems(OnEnter(GameState::Roll), colors::set_color)
             .add_systems(
                 Update,
                 development_cards::buy_development_card_interaction
@@ -436,9 +492,11 @@ impl Plugin for GamePlugin {
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default, SubStates)]
 #[source(AppState = AppState::InGame)]
 pub enum GameState {
+    NotActive,
+    NotActiveSetup,
     RobberDiscardResources,
-    Nothing,
     #[default]
+    Nothing,
     Start,
     PlaceRoad,
     Roll,
@@ -457,7 +515,7 @@ pub enum GameState {
 }
 
 // for players input with ggrs
-#[derive(Component, PartialEq, Eq, Debug, Clone, Copy)]
+#[derive(Component, PartialEq, Eq, Debug, Clone, Copy, Hash)]
 pub struct PlayerHandle(pub usize);
 #[derive(Component, PartialEq, Debug, Clone, Copy)]
 enum Number {
@@ -584,7 +642,7 @@ fn game_setup(
 ) {
     let layout = layout(&mut commands);
     commands.insert_resource(layout);
-    let catan_colors = setup_game::setup(
+    let mut catan_colors = setup_game::setup(
         &mut commands,
         meshes,
         materials,
@@ -592,12 +650,29 @@ fn game_setup(
         player_count,
         seed.0,
     );
-    next_state.set(GameState::SetupRoad);
 
     commands.insert_resource(ColorIterator(catan_colors.clone().cycle()));
     commands.insert_resource(SetupColorIterator(
-        catan_colors.clone().chain(catan_colors.into_iter().rev()),
+        catan_colors.clone().chain(catan_colors.clone().rev()),
     ));
+    let first = catan_colors.next();
+
+    next_state.set(GameState::Start);
+}
+
+pub fn next_player(
+    next_state: &mut ResMut<'_, NextState<GameState>>,
+    local_players: &Res<'_, LocalPlayers>,
+    new: CatanColorRef,
+    active: GameState,
+    inactive: GameState,
+) {
+    if local_players.0.contains(&new.handle.0) {
+        println!("active {active:?}");
+        next_state.set(active);
+    } else {
+        next_state.set(inactive);
+    }
 }
 
 #[derive(Resource, Debug, Clone, Copy)]

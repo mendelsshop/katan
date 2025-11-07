@@ -1,5 +1,6 @@
 use bevy::{ecs::system::SystemParam, prelude::*};
 
+use crate::game::Input;
 use crate::utils::NORMAL_BUTTON;
 
 use super::BoardSize;
@@ -228,6 +229,7 @@ pub struct PlaceTownButtonState<'w, 's, C: Resource> {
         With<CatanColor>,
     >,
     ports: Query<'w, 's, (&'static BuildingPosition, &'static Port)>,
+    input: ResMut<'w, Input>,
 }
 impl<C: Resource> ButtonInteraction<TownPlaceButton> for PlaceTownButtonState<'_, '_, C>
 where
@@ -246,6 +248,7 @@ where
             materials,
             kind_free_ports_and_resources_q,
             ports,
+            input,
         } = self;
 
         let color_r: &C = color_r;
@@ -274,6 +277,8 @@ where
         **resources += *cost;
         match *game_state.get() {
             GameState::Nothing
+            | GameState::NotActive
+            | GameState::NotActiveSetup
             | GameState::Monopoly
             | GameState::YearOfPlenty
             | GameState::Start
@@ -290,7 +295,7 @@ where
                 game_state_mut.set(GameState::Turn);
             }
 
-            GameState::SetupTown => game_state_mut.set(GameState::SetupRoad),
+            GameState::SetupTown => **input = Input::NextColor,
         }
         commands.spawn(TownUI::bundle(*position, meshes, materials, current_color));
     }

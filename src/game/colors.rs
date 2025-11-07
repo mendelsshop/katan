@@ -9,6 +9,9 @@ use bevy::{
     color::{self, palettes::css},
     prelude::*,
 };
+use bevy_ggrs::LocalPlayers;
+
+use crate::game::PlayerHandle;
 
 use super::{GameState, turn_ui::PlayerBanner};
 
@@ -50,6 +53,7 @@ pub enum CatanColor {
 pub struct CatanColorRef {
     pub color: CatanColor,
     pub entity: Entity,
+    pub handle: PlayerHandle,
 }
 
 impl CatanColorRef {
@@ -73,10 +77,13 @@ pub struct ColorIterator(pub Cycle<IntoIter<CatanColorRef>>);
 #[derive(Resource, Debug)]
 pub struct SetupColorIterator(pub Chain<IntoIter<CatanColorRef>, Rev<IntoIter<CatanColorRef>>>);
 pub fn set_color(
-    mut color_r: ResMut<'_, CurrentColor>,
-    color_rotation: ResMut<'_, ColorIterator>,
+    color_r: &mut ResMut<'_, CurrentColor>,
+    color_rotation: &mut ResMut<'_, ColorIterator>,
 
-    mut player_banners: Query<'_, '_, (&mut BackgroundColor, &mut Outline, &PlayerBanner)>,
+    local_players: &Res<'_, LocalPlayers>,
+
+    game_state: &mut ResMut<'_, NextState<GameState>>,
+    player_banners: &mut Query<'_, '_, (&mut BackgroundColor, &mut Outline, &PlayerBanner)>,
 ) {
     if let Some((mut background, mut border, _)) = player_banners
         .iter_mut()
@@ -85,7 +92,7 @@ pub fn set_color(
         *background = BackgroundColor(background.0.with_alpha(0.5));
         border.color = Color::NONE;
     }
-    *color_r = CurrentColor(color_rotation.into_inner().0.next().unwrap());
+    **color_r = CurrentColor(color_rotation.0.next().unwrap());
     if let Some((mut background, mut border, _)) = player_banners
         .iter_mut()
         .find(|(_, _, banner)| banner.0 == color_r.0)
@@ -94,16 +101,24 @@ pub fn set_color(
         border.color = css::CADET_BLUE.into();
         *background = BackgroundColor(background.0.with_alpha(1.0));
     }
+    super::next_player(
+        game_state,
+        local_players,
+        color_r.0,
+        GameState::Roll,
+        GameState::NotActive,
+    );
 }
 
 pub fn set_setup_color(
-    mut game_state: ResMut<'_, NextState<GameState>>,
-    mut color_r: ResMut<'_, CurrentSetupColor>,
-    color_rotation: ResMut<'_, SetupColorIterator>,
+    game_state: &mut ResMut<'_, NextState<GameState>>,
+    color_r: &mut ResMut<'_, CurrentSetupColor>,
+    color_rotation: &mut ResMut<'_, SetupColorIterator>,
 
-    mut player_banners: Query<'_, '_, (&mut BackgroundColor, &mut Outline, &PlayerBanner)>,
+    local_players: &Res<'_, LocalPlayers>,
+    player_banners: &mut Query<'_, '_, (&mut BackgroundColor, &mut Outline, &PlayerBanner)>,
 ) {
-    if let Some(color) = color_rotation.into_inner().0.next() {
+    if let Some(color) = color_rotation.0.next() {
         if let Some((mut background, mut border, _)) = player_banners
             .iter_mut()
             .find(|(_, _, banner)| banner.0 == color_r.0)
@@ -111,7 +126,7 @@ pub fn set_setup_color(
             border.color = Color::NONE;
             *background = BackgroundColor(background.0.with_alpha(0.5));
         }
-        *color_r = CurrentSetupColor(color);
+        **color_r = CurrentSetupColor(color);
         if let Some((mut background, mut border, _)) = player_banners
             .iter_mut()
             .find(|(_, _, banner)| banner.0 == color_r.0)
@@ -120,9 +135,16 @@ pub fn set_setup_color(
             *background = BackgroundColor(background.0.with_alpha(1.));
             // TODO: better shinning effect
         }
+        super::next_player(
+            game_state,
+            local_players,
+            color_r.0,
+            GameState::SetupRoad,
+            GameState::NotActiveSetup,
+        );
     } else {
         // TODO: will this happen fast enough so that the last player wont have option to do it a
         // 3rd time
-        game_state.set(GameState::Roll);
+        game_state.set(GameState::NotActive);
     }
 }

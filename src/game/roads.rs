@@ -309,7 +309,10 @@ where
             | GameState::SetupTown
             | GameState::PlaceTown
             | GameState::PlaceCity
+            | GameState::NotActive
+            | GameState::NotActiveSetup
             | GameState::RobberPickColor => {}
+
             GameState::PlaceRoad => {
                 game_state_mut.set(GameState::Turn);
             }

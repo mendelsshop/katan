@@ -1,6 +1,8 @@
 use bevy::prelude::*;
 use itertools::Itertools;
 
+use crate::game::{Input, PlayerHandle};
+
 use super::{
     CatanColor, CurrentColor, GameState, Hexagon, Knights, Layout, Left, Number, Resources, Robber,
     VictoryPoints,
@@ -78,7 +80,7 @@ pub fn turn_ui_roll_interaction(
     }
 }
 pub fn turn_ui_next_interaction(
-    mut game_state: ResMut<'_, NextState<GameState>>,
+    mut input: ResMut<'_, Input>,
     interaction_query: Single<
         '_,
         '_,
@@ -90,7 +92,9 @@ pub fn turn_ui_next_interaction(
     // for (entity, interaction, mut button) in &mut interaction_query {
     match *interaction {
         Interaction::Pressed => {
-            game_state.set(GameState::Roll);
+            *input = Input::NextColor;
+
+            // game_state.set(GameState::Roll);
             button.set_changed();
         }
         Interaction::Hovered => {
@@ -353,7 +357,7 @@ pub struct PlayerBanner(pub CatanColorRef);
 pub fn setup_top(
     mut commands: Commands<'_, '_>,
     // the With<...> is a hack to just filter to the players just in case other entities have color
-    players: Query<'_, '_, (Entity, &CatanColor), With<Left<Town>>>,
+    players: Query<'_, '_, (Entity, &CatanColor, &PlayerHandle)>,
     layout: Res<'_, Layout>,
 ) {
     let player_count = players.iter().count();
@@ -378,6 +382,7 @@ pub fn setup_top(
                     PlayerBanner(CatanColorRef {
                         color: *player.1,
                         entity: player.0,
+                        handle: *player.2,
                     }),
                 ))
                 .id();
@@ -395,6 +400,7 @@ pub fn setup_top(
     top.add_children(&banners);
     let top = top.id();
     commands.entity(layout.player_banner).add_child(top);
+    println!("done setup");
 }
 
 pub fn top_interaction(
