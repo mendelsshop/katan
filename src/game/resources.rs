@@ -42,7 +42,7 @@ pub struct Resources {
     pub wheat: u8,
     pub ore: u8,
 }
-#[derive(Debug, Component, Resource, Clone, Copy)]
+#[derive(PartialEq, Eq, Clone, Copy, Deserialize, Serialize, Debug, Resource, Component)]
 pub enum Resource {
     Wood,
     Brick,

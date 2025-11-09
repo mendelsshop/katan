@@ -5,6 +5,9 @@ use std::{
 
 use bevy::{ecs::system::SystemParam, prelude::*};
 use itertools::Itertools;
+use serde::{Deserialize, Serialize};
+
+use crate::game::Input;
 
 use super::{
     GameState, Layout,
@@ -103,10 +106,10 @@ pub struct TradeChildren(Vec<Entity>);
 #[derive(SystemParam)]
 struct BankTradeState<'w, 's> {
     trading_resources: Res<'w, TradingResources>,
-    bank_resources: ResMut<'w, Resources>,
     current_color: Res<'w, CurrentColor>,
     player_resources_and_ports:
         Query<'w, 's, (&'static mut Resources, &'static Ports), With<CatanColor>>,
+    input: ResMut<'w, Input>,
 }
 
 impl ButtonInteraction<BankTradeButton> for BankTradeState<'_, '_> {
@@ -136,14 +139,7 @@ impl ButtonInteraction<BankTradeButton> for BankTradeState<'_, '_> {
         }
     }
     fn interact(&mut self, _: &BankTradeButton) {
-        let trading_resources = *(&self.trading_resources as &TradingResources);
-        self.bank_resources.sub_assign(trading_resources);
-        if let Ok((mut player_resources, _)) = self
-            .player_resources_and_ports
-            .get_mut(self.current_color.0.entity)
-        {
-            player_resources.add_assign(trading_resources);
-        }
+        *self.input = Input::BankTrade(*self.trading_resources);
     }
 }
 pub fn show_player_trade(
@@ -273,7 +269,7 @@ fn resource_slider(commands: &mut Commands<'_, '_>, kind: resources::Resource) -
 
 #[derive(Component, Clone, Copy, Debug)]
 pub struct ResourceRef(pub Entity, pub resources::Resource);
-#[derive(Resource, Default, Debug, Clone, Copy)]
+#[derive(Resource, Default, Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 pub struct TradingResources {
     pub wood: i8,
     pub brick: i8,

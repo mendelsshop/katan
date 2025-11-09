@@ -1,14 +1,15 @@
-use std::mem;
-
 use bevy::prelude::*;
 
-use crate::utils::{HOVERED_BUTTON, NORMAL_BUTTON, PRESSED_BUTTON};
+use crate::{
+    game::Input,
+    utils::{HOVERED_BUTTON, NORMAL_BUTTON, PRESSED_BUTTON},
+};
 
 use super::{
     GameState, Knights, Layout,
     colors::{CatanColor, CurrentColor},
     development_cards::{DevelopmentCard, DevelopmentCards},
-    resources::{self, Resources},
+    resources::{self},
 };
 
 #[derive(Component, PartialEq, Eq, Clone, Copy, Debug)]
@@ -153,30 +154,15 @@ pub fn monopoly_interaction(
         (Changed<Interaction>,),
     >,
 
-    current_color: Res<'_, CurrentColor>,
-    mut player_resources: Query<'_, '_, (&CatanColor, &mut Resources)>,
     mut state: ResMut<'_, NextState<GameState>>,
+    mut input: ResMut<'_, Input>,
 ) {
     for (interaction, mut button, mut color, kind) in &mut interaction_query {
         match *interaction {
             Interaction::Pressed => {
+                *input = Input::Monopoly(kind.0);
                 *color = PRESSED_BUTTON.into();
                 button.set_changed();
-                let taken = player_resources
-                    .iter_mut()
-                    .map(|mut r| {
-                        let mut taken = 0;
-                        let original = r.1.get_mut(kind.0);
-                        mem::swap(&mut taken, original);
-                        taken
-                    })
-                    .sum::<u8>();
-
-                if let Ok((_, mut resources)) = player_resources.get_mut(current_color.0.entity) {
-                    // we reassign because when we go through the resources we also go through
-                    // current color's resources
-                    *resources.get_mut(kind.0) = taken;
-                }
                 state.set(GameState::Turn);
             }
             Interaction::Hovered => {
@@ -253,26 +239,21 @@ pub fn year_of_plenty_interaction(
         (Changed<Interaction>,),
     >,
 
-    current_color: Res<'_, CurrentColor>,
-    mut player_resources: Query<'_, '_, &mut Resources, With<CatanColor>>,
     mut state: ResMut<'_, NextState<GameState>>,
     mut substate_mut: ResMut<'_, NextState<YearOfPlentyState>>,
     substate: Res<'_, State<YearOfPlentyState>>,
+    mut input: ResMut<'_, Input>,
 ) {
     for (interaction, mut button, mut color, kind) in &mut interaction_query {
         match *interaction {
             Interaction::Pressed => {
                 *color = PRESSED_BUTTON.into();
                 button.set_changed();
-                if let Ok(mut resources) = player_resources.get_mut(current_color.0.entity) {
-                    // we reassign because when we go through the resources we also go through
-                    // current color's resources
-                    *resources.get_mut(kind.0) += 1;
-                    if *substate.get() == YearOfPlentyState::Resource1 {
-                        substate_mut.set(YearOfPlentyState::Resource2);
-                    } else {
-                        state.set(GameState::Turn);
-                    }
+                *input = Input::YearOfPlenty(kind.0);
+                if *substate.get() == YearOfPlentyState::Resource1 {
+                    substate_mut.set(YearOfPlentyState::Resource2);
+                } else {
+                    state.set(GameState::Turn);
                 }
             }
             Interaction::Hovered => {

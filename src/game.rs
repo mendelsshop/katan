@@ -7,6 +7,7 @@ use crate::{
         longest_road::PlayerLongestRoad,
         positions::{BuildingPosition, Position, RoadPosition},
         resources::DEVELOPMENT_CARD_RESOURCES,
+        resources_management::TradingResources,
         roads::{Road, RoadUI},
         setup_game::Ports,
         towns::{Town, TownUI},
@@ -14,7 +15,10 @@ use crate::{
     },
 };
 pub use std::marker::PhantomData;
-use std::ops::{AddAssign, SubAssign};
+use std::{
+    mem,
+    ops::{AddAssign, SubAssign},
+};
 mod cities;
 mod colors;
 mod development_card_actions;
@@ -68,21 +72,23 @@ pub enum Input {
     None,
     NextColor,
     // player, place, cost multiplier
+    // also used for road building
     AddRoad(RoadPosition, Resources),
     AddCity(Entity, BuildingPosition, Resources),
     AddTown(BuildingPosition, Resources, bool),
     TakeDevelopmentCard,
     Roll(u8, u8, u8),
-    YearOfPlenty,
-    Monopoly,
+    // for each year of plenty done twice
+    // maybe just send one with two resources
+    YearOfPlenty(resources::Resource),
+    Monopoly(resources::Resource),
     // person picked from, and card picked, if there is a discard(cards discarded if needed)
     Knight, // interactive(KnightDiscard)
     KnightDiscard,
     Trade,         // interactive(TradeResponce)
     TradeResponce, // interactive(TradeAccept)
     TradeAccept,
-    BankTrade,
-    RoadBuilding,
+    BankTrade(TradingResources),
 }
 pub type GgrsSessionConfig = bevy_ggrs::GgrsConfig<Input, PeerId>;
 pub struct GamePlugin;
@@ -269,22 +275,54 @@ fn update_from_inputs(
                     *player_dev_cards.get_mut(card) += 1;
                 }
             }
-            Input::Roll(number, d1, d2) => { // handeld by update_from_input_roll
+            // handeld by update_from_input_roll
+            Input::Roll(_number, _d1, _d2) => (),
+            Input::YearOfPlenty(resource) => {
+                *bank.get_mut(resource) -= 1;
+                *player_resources.get_mut(resource) += 1;
             }
-            Input::YearOfPlenty => todo!(),
-            Input::Monopoly => todo!(),
+            // handeld by update_from_monopoly
+            Input::Monopoly(_resource) => (),
             // if knight is from roll update dice visually
             Input::Knight => todo!(),
             Input::KnightDiscard => todo!(),
             Input::Trade => todo!(),
             Input::TradeResponce => todo!(),
             Input::TradeAccept => todo!(),
-            Input::BankTrade => todo!(),
-            Input::RoadBuilding => todo!(),
+            Input::BankTrade(trading_resources) => {
+                bank.sub_assign(trading_resources);
+                player_resources.add_assign(trading_resources);
+            }
         }
     }
 }
 
+fn update_from_monopoly(
+    inputs: Res<'_, PlayerInputs<GgrsSessionConfig>>,
+    players: Query<'_, '_, (Entity, &PlayerHandle)>,
+    mut player_resources_q: Query<'_, '_, &mut Resources, With<CatanColor>>,
+) {
+    for player in players {
+        if let (Input::Monopoly(resource), InputStatus::Confirmed) = inputs[player.1.0] {
+            let taken = player_resources_q
+                .iter_mut()
+                .map(|mut r| {
+                    let mut taken = 0;
+                    let original = r.get_mut(resource);
+                    mem::swap(&mut taken, original);
+                    taken
+                })
+                .sum::<u8>();
+
+            if let Ok(mut resources) = player_resources_q.get_mut(player.0) {
+                // we reassign because when we go through the resources we also go through
+                // current color's resources
+                *resources.get_mut(resource) = taken;
+            }
+            break;
+        }
+    }
+}
 fn update_from_inputs_roll(
     inputs: Res<'_, PlayerInputs<GgrsSessionConfig>>,
     players: Query<'_, '_, &PlayerHandle>,
@@ -563,7 +601,12 @@ impl Plugin for GamePlugin {
             )
             .add_systems(
                 GgrsSchedule,
-                (update_from_inputs, update_from_inputs_roll).ambiguous_with_all(),
+                (
+                    update_from_inputs,
+                    update_from_inputs_roll,
+                    update_from_monopoly,
+                )
+                    .ambiguous_with_all(),
             )
             .add_systems(
                 Update,
@@ -765,7 +808,7 @@ fn game_setup(
 ) {
     let layout = layout(&mut commands);
     commands.insert_resource(layout);
-    let mut catan_colors = setup_game::setup(
+    let catan_colors = setup_game::setup(
         &mut commands,
         meshes,
         materials,
@@ -776,9 +819,8 @@ fn game_setup(
 
     commands.insert_resource(ColorIterator(catan_colors.clone().cycle()));
     commands.insert_resource(SetupColorIterator(
-        catan_colors.clone().chain(catan_colors.clone().rev()),
+        catan_colors.clone().chain(catan_colors.rev()),
     ));
-    let first = catan_colors.next();
 
     next_state.set(GameState::Start);
 }
