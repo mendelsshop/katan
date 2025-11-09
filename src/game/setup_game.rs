@@ -1,6 +1,6 @@
 //! functions to generate initial game state
 //! like hex placement
-use crate::game::{PlayerCount, PlayerHandle};
+use crate::game::{PlayerCount, PlayerHandle, development_cards::DevelopmentCardsPile};
 use rand_xoshiro::Xoshiro256PlusPlus;
 use std::{
     iter,
@@ -114,9 +114,7 @@ fn generate_development_cards(commands: &mut Commands<'_, '_>, rng: &mut Xoshiro
     ];
     development_cards.shuffle(rng);
 
-    for card in development_cards {
-        commands.spawn(card).add_rollback();
-    }
+    commands.insert_resource(DevelopmentCardsPile(development_cards.to_vec()));
 }
 fn generate_board(
     commands: &mut Commands<'_, '_>,

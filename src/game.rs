@@ -3,8 +3,10 @@ use crate::{
     game::{
         cities::City,
         colors::{set_color, set_setup_color},
+        development_cards::{DevelopmentCards, DevelopmentCardsPile},
         longest_road::PlayerLongestRoad,
         positions::{BuildingPosition, Position, RoadPosition},
+        resources::DEVELOPMENT_CARD_RESOURCES,
         roads::{Road, RoadUI},
         setup_game::Ports,
         towns::{Town, TownUI},
@@ -119,6 +121,7 @@ fn update_from_inputs(
             &mut Left<Road>,
             &mut Left<Town>,
             &mut Left<City>,
+            &mut DevelopmentCards,
         ),
     >,
 
@@ -135,6 +138,8 @@ fn update_from_inputs(
     mut setup_color_rotation: ResMut<'_, SetupColorIterator>,
     mut color_rotation: ResMut<'_, ColorIterator>,
     local_players: Res<'_, LocalPlayers>,
+
+    mut free_dev_cards: ResMut<'_, DevelopmentCardsPile>,
 ) {
     let count = inputs.iter().filter(|(i, _)| *i != Input::None).count();
     if count != 0 {
@@ -154,6 +159,7 @@ fn update_from_inputs(
         mut roads_left,
         mut towns_left,
         mut cities_left,
+        mut player_dev_cards,
     ) in players
     {
         let (input, _state) = inputs[player_handle.0];
@@ -253,7 +259,17 @@ fn update_from_inputs(
                     );
                 }
             }
-            Input::TakeDevelopmentCard => todo!(),
+            Input::TakeDevelopmentCard => {
+                if let Some(card) = free_dev_cards.0.pop() {
+                    let required_resources = DEVELOPMENT_CARD_RESOURCES;
+                    *player_resources -= required_resources;
+                    bank.add_assign(required_resources);
+                    if card == DevelopmentCard::VictoryPoint {
+                        vps.from_development_cards += 1;
+                    }
+                    *player_dev_cards.get_mut(card) += 1;
+                }
+            }
             Input::Roll(number, d1, d2) => { // handeld by update_from_input_roll
             }
             Input::YearOfPlenty => todo!(),

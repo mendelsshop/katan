@@ -3,10 +3,13 @@ use std::ops::{Add, AddAssign};
 use bevy::prelude::*;
 use itertools::Itertools;
 
-use crate::utils::{HOVERED_BUTTON, NORMAL_BUTTON, PRESSED_BUTTON};
+use crate::{
+    game::Input,
+    utils::{HOVERED_BUTTON, NORMAL_BUTTON, PRESSED_BUTTON},
+};
 
 use super::{
-    Layout, VictoryPoints,
+    Layout,
     colors::{CatanColor, CurrentColor},
     development_card_actions::DevelopmentCardShow,
     resources::{DEVELOPMENT_CARD_RESOURCES, Resources},
@@ -82,6 +85,8 @@ impl DevelopmentCards {
         }
     }
 }
+#[derive(Debug, Resource, Clone, Default)]
+pub struct DevelopmentCardsPile(pub Vec<DevelopmentCard>);
 #[derive(Debug, Component, Clone, Copy, Default)]
 pub struct DevelopmentCards {
     knight: u8,
@@ -129,16 +134,9 @@ impl Add for DevelopmentCards {
 }
 
 pub fn buy_development_card_interaction(
-    mut commands: Commands<'_, '_>,
     color_r: Res<'_, CurrentColor>,
-    mut free_dev_cards: Query<'_, '_, (Entity, &DevelopmentCard), Without<CatanColor>>,
-    mut player_resources_and_dev_cards: Query<
-        '_,
-        '_,
-        (&mut Resources, &mut DevelopmentCards, &mut VictoryPoints),
-        With<CatanColor>,
-    >,
-    mut resources: ResMut<'_, Resources>,
+    free_dev_cards: Query<'_, '_, (Entity, &DevelopmentCard), Without<CatanColor>>,
+    mut player_resources_and_dev_cards: Query<'_, '_, &mut Resources, With<CatanColor>>,
     interaction_query: Single<
         '_,
         '_,
@@ -150,10 +148,9 @@ pub fn buy_development_card_interaction(
         ),
         Changed<Interaction>,
     >,
+    mut input: ResMut<'_, Input>,
 ) {
-    if let Ok((mut player_resources, mut player_dev_cards, mut vps)) =
-        player_resources_and_dev_cards.get_mut(color_r.0.entity)
-    {
+    if let Ok(player_resources) = player_resources_and_dev_cards.get_mut(color_r.0.entity) {
         let required_resources = DEVELOPMENT_CARD_RESOURCES;
         if !player_resources.contains(required_resources) {
             return;
@@ -161,16 +158,9 @@ pub fn buy_development_card_interaction(
         let (_, interaction, mut color, mut button) = interaction_query.into_inner();
         match *interaction {
             Interaction::Pressed => {
-                if let Some(card) = free_dev_cards.iter_mut().next() {
-                    *player_resources -= required_resources;
-                    *resources += required_resources;
-                    if *card.1 == DevelopmentCard::VictoryPoint {
-                        vps.from_development_cards += 1;
-                    }
-                    *player_dev_cards.get_mut(*card.1) += 1;
-                    commands.entity(card.0).despawn();
+                if free_dev_cards.count() > 0 {
+                    *input = Input::TakeDevelopmentCard;
                 }
-
                 *color = PRESSED_BUTTON.into();
                 button.set_changed();
             }
