@@ -68,9 +68,9 @@ pub enum Input {
     None,
     NextColor,
     // player, place, cost multiplier
-    AddRoad(Entity, RoadPosition, Resources),
+    AddRoad(RoadPosition, Resources),
     AddCity(Entity, BuildingPosition, Resources),
-    AddTown(Entity, BuildingPosition, Resources, bool),
+    AddTown(BuildingPosition, Resources, bool),
     TakeDevelopmentCard,
     Roll(u8, u8, u8),
     YearOfPlenty,
@@ -92,7 +92,6 @@ fn read_local_inputs(
     local_players: Res<'_, LocalPlayers>,
     mut current_inputs: ResMut<'_, Input>,
 ) {
-    // at some point we should clear the input
     commands.insert_resource(LocalInputs::<GgrsSessionConfig>(
         // updating of the input should happen on the fly
         local_players
@@ -150,7 +149,7 @@ fn update_from_inputs(
         );
     }
     for (
-        _entity,
+        entity,
         player_handle,
         mut player_resources,
         color,
@@ -192,7 +191,7 @@ fn update_from_inputs(
                     );
                 }
             }
-            Input::AddRoad(entity, road_position, cost) => {
+            Input::AddRoad(road_position, cost) => {
                 println!("new road");
                 bank.add_assign(cost);
                 player_resources.sub_assign(cost);
@@ -226,7 +225,7 @@ fn update_from_inputs(
                     Transform::from_xyz(x * 77.0, y * 77., 0.0),
                 ));
             }
-            Input::AddTown(entity, town_position, cost, next) => {
+            Input::AddTown(town_position, cost, next) => {
                 bank.add_assign(cost);
                 player_resources.sub_assign(cost);
                 commands
@@ -552,8 +551,6 @@ impl Plugin for GamePlugin {
                     }
                 }),
             )
-            // .add_systems(OnEnter(GameState::SetupRoad), colors::set_setup_color)
-            // .add_systems(OnEnter(GameState::Roll), colors::set_color)
             .add_systems(
                 Update,
                 development_cards::buy_development_card_interaction
@@ -561,23 +558,21 @@ impl Plugin for GamePlugin {
             )
             .add_systems(
                 Update,
-                common_ui::button_system_with_generic::<
-                    TownPlaceButton,
-                    PlaceTownButtonState<'_, CurrentSetupColor>,
-                >
-                    .run_if(in_state(GameState::SetupTown)),
+                common_ui::button_system_with_generic::<TownPlaceButton, PlaceTownButtonState<'_>>
+                    .run_if(in_state(GameState::SetupTown).or(in_state(GameState::PlaceTown))),
             )
             .add_systems(
                 GgrsSchedule,
                 (update_from_inputs, update_from_inputs_roll).ambiguous_with_all(),
             )
             .add_systems(
-                ReadInputs,
-                ((common_ui::button_system_with_generic::<
-                    RoadPlaceButton,
-                    PlaceRoadButtonState<'_, CurrentSetupColor>,
-                >
-                    .run_if(in_state(GameState::SetupRoad))),),
+                Update,
+                common_ui::button_system_with_generic::<RoadPlaceButton, PlaceRoadButtonState<'_>>
+                    .run_if(
+                        in_state(GameState::SetupRoad)
+                            .or(in_state(GameState::PlaceRoad)
+                                .or(in_state(GameState::RoadBuilding))),
+                    ),
             )
             .add_systems(
                 Update,
@@ -595,22 +590,6 @@ impl Plugin for GamePlugin {
                         ));
                     }
                 },
-            )
-            .add_systems(
-                Update,
-                common_ui::button_system_with_generic::<
-                    RoadPlaceButton,
-                    PlaceRoadButtonState<'_, CurrentColor>,
-                >
-                    .run_if(in_state(GameState::PlaceRoad).or(in_state(GameState::RoadBuilding))),
-            )
-            .add_systems(
-                Update,
-                common_ui::button_system_with_generic::<
-                    TownPlaceButton,
-                    PlaceTownButtonState<'_, CurrentColor>,
-                >
-                    .run_if(in_state(GameState::PlaceTown)),
             )
             .add_systems(
                 Update,

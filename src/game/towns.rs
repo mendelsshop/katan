@@ -206,34 +206,20 @@ impl UI for TownUI {
     }
 }
 #[derive(SystemParam)]
-pub struct PlaceTownButtonState<'w, C: Resource> {
+pub struct PlaceTownButtonState<'w> {
     game_state: Res<'w, State<GameState>>,
     game_state_mut: ResMut<'w, NextState<GameState>>,
-    color_r: Res<'w, C>,
     input: ResMut<'w, Input>,
 }
-impl<C: Resource> ButtonInteraction<TownPlaceButton> for PlaceTownButtonState<'_, C>
-where
-    CatanColor: From<C>,
-    bevy::prelude::Entity: From<C>,
-    C: Copy,
-{
+impl ButtonInteraction<TownPlaceButton> for PlaceTownButtonState<'_> {
     fn interact(&mut self, TownPlaceButton(cost, position): &TownPlaceButton) {
         let PlaceTownButtonState {
             game_state,
             game_state_mut,
-            color_r,
             input,
         } = self;
 
-        let color_r: &C = color_r;
-        let current_color_entity: Entity = (*color_r).into();
-        **input = Input::AddTown(
-            current_color_entity,
-            *position,
-            *cost,
-            *game_state.get() == GameState::SetupTown,
-        );
+        **input = Input::AddTown(*position, *cost, *game_state.get() == GameState::SetupTown);
         match *game_state.get() {
             GameState::Nothing
             | GameState::NotActive

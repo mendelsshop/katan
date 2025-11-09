@@ -243,34 +243,25 @@ impl UI for RoadUI {
     }
 }
 #[derive(SystemParam)]
-pub struct PlaceRoadButtonState<'w, C: Resource> {
+pub struct PlaceRoadButtonState<'w> {
     game_state: Res<'w, State<GameState>>,
     game_state_mut: ResMut<'w, NextState<GameState>>,
-    color_r: Res<'w, C>,
 
     input: ResMut<'w, Input>,
     substate_mut: Option<ResMut<'w, NextState<RoadBuildingState>>>,
     substate: Option<Res<'w, State<RoadBuildingState>>>,
 }
-impl<C: Resource> ButtonInteraction<RoadPlaceButton> for PlaceRoadButtonState<'_, C>
-where
-    CatanColor: From<C>,
-    bevy::prelude::Entity: From<C>,
-    C: Copy,
-{
+impl ButtonInteraction<RoadPlaceButton> for PlaceRoadButtonState<'_> {
     fn interact(&mut self, RoadPlaceButton(cost, position): &RoadPlaceButton) {
         let PlaceRoadButtonState {
             game_state,
             game_state_mut,
-            color_r,
             substate_mut,
             substate,
             input,
         } = self;
 
-        let color_r: &C = color_r;
-        let current_color_entity: Entity = (*color_r).into();
-        **input = Input::AddRoad(current_color_entity, *position, *cost);
+        **input = Input::AddRoad(*position, *cost);
         match *game_state.get() {
             GameState::Nothing
             | GameState::Monopoly
