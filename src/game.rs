@@ -67,7 +67,7 @@ pub enum Input {
     NextColor,
     // player, place, cost multiplier
     AddRoad(Entity, RoadPosition, Resources),
-    AddCity,
+    AddCity(Entity, BuildingPosition, Resources),
     AddTown(Entity, BuildingPosition, Resources, bool),
     TakeDevelopmentCard,
     Roll(u8, u8, u8),
@@ -118,6 +118,7 @@ fn update_from_inputs(
             &mut Ports,
             &mut Left<Road>,
             &mut Left<Town>,
+            &mut Left<City>,
         ),
     >,
 
@@ -152,6 +153,7 @@ fn update_from_inputs(
         mut player_ports,
         mut roads_left,
         mut towns_left,
+        mut cities_left,
     ) in players
     {
         let (input, _state) = inputs[player_handle.0];
@@ -200,7 +202,24 @@ fn update_from_inputs(
 
                 roads_left.0 -= 1;
             }
-            Input::AddCity => todo!(),
+            // make sure entity(of child town) is synced between client
+            Input::AddCity(entity, city_position, cost) => {
+                commands.entity(entity).remove::<Town>().insert(City);
+                towns_left.0 += 1;
+                cities_left.0 -= 1;
+                *player_resources -= cost;
+                vps.actual += 1;
+
+                bank.add_assign(cost);
+                let (x, y) = city_position.positon_to_pixel_coordinates();
+
+                let mesh1 = meshes.add(Rectangle::new(13.0, 13.));
+                commands.spawn((
+                    Mesh2d(mesh1),
+                    MeshMaterial2d(materials.add(color_r.0.to_bevy_color())),
+                    Transform::from_xyz(x * 77.0, y * 77., 0.0),
+                ));
+            }
             Input::AddTown(entity, town_position, cost, next) => {
                 println!("new road");
                 bank.add_assign(cost);

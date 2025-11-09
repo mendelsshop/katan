@@ -4,8 +4,7 @@ use itertools::Itertools;
 use crate::game::{Input, PlayerHandle};
 
 use super::{
-    CatanColor, CurrentColor, GameState, Knights, Layout, Left, Resources,
-    VictoryPoints,
+    CatanColor, CurrentColor, GameState, Knights, Layout, Left, Resources, VictoryPoints,
     cities::City,
     colors::CatanColorRef,
     development_cards::DevelopmentCards,

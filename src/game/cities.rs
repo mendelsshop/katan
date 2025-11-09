@@ -1,6 +1,9 @@
 use bevy::prelude::*;
 
-use crate::utils::{HOVERED_BUTTON, NORMAL_BUTTON, PRESSED_BUTTON};
+use crate::{
+    game::Input,
+    utils::{HOVERED_BUTTON, NORMAL_BUTTON, PRESSED_BUTTON},
+};
 
 use super::{
     Building, GameState, Left, VictoryPoints,
@@ -13,12 +16,12 @@ use super::{
 #[require(Building)]
 pub struct City;
 pub fn place_normal_city_interaction(
-    mut commands: Commands<'_, '_>,
-    mut meshes: ResMut<'_, Assets<Mesh>>,
-    mut materials: ResMut<'_, Assets<ColorMaterial>>,
+    commands: Commands<'_, '_>,
+    meshes: ResMut<'_, Assets<Mesh>>,
+    materials: ResMut<'_, Assets<ColorMaterial>>,
     mut game_state: ResMut<'_, NextState<GameState>>,
     color_r: Res<'_, CurrentColor>,
-    mut player_q: Query<
+    player_q: Query<
         '_,
         '_,
         (
@@ -29,7 +32,7 @@ pub fn place_normal_city_interaction(
         ),
         With<CatanColor>,
     >,
-    mut resources: ResMut<'_, Resources>,
+    resources: ResMut<'_, Resources>,
     mut interaction_query: Query<
         '_,
         '_,
@@ -42,6 +45,7 @@ pub fn place_normal_city_interaction(
         ),
         (Changed<Interaction>, Without<CatanColor>),
     >,
+    mut input: ResMut<'_, Input>,
 ) {
     for (entity, interaction, mut color, mut button, required_resources) in &mut interaction_query {
         match *interaction {
@@ -49,28 +53,7 @@ pub fn place_normal_city_interaction(
                 *color = PRESSED_BUTTON.into();
 
                 button.set_changed();
-
-                commands.entity(entity.0).remove::<Town>().insert(City);
-                let player = player_q.get_mut(color_r.0.entity).ok();
-                if let Some((mut towns_left, mut cities_left, mut player_resources, mut points)) =
-                    player
-                {
-                    towns_left.0 += 1;
-                    cities_left.0 -= 1;
-                    *player_resources -= *required_resources;
-                    points.actual += 1;
-
-                    *resources += *required_resources;
-                }
-
-                let (x, y) = entity.1.positon_to_pixel_coordinates();
-
-                let mesh1 = meshes.add(Rectangle::new(13.0, 13.));
-                commands.spawn((
-                    Mesh2d(mesh1),
-                    MeshMaterial2d(materials.add(color_r.0.to_bevy_color())),
-                    Transform::from_xyz(x * 77.0, y * 77., 0.0),
-                ));
+                *input = Input::AddCity(entity.0, entity.1, *required_resources);
 
                 game_state.set(GameState::Turn);
                 break;

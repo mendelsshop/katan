@@ -2,7 +2,6 @@ use bevy::{
     ecs::{query::QueryData, system::SystemParam},
     prelude::*,
 };
-use bevy_ggrs::AddRollbackCommandExtension;
 use itertools::Itertools;
 
 use crate::utils::NORMAL_BUTTON;
@@ -281,15 +280,8 @@ where
         } = self;
 
         let color_r: &C = color_r;
-        let current_color: CatanColor = (*color_r).into();
         let current_color_entity: Entity = (*color_r).into();
-        let road = commands
-            .spawn((Road, current_color, *position))
-            .add_rollback()
-            .id();
-        // updating of the input should happen on the fly
         **input = Input::AddRoad(current_color_entity, *position, *cost);
-        commands.entity(current_color_entity).add_child(road);
         match *game_state.get() {
             GameState::Nothing
             | GameState::Monopoly
