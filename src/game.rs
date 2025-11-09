@@ -221,7 +221,6 @@ fn update_from_inputs(
                 ));
             }
             Input::AddTown(entity, town_position, cost, next) => {
-                println!("new road");
                 bank.add_assign(cost);
                 player_resources.sub_assign(cost);
                 commands
@@ -560,7 +559,7 @@ impl Plugin for GamePlugin {
                 ReadInputs,
                 ((common_ui::button_system_with_generic::<
                     RoadPlaceButton,
-                    PlaceRoadButtonState<'_, '_, CurrentSetupColor>,
+                    PlaceRoadButtonState<'_, CurrentSetupColor>,
                 >
                     .run_if(in_state(GameState::SetupRoad))),),
             )
@@ -585,7 +584,7 @@ impl Plugin for GamePlugin {
                 Update,
                 common_ui::button_system_with_generic::<
                     RoadPlaceButton,
-                    PlaceRoadButtonState<'_, '_, CurrentColor>,
+                    PlaceRoadButtonState<'_, CurrentColor>,
                 >
                     .run_if(in_state(GameState::PlaceRoad).or(in_state(GameState::RoadBuilding))),
             )

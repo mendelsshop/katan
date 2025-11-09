@@ -6,7 +6,7 @@ use crate::{
 };
 
 use super::{
-    Building, GameState, Left, VictoryPoints,
+    Building, GameState, Left,
     colors::{CatanColor, CurrentColor},
     positions::BuildingPosition,
     resources::{CITY_RESOURCES, Resources},
@@ -16,23 +16,7 @@ use super::{
 #[require(Building)]
 pub struct City;
 pub fn place_normal_city_interaction(
-    commands: Commands<'_, '_>,
-    meshes: ResMut<'_, Assets<Mesh>>,
-    materials: ResMut<'_, Assets<ColorMaterial>>,
     mut game_state: ResMut<'_, NextState<GameState>>,
-    color_r: Res<'_, CurrentColor>,
-    player_q: Query<
-        '_,
-        '_,
-        (
-            &mut Left<Town>,
-            &mut Left<City>,
-            &mut Resources,
-            &mut VictoryPoints,
-        ),
-        With<CatanColor>,
-    >,
-    resources: ResMut<'_, Resources>,
     mut interaction_query: Query<
         '_,
         '_,

@@ -243,22 +243,16 @@ impl UI for RoadUI {
     }
 }
 #[derive(SystemParam)]
-pub struct PlaceRoadButtonState<'w, 's, C: Resource> {
-    resources: ResMut<'w, Resources>,
+pub struct PlaceRoadButtonState<'w, C: Resource> {
     game_state: Res<'w, State<GameState>>,
     game_state_mut: ResMut<'w, NextState<GameState>>,
     color_r: Res<'w, C>,
-    commands: Commands<'w, 's>,
-    meshes: ResMut<'w, Assets<Mesh>>,
-    materials: ResMut<'w, Assets<ColorMaterial>>,
-    kind_free_and_resources_q:
-        Query<'w, 's, (&'static mut Resources, &'static mut Left<Road>), With<CatanColor>>,
 
     input: ResMut<'w, Input>,
     substate_mut: Option<ResMut<'w, NextState<RoadBuildingState>>>,
     substate: Option<Res<'w, State<RoadBuildingState>>>,
 }
-impl<C: Resource> ButtonInteraction<RoadPlaceButton> for PlaceRoadButtonState<'_, '_, C>
+impl<C: Resource> ButtonInteraction<RoadPlaceButton> for PlaceRoadButtonState<'_, C>
 where
     CatanColor: From<C>,
     bevy::prelude::Entity: From<C>,
@@ -266,14 +260,9 @@ where
 {
     fn interact(&mut self, RoadPlaceButton(cost, position): &RoadPlaceButton) {
         let PlaceRoadButtonState {
-            resources,
             game_state,
             game_state_mut,
             color_r,
-            commands,
-            meshes,
-            materials,
-            kind_free_and_resources_q,
             substate_mut,
             substate,
             input,
