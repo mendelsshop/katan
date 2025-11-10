@@ -66,6 +66,8 @@ use self::{
 };
 use crate::AppState;
 
+#[derive(PartialEq, Eq, Clone, Copy, Debug, Resource)]
+pub struct LocalPlayer(pub CatanColorRef);
 #[derive(PartialEq, Eq, Clone, Copy, Default, Deserialize, Serialize, Debug, Resource)]
 pub enum Input {
     #[default]
@@ -83,8 +85,10 @@ pub enum Input {
     YearOfPlenty(resources::Resource),
     Monopoly(resources::Resource),
     // person picked from, and card picked, if there is a discard(cards discarded if needed)
-    Knight, // interactive(KnightDiscard)
-    KnightDiscard,
+    Knight(Entity, resources::Resource),
+    // discard
+    RobberDiscard(Resources),
+    RobberDiscardInit,
     Trade,         // interactive(TradeResponce)
     TradeResponce, // interactive(TradeAccept)
     TradeAccept,
@@ -142,9 +146,9 @@ fn update_from_inputs(
     mut color_r: ResMut<'_, CurrentColor>,
     mut setup_color_rotation: ResMut<'_, SetupColorIterator>,
     mut color_rotation: ResMut<'_, ColorIterator>,
-    local_players: Res<'_, LocalPlayers>,
 
     mut free_dev_cards: ResMut<'_, DevelopmentCardsPile>,
+    local_player: Res<'_, LocalPlayer>,
 ) {
     let count = inputs.iter().filter(|(i, _)| *i != Input::None).count();
     if count != 0 {
@@ -182,7 +186,7 @@ fn update_from_inputs(
                         &mut mut_game_state,
                         &mut setup_color_r,
                         &mut setup_color_rotation,
-                        &local_players,
+                        &local_player,
                         &mut player_banners,
                         &mut color_r,
                         &mut color_rotation,
@@ -191,7 +195,7 @@ fn update_from_inputs(
                     set_color(
                         &mut color_r,
                         &mut color_rotation,
-                        &local_players,
+                        &local_player,
                         &mut mut_game_state,
                         &mut player_banners,
                     );
@@ -257,7 +261,7 @@ fn update_from_inputs(
                         &mut mut_game_state,
                         &mut setup_color_r,
                         &mut setup_color_rotation,
-                        &local_players,
+                        &local_player,
                         &mut player_banners,
                         &mut color_r,
                         &mut color_rotation,
@@ -283,9 +287,22 @@ fn update_from_inputs(
             }
             // handeld by update_from_monopoly
             Input::Monopoly(_resource) => (),
-            // if knight is from roll update dice visually
-            Input::Knight => todo!(),
-            Input::KnightDiscard => todo!(),
+            // handeld by update_from_knight
+            Input::Knight(_player, _resource) => (),
+
+            Input::RobberDiscardInit => {
+                if local_player.0.entity == entity {
+                    mut_game_state.set(GameState::RobberDiscardResources);
+                } else {
+                    mut_game_state.set(GameState::RobberDiscardResourcesInActive);
+                }
+            }
+            Input::RobberDiscard(resources) => {
+                // TODO: way discarding works now is that we trash for player with keeping track of
+                // what we did, we should change to keep track of what we discarded
+                *player_resources = resources;
+                // bank.add_assign(resources);
+            }
             Input::Trade => todo!(),
             Input::TradeResponce => todo!(),
             Input::TradeAccept => todo!(),
@@ -296,7 +313,23 @@ fn update_from_inputs(
         }
     }
 }
-
+fn update_from_knight(
+    inputs: Res<'_, PlayerInputs<GgrsSessionConfig>>,
+    players: Query<'_, '_, (Entity, &PlayerHandle)>,
+    mut player_resources_q: Query<'_, '_, &mut Resources, With<CatanColor>>,
+) {
+    for player in players {
+        if let (Input::Knight(robbed_player, resource), InputStatus::Confirmed) = inputs[player.1.0]
+        {
+            if let Ok(mut robbed_resources) = player_resources_q.get_mut(robbed_player) {
+                *robbed_resources.get_mut(resource) -= 1;
+            }
+            if let Ok(mut resources) = player_resources_q.get_mut(player.0) {
+                *resources.get_mut(resource) += 1;
+            }
+        }
+    }
+}
 fn update_from_monopoly(
     inputs: Res<'_, PlayerInputs<GgrsSessionConfig>>,
     players: Query<'_, '_, (Entity, &PlayerHandle)>,
@@ -433,6 +466,10 @@ impl Plugin for GamePlugin {
             )
             .add_systems(OnEnter(GameState::PlaceRobber), robber::place_robber)
             .add_systems(
+                OnEnter(GameState::RobberDiscardResourcesInActive),
+                robber::take_extra_resources,
+            )
+            .add_systems(
                 OnEnter(GameState::RobberDiscardResources),
                 robber::take_extra_resources,
             )
@@ -543,7 +580,7 @@ impl Plugin for GamePlugin {
                       mut color_r: ResMut<'_, CurrentColor>,
                       mut color_rotation: ResMut<'_, ColorIterator>,
 
-                      local_players: Res<'_, LocalPlayers>,
+                      local_players: Res<'_, LocalPlayer>,
 
                       mut setup_color_r: ResMut<'_, CurrentSetupColor>,
                       mut setup_color_rotation: ResMut<'_, SetupColorIterator>,
@@ -605,6 +642,7 @@ impl Plugin for GamePlugin {
                     update_from_inputs,
                     update_from_inputs_roll,
                     update_from_monopoly,
+                    update_from_knight,
                 )
                     .ambiguous_with_all(),
             )
@@ -637,17 +675,21 @@ impl Plugin for GamePlugin {
             .add_systems(
                 Update,
                 (
-                    (
-                        robber::counter_sumbit_interaction,
-                        robber::counter_text_update,
-                    )
-                        .run_if(in_state(GameState::RobberDiscardResources)),
-                    (common_ui::spinner_buttons_interactions::<
+                    common_ui::spinner_buttons_interactions::<
                         RobberResourceSpinner,
                         Query<'static, 'static, &'_ mut Resources>,
-                    >(),)
-                        .run_if(in_state(GameState::RobberDiscardResources)),
-                ),
+                    >(),
+                    robber::counter_sumbit_interaction,
+                    robber::counter_text_update,
+                )
+                    .run_if(
+                        in_state(GameState::RobberDiscardResources)
+                            .or(in_state(GameState::RobberDiscardResourcesInActive)),
+                    ),
+            )
+            .add_systems(
+                Update,
+                (robber::done_discarding).run_if(in_state(GameState::RobberDiscardResources)),
             )
             .add_systems(
                 Update,
@@ -661,6 +703,7 @@ pub enum GameState {
     NotActive,
     NotActiveSetup,
     RobberDiscardResources,
+    RobberDiscardResourcesInActive,
     #[default]
     Nothing,
     Start,
@@ -805,6 +848,8 @@ fn game_setup(
     materials: ResMut<'_, Assets<ColorMaterial>>,
     player_count: Res<'_, PlayerCount>,
     seed: Res<'_, SessionSeed>,
+
+    local_players: Res<'_, LocalPlayers>,
 ) {
     let layout = layout(&mut commands);
     commands.insert_resource(layout);
@@ -815,6 +860,7 @@ fn game_setup(
         layout,
         player_count,
         seed.0,
+        local_players,
     );
 
     commands.insert_resource(ColorIterator(catan_colors.clone().cycle()));
@@ -827,12 +873,12 @@ fn game_setup(
 
 pub fn next_player(
     next_state: &mut ResMut<'_, NextState<GameState>>,
-    local_players: &Res<'_, LocalPlayers>,
+    local_players: &Res<'_, LocalPlayer>,
     new: CatanColorRef,
     active: GameState,
     inactive: GameState,
 ) {
-    if local_players.0.contains(&new.handle.0) {
+    if local_players.0.handle == new.handle {
         println!("active {active:?}");
         next_state.set(active);
     } else {

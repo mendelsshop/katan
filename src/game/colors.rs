@@ -9,9 +9,8 @@ use bevy::{
     color::{self, palettes::css},
     prelude::*,
 };
-use bevy_ggrs::LocalPlayers;
 
-use crate::game::PlayerHandle;
+use crate::game::{LocalPlayer, PlayerHandle};
 
 use super::{GameState, turn_ui::PlayerBanner};
 
@@ -80,7 +79,7 @@ pub fn set_color(
     color_r: &mut ResMut<'_, CurrentColor>,
     color_rotation: &mut ResMut<'_, ColorIterator>,
 
-    local_players: &Res<'_, LocalPlayers>,
+    local_player: &Res<'_, LocalPlayer>,
 
     game_state: &mut ResMut<'_, NextState<GameState>>,
     player_banners: &mut Query<'_, '_, (&mut BackgroundColor, &mut Outline, &PlayerBanner)>,
@@ -103,7 +102,7 @@ pub fn set_color(
     }
     super::next_player(
         game_state,
-        local_players,
+        local_player,
         color_r.0,
         GameState::Roll,
         GameState::NotActive,
@@ -115,7 +114,7 @@ pub fn set_setup_color(
     setup_color_r: &mut ResMut<'_, CurrentSetupColor>,
     setup_color_rotation: &mut ResMut<'_, SetupColorIterator>,
 
-    local_players: &Res<'_, LocalPlayers>,
+    local_players: &Res<'_, LocalPlayer>,
     player_banners: &mut Query<'_, '_, (&mut BackgroundColor, &mut Outline, &PlayerBanner)>,
 
     color_r: &mut ResMut<'_, CurrentColor>,

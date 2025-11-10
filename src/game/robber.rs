@@ -6,7 +6,7 @@ use bevy::{
 use itertools::Itertools;
 
 use crate::{
-    game::PlayerHandle,
+    game::{Input, LocalPlayer, PlayerHandle},
     utils::{HOVERED_BUTTON, NORMAL_BUTTON, PRESSED_BUTTON},
 };
 
@@ -96,9 +96,10 @@ pub fn place_robber_interaction(
     building_q: Query<'_, '_, (&ChildOf, &CatanColor, &'_ BuildingPosition), With<Building>>,
     current_color: Res<'_, CurrentColor>,
     mut robber: ResMut<'_, Robber>,
-    player_resources: Query<'_, '_, (&CatanColor, &mut Resources, &PlayerHandle)>,
+    player_resources: Query<'_, '_, (&CatanColor, &Resources, &PlayerHandle)>,
     commands: Commands<'_, '_>,
     state: ResMut<'_, NextState<GameState>>,
+    input: ResMut<'_, Input>,
 ) {
     for (interaction, position, mut button, mut color) in &mut robber_places_query {
         match *interaction {
@@ -113,6 +114,7 @@ pub fn place_robber_interaction(
                     player_resources,
                     commands,
                     state,
+                    input,
                 );
                 break;
             }
@@ -132,9 +134,10 @@ fn choose_player_to_take_from<'a>(
     position: &Position,
     color: CurrentColor,
     building_q: Query<'_, '_, (&ChildOf, &CatanColor, &'_ BuildingPosition), With<Building>>,
-    mut player_resources: Query<'_, '_, (&CatanColor, &mut Resources, &PlayerHandle)>,
+    player_resources: Query<'_, '_, (&CatanColor, &Resources, &PlayerHandle)>,
     mut commands: Commands<'_, '_>,
     mut state: ResMut<'_, NextState<GameState>>,
+    mut input: ResMut<'_, Input>,
 ) {
     // TODO: eventually buildings/roads will be linked to the main player entity, at which point
     // find with color won't be needed
@@ -158,11 +161,13 @@ fn choose_player_to_take_from<'a>(
         .collect_vec();
     if colors.len() == 1 {
         let other_color = colors.remove(0);
-        let (_, mut other_color_resources, _) =
-            player_resources.get_mut(other_color.entity).unwrap();
-        let put_resources = take_resource(&mut other_color_resources);
-        let mut current_resources = player_resources.get_mut(color.0.entity).unwrap();
-        put_resources(&mut current_resources.1);
+        let (_, other_color_resources, _) = player_resources.get(other_color.entity).unwrap();
+        if let Some(resource) = take_resource(other_color_resources) {
+            *input = Input::Knight(other_color.entity, resource);
+        }
+        // either we are coming from roll(7) or in middle of turn(dev card) but we always go back to
+        // turn
+        state.set(GameState::Turn);
 
         // either we are coming from roll(7) or in middle of turn(dev card) but we always go back to
         // turn
@@ -205,8 +210,7 @@ fn choose_player_to_take_from<'a>(
 }
 
 pub fn choose_player_to_take_from_interaction(
-    current_color: Res<'_, CurrentColor>,
-    mut player_resources: Query<'_, '_, (&CatanColor, &mut Resources)>,
+    player_resources: Query<'_, '_, (&CatanColor, &Resources)>,
     mut robber_taking_query: Query<
         '_,
         '_,
@@ -219,18 +223,17 @@ pub fn choose_player_to_take_from_interaction(
         (Changed<Interaction>, With<RobberChooseColorButton>),
     >,
     mut state: ResMut<'_, NextState<GameState>>,
+    mut input: ResMut<'_, Input>,
 ) {
     for (interaction, color, mut button, mut button_color) in &mut robber_taking_query {
         match *interaction {
             Interaction::Pressed => {
                 button.set_changed();
 
-                let (_, mut other_color_resources) =
-                    player_resources.get_mut(color.entity).unwrap();
-                let put_resources = take_resource(&mut other_color_resources);
-                let mut current_resources =
-                    player_resources.get_mut(current_color.0.entity).unwrap();
-                put_resources(&mut current_resources.1);
+                let (_, other_color_resources) = player_resources.get(color.entity).unwrap();
+                if let Some(resource) = take_resource(other_color_resources) {
+                    *input = Input::Knight(color.entity, resource);
+                }
                 // either we are coming from roll(7) or in middle of turn(dev card) but we always go back to
                 // turn
                 state.set(GameState::Turn);
@@ -260,31 +263,33 @@ pub fn take_extra_resources(
     mut commands: Commands<'_, '_>,
     player_resources: Query<'_, '_, (Entity, &CatanColor, &mut Resources)>,
     mut left: ResMut<'_, PreRobberDiscardLeft>,
+    local_player: Res<'_, LocalPlayer>,
 ) {
-    player_resources
-        .iter()
+    if let Some(r) = player_resources
+        .get(local_player.0.entity)
+        .ok()
         .filter(|resources| resources.2.count() > 7)
-        .for_each(|r| {
-            left.0 += 1;
-            let window = commands
-                .spawn(Window {
-                    title: format!("{:?}", r.0),
+    {
+        left.0 += 1;
+        let window = commands
+            .spawn(Window {
+                title: format!("{:?}", r.0),
+                ..default()
+            })
+            .id();
+        let camera = commands
+            .spawn((
+                Camera2d,
+                Camera {
+                    target: RenderTarget::Window(window::WindowRef::Entity(window)),
                     ..default()
-                })
-                .id();
-            let camera = commands
-                .spawn((
-                    Camera2d,
-                    Camera {
-                        target: RenderTarget::Window(window::WindowRef::Entity(window)),
-                        ..default()
-                    },
-                    RenderLayers::layer(1),
-                ))
-                .id();
+                },
+                RenderLayers::layer(1),
+            ))
+            .id();
 
-            setup_take_extra_resources(&mut commands, camera, window, *r.2, r.0, r.2.count() / 2);
-        });
+        setup_take_extra_resources(&mut commands, camera, window, *r.2, r.0, r.2.count() / 2);
+    }
 }
 
 #[derive(Resource)]
@@ -303,9 +308,10 @@ pub fn counter_sumbit_interaction(
         Changed<Interaction>,
     >,
     mut commands: Commands<'_, '_>,
-    mut left: ResMut<'_, PreRobberDiscardLeft>,
-    mut state: ResMut<'_, NextState<GameState>>,
+    mut mut_state: ResMut<'_, NextState<GameState>>,
+    state: Res<'_, State<GameState>>,
     counter_query: Query<'_, '_, &Resources>,
+    mut input: ResMut<'_, Input>,
 ) {
     for (interaction, mut button, mut color, window, max) in &mut interaction_query {
         if let Ok(resource) = counter_query.get(max.resource_ref)
@@ -313,11 +319,11 @@ pub fn counter_sumbit_interaction(
         {
             match *interaction {
                 Interaction::Pressed => {
+                    *input = Input::RobberDiscard(*resource);
                     *color = PRESSED_BUTTON.into();
                     commands.entity(window.0).despawn();
-                    left.0 -= 1;
-                    if left.0 == 0 {
-                        state.set(GameState::PlaceRobber);
+                    if state.get() == &GameState::RobberDiscardResourcesInActive {
+                        mut_state.set(GameState::NotActive);
                     }
                     button.set_changed();
                 }
@@ -334,6 +340,14 @@ pub fn counter_sumbit_interaction(
     }
 }
 
+pub fn done_discarding(
+    player_resources: Query<'_, '_, &mut Resources, With<CatanColor>>,
+    mut mut_state: ResMut<'_, NextState<GameState>>,
+) {
+    if player_resources.iter().all(|r| r.count() <= 7) {
+        mut_state.set(GameState::PlaceRobber);
+    }
+}
 fn setup_take_extra_resources(
     commands: &mut Commands<'_, '_>,
     camera: Entity,

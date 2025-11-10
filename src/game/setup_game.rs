@@ -1,6 +1,8 @@
 //! functions to generate initial game state
 //! like hex placement
-use crate::game::{PlayerCount, PlayerHandle, development_cards::DevelopmentCardsPile};
+use crate::game::{
+    LocalPlayer, PlayerCount, PlayerHandle, development_cards::DevelopmentCardsPile,
+};
 use rand_xoshiro::Xoshiro256PlusPlus;
 use std::{
     iter,
@@ -21,7 +23,7 @@ use super::{
     towns::Town,
 };
 use bevy::{platform::collections::HashSet, prelude::*};
-use bevy_ggrs::AddRollbackCommandExtension;
+use bevy_ggrs::{AddRollbackCommandExtension, LocalPlayers};
 use itertools::Itertools;
 use rand::{Rng, SeedableRng, seq::SliceRandom};
 fn draw_board(
@@ -338,7 +340,8 @@ fn generate_pieces(
     commands: &mut Commands<'_, '_>,
     player_count: u8,
     rng: &mut Xoshiro256PlusPlus,
-) -> impl Iterator<Item = CatanColorRef> {
+    local_players: Res<'_, LocalPlayers>,
+) -> Vec<CatanColorRef> {
     let mut catan_colors = vec![
         CatanColor::White,
         CatanColor::Green,
@@ -352,32 +355,39 @@ fn generate_pieces(
     colors
         .enumerate()
         .take(player_count as usize)
-        .map(|(handle, color)| CatanColorRef {
-            color,
-            handle: PlayerHandle(handle),
-            entity: commands
-                .spawn((
-                    color,
-                    Left::<Town>(5, PhantomData),
-                    Left::<City>(4, PhantomData),
-                    Left::<Road>(15, PhantomData),
-                    PlayerHandle(handle),
-                    Resources::new_player(),
-                    // maybe initialize this as part of longest road plugin just have system that run
-                    // on startup(or eventually game start state) that adds this comonent to each
-                    // "player"
-                    PlayerLongestRoad(HashSet::new()),
-                    DevelopmentCards::new_player(),
-                    Ports::new_player(),
-                    VictoryPoints {
-                        actual: 0,
-                        from_development_cards: 0,
-                    },
-                    Knights(0),
-                ))
-                .add_rollback()
-                .id(),
+        .map(|(handle, color)| {
+            let catan_color_ref = CatanColorRef {
+                color,
+                handle: PlayerHandle(handle),
+                entity: commands
+                    .spawn((
+                        color,
+                        Left::<Town>(5, PhantomData),
+                        Left::<City>(4, PhantomData),
+                        Left::<Road>(15, PhantomData),
+                        PlayerHandle(handle),
+                        Resources::new_player(),
+                        // maybe initialize this as part of longest road plugin just have system that run
+                        // on startup(or eventually game start state) that adds this comonent to each
+                        // "player"
+                        PlayerLongestRoad(HashSet::new()),
+                        DevelopmentCards::new_player(),
+                        Ports::new_player(),
+                        VictoryPoints {
+                            actual: 0,
+                            from_development_cards: 0,
+                        },
+                        Knights(0),
+                    ))
+                    .add_rollback()
+                    .id(),
+            };
+            if local_players.0.contains(&handle) {
+                commands.insert_resource(LocalPlayer(catan_color_ref));
+            }
+            catan_color_ref
         })
+        .collect_vec()
 }
 fn generate_ports(
     commands: &mut Commands<'_, '_>,
@@ -416,6 +426,7 @@ pub fn setup(
     layout: Layout,
     player_count: Res<'_, PlayerCount>,
     seed: u64,
+    local_players: Res<'_, LocalPlayers>,
 ) -> vec::IntoIter<CatanColorRef> {
     let mut rng = Xoshiro256PlusPlus::seed_from_u64(seed);
     draw_board(
@@ -427,7 +438,5 @@ pub fn setup(
         layout,
     );
     generate_development_cards(commands, &mut rng);
-    generate_pieces(commands, player_count.0, &mut rng)
-        .collect_vec()
-        .into_iter()
+    generate_pieces(commands, player_count.0, &mut rng, local_players).into_iter()
 }

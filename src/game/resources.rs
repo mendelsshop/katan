@@ -194,49 +194,16 @@ impl Resources {
     }
 }
 /// assumption: other player has at least on resource
-pub fn take_resource(other_color_resources: &mut Resources) -> impl FnOnce(&mut Resources) + use<> {
-    let possible_resources_to_take = [
-        Resources {
-            wood: 1,
-            brick: 0,
-            sheep: 0,
-            wheat: 0,
-            ore: 0,
-        },
-        Resources {
-            wood: 0,
-            brick: 1,
-            sheep: 0,
-            wheat: 0,
-            ore: 0,
-        },
-        Resources {
-            wood: 0,
-            brick: 0,
-            sheep: 1,
-            wheat: 0,
-            ore: 0,
-        },
-        Resources {
-            wood: 0,
-            brick: 0,
-            sheep: 0,
-            wheat: 1,
-            ore: 0,
-        },
-        Resources {
-            wood: 0,
-            brick: 0,
-            sheep: 0,
-            wheat: 0,
-            ore: 1,
-        },
+pub fn take_resource(other_color_resources: &Resources) -> Option<Resource> {
+    [
+        Resource::Brick,
+        Resource::Wood,
+        Resource::Sheep,
+        Resource::Ore,
+        Resource::Wheat,
     ]
     .into_iter()
     // verifiing that the player has the resources we are trying to take randomly
-    .filter(|r| other_color_resources.checked_sub(*r).is_some())
-    .choose(&mut rand::rng());
-    let resources_to_take = possible_resources_to_take.unwrap();
-    *other_color_resources -= resources_to_take;
-    move |current_color_resource: &mut Resources| *current_color_resource += resources_to_take
+    .filter(|r| other_color_resources.get(*r) > 0)
+    .choose(&mut rand::rng())
 }

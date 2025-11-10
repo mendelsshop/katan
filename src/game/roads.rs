@@ -271,6 +271,7 @@ impl ButtonInteraction<RoadPlaceButton> for PlaceRoadButtonState<'_> {
             | GameState::Turn
             | GameState::PlaceRobber
             | GameState::RobberDiscardResources
+            | GameState::RobberDiscardResourcesInActive
             | GameState::SetupTown
             | GameState::PlaceTown
             | GameState::PlaceCity
