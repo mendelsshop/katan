@@ -1,10 +1,9 @@
 use bevy::prelude::*;
 use itertools::Itertools;
 
-use crate::game::{Input, PlayerHandle};
-
 use super::{
-    CatanColor, CurrentColor, GameState, Knights, Layout, Left, Resources, VictoryPoints,
+    CatanColor, CurrentColor, GameState, Input, Knights, Layout, Left, PlayerHandle, Resources,
+    VictoryPoints,
     cities::City,
     colors::CatanColorRef,
     development_cards::DevelopmentCards,

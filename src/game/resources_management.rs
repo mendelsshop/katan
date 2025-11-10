@@ -7,10 +7,8 @@ use bevy::{ecs::system::SystemParam, prelude::*};
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 
-use crate::game::Input;
-
 use super::{
-    GameState, Layout,
+    GameState, Input, Layout,
     colors::{CatanColor, CatanColorRef, CurrentColor},
     common_ui::{self, ButtonInteraction, SpinnerButtonInteraction, Value},
     resources::{self, Resources},
@@ -267,8 +265,6 @@ fn resource_slider(commands: &mut Commands<'_, '_>, kind: resources::Resource) -
     common_ui::spinner_bundle::<TradingResourceSpinner>(entity, Text::new(format!("{kind:?}")))
 }
 
-#[derive(Component, Clone, Copy, Debug)]
-pub struct ResourceRef(pub Entity, pub resources::Resource);
 #[derive(Resource, Default, Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 pub struct TradingResources {
     pub wood: i8,

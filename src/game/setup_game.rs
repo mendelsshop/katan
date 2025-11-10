@@ -1,8 +1,5 @@
 //! functions to generate initial game state
 //! like hex placement
-use crate::game::{
-    LocalPlayer, PlayerCount, PlayerHandle, development_cards::DevelopmentCardsPile,
-};
 use rand_xoshiro::Xoshiro256PlusPlus;
 use std::{
     iter,
@@ -12,9 +9,11 @@ use std::{
 };
 
 use super::{
-    Hexagon, Knights, Layout, Left, Number, Port, Robber, VictoryPoints,
+    Hexagon, Knights, Layout, Left, LocalPlayer, Number, PlayerCount, PlayerHandle, Port, Robber,
+    VictoryPoints,
     cities::City,
     colors::{CatanColor, CatanColorRef},
+    development_cards::DevelopmentCardsPile,
     development_cards::{DevelopmentCard, DevelopmentCards},
     longest_road::PlayerLongestRoad,
     positions::{self, BuildingPosition, FPosition, Position},

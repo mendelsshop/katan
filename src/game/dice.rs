@@ -1,9 +1,7 @@
 use bevy::prelude::*;
 
-use crate::game::Input;
-
 use super::{
-    CatanColor, GameState, Hexagon, Number, Resources, Robber,
+    CatanColor, GameState, Hexagon, Input, Number, Resources, Robber,
     cities::City,
     positions::{BuildingPosition, Position},
     towns::Town,

@@ -1,12 +1,9 @@
 use bevy::prelude::*;
 
-use crate::{
-    game::Input,
-    utils::{HOVERED_BUTTON, NORMAL_BUTTON, PRESSED_BUTTON},
-};
+use crate::utils::{HOVERED_BUTTON, NORMAL_BUTTON, PRESSED_BUTTON};
 
 use super::{
-    GameState, Knights, Layout,
+    GameState, Input, Knights, Layout,
     colors::{CatanColor, CurrentColor},
     development_cards::{DevelopmentCard, DevelopmentCards},
     resources::{self},

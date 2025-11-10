@@ -3,13 +3,10 @@ use std::ops::{Add, AddAssign};
 use bevy::prelude::*;
 use itertools::Itertools;
 
-use crate::{
-    game::Input,
-    utils::{HOVERED_BUTTON, NORMAL_BUTTON, PRESSED_BUTTON},
-};
+use crate::utils::{HOVERED_BUTTON, NORMAL_BUTTON, PRESSED_BUTTON};
 
 use super::{
-    Layout,
+    Input, Layout,
     colors::{CatanColor, CurrentColor},
     development_card_actions::DevelopmentCardShow,
     resources::{DEVELOPMENT_CARD_RESOURCES, Resources},

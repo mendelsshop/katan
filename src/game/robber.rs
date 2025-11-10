@@ -5,18 +5,14 @@ use bevy::{
 };
 use itertools::Itertools;
 
-use crate::{
-    game::{Input, LocalPlayer, PlayerHandle},
-    utils::{HOVERED_BUTTON, NORMAL_BUTTON, PRESSED_BUTTON},
-};
+use crate::utils::{HOVERED_BUTTON, NORMAL_BUTTON, PRESSED_BUTTON};
 
 use super::{
-    Building, GameState,
+    Building, GameState, Input, LocalPlayer, PlayerHandle,
     colors::{CatanColor, CatanColorRef, CurrentColor},
     common_ui::{self, SpinnerButtonInteraction, Value},
     positions::{BuildingPosition, FPosition, Position, generate_postions},
     resources::{self, Resources, take_resource},
-    resources_management::{self, ResourceRef},
 };
 
 #[derive(Resource, PartialEq, Eq, Clone, Copy, Debug)]
@@ -29,14 +25,12 @@ impl Default for Robber {
 
 pub fn counter_text_update(
     mut interaction_query: Query<'_, '_, (&mut Text, &Value<RobberResourceSpinner>)>,
-    counter_query: Query<'_, '_, &Resources, Changed<Resources>>,
+    discard: Res<'_, RobberDiscard>,
     robber_spinner_query: Query<'_, '_, &RobberResourceSpinner>,
 ) {
     for (mut text, resources) in &mut interaction_query {
-        if let Ok(resources) = robber_spinner_query.get(resources.0)
-            && let Ok(counter) = counter_query.get(resources.resource.0)
-        {
-            **text = counter.get(resources.resource.1).to_string();
+        if let Ok(resources) = robber_spinner_query.get(resources.0) {
+            **text = discard.0.get(resources.resource).to_string();
         }
     }
 }
@@ -262,7 +256,6 @@ pub struct WindowRef(Entity);
 pub fn take_extra_resources(
     mut commands: Commands<'_, '_>,
     player_resources: Query<'_, '_, (Entity, &CatanColor, &mut Resources)>,
-    mut left: ResMut<'_, PreRobberDiscardLeft>,
     local_player: Res<'_, LocalPlayer>,
 ) {
     if let Some(r) = player_resources
@@ -270,7 +263,6 @@ pub fn take_extra_resources(
         .ok()
         .filter(|resources| resources.2.count() > 7)
     {
-        left.0 += 1;
         let window = commands
             .spawn(Window {
                 title: format!("{:?}", r.0),
@@ -288,14 +280,12 @@ pub fn take_extra_resources(
             ))
             .id();
 
-        setup_take_extra_resources(&mut commands, camera, window, *r.2, r.0, r.2.count() / 2);
+        setup_take_extra_resources(&mut commands, camera, window, *r.2, r.2.count() / 2);
     }
 }
 
-#[derive(Resource)]
-pub struct PreRobberDiscardLeft(pub u8);
 pub fn counter_sumbit_interaction(
-    mut interaction_query: Query<
+    interaction_query: Single<
         '_,
         '_,
         (
@@ -310,31 +300,30 @@ pub fn counter_sumbit_interaction(
     mut commands: Commands<'_, '_>,
     mut mut_state: ResMut<'_, NextState<GameState>>,
     state: Res<'_, State<GameState>>,
-    counter_query: Query<'_, '_, &Resources>,
     mut input: ResMut<'_, Input>,
+    mut discard: ResMut<'_, RobberDiscard>,
 ) {
-    for (interaction, mut button, mut color, window, max) in &mut interaction_query {
-        if let Ok(resource) = counter_query.get(max.resource_ref)
-            && resource.count() == max.new_max_resources
-        {
-            match *interaction {
-                Interaction::Pressed => {
-                    *input = Input::RobberDiscard(*resource);
-                    *color = PRESSED_BUTTON.into();
-                    commands.entity(window.0).despawn();
-                    if state.get() == &GameState::RobberDiscardResourcesInActive {
-                        mut_state.set(GameState::NotActive);
-                    }
-                    button.set_changed();
+    let (interaction, mut button, mut color, window, max) = interaction_query.into_inner();
+
+    if discard.0.count() == max.new_max_resources {
+        match *interaction {
+            Interaction::Pressed => {
+                *input = Input::RobberDiscard(discard.0);
+                *discard = RobberDiscard::default();
+                *color = PRESSED_BUTTON.into();
+                commands.entity(window.0).despawn();
+                if state.get() == &GameState::RobberDiscardResourcesInActive {
+                    mut_state.set(GameState::NotActive);
                 }
-                Interaction::Hovered => {
-                    *color = HOVERED_BUTTON.into();
-                    button.set_changed();
-                }
-                Interaction::None => {
-                    *color = NORMAL_BUTTON.into();
-                    button.set_changed();
-                }
+                button.set_changed();
+            }
+            Interaction::Hovered => {
+                *color = HOVERED_BUTTON.into();
+                button.set_changed();
+            }
+            Interaction::None => {
+                *color = NORMAL_BUTTON.into();
+                button.set_changed();
             }
         }
     }
@@ -353,35 +342,14 @@ fn setup_take_extra_resources(
     camera: Entity,
     window: Entity,
     resources: Resources,
-    resources_entity: Entity,
     resources_needed: u8,
 ) {
     let spawn_related_bundle = children![
-        resource_slider(
-            commands,
-            ResourceRef(resources_entity, resources::Resource::Wood),
-            resources.wood,
-        ),
-        resource_slider(
-            commands,
-            ResourceRef(resources_entity, resources::Resource::Brick,),
-            resources.brick,
-        ),
-        resource_slider(
-            commands,
-            ResourceRef(resources_entity, resources::Resource::Sheep,),
-            resources.sheep,
-        ),
-        resource_slider(
-            commands,
-            ResourceRef(resources_entity, resources::Resource::Wheat),
-            resources.wheat,
-        ),
-        resource_slider(
-            commands,
-            ResourceRef(resources_entity, resources::Resource::Ore,),
-            resources.ore,
-        ),
+        resource_slider(commands, resources::Resource::Wood, resources.wood),
+        resource_slider(commands, resources::Resource::Brick, resources.brick),
+        resource_slider(commands, resources::Resource::Sheep, resources.sheep),
+        resource_slider(commands, resources::Resource::Wheat, resources.wheat),
+        resource_slider(commands, resources::Resource::Ore, resources.ore),
         (
             Node {
                 display: Display::Grid,
@@ -392,7 +360,6 @@ fn setup_take_extra_resources(
             Button,
             SumbitButton {
                 new_max_resources: resources_needed,
-                resource_ref: resources_entity,
             },
             BackgroundColor(NORMAL_BUTTON),
             BorderColor::all(Color::BLACK),
@@ -421,48 +388,34 @@ fn setup_take_extra_resources(
 #[derive(Component)]
 pub struct SumbitButton {
     new_max_resources: u8,
-    resource_ref: Entity,
 }
 #[derive(Debug, Component, Clone, Copy)]
 pub struct RobberResourceSpinner {
-    resource: ResourceRef,
+    resource: resources::Resource,
     max: u8,
 }
-impl SpinnerButtonInteraction<RobberResourceSpinner> for Query<'_, '_, &'static mut Resources> {
+#[derive(Debug, Resource, Clone, Copy, Default)]
+pub struct RobberDiscard(Resources);
+impl SpinnerButtonInteraction<RobberResourceSpinner> for ResMut<'_, RobberDiscard> {
     fn increment(&mut self, resource: &RobberResourceSpinner) {
-        if let Ok(mut resources) = self.get_mut(resource.resource.0) {
-            *resources.get_mut(resource.resource.1) += 1;
-        }
+        *self.0.get_mut(resource.resource) += 1;
     }
     fn decrement(&mut self, resource: &RobberResourceSpinner) {
-        if let Ok(mut resources) = self.get_mut(resource.resource.0) {
-            *resources.get_mut(resource.resource.1) -= 1;
-        }
+        *self.0.get_mut(resource.resource) -= 1;
     }
 
     fn can_increment(&mut self, resource: &RobberResourceSpinner) -> bool {
-        if let Ok(resources) = self.get(resource.resource.0) {
-            resources.get(resource.resource.1) < resource.max
-        } else {
-            false
-        }
+        self.0.get(resource.resource) < resource.max
     }
     fn can_decrement(&mut self, resource: &RobberResourceSpinner) -> bool {
-        if let Ok(resources) = self.get(resource.resource.0) {
-            resources.get(resource.resource.1) > 0
-        } else {
-            false
-        }
+        self.0.get(resource.resource) > 0
     }
 }
 fn resource_slider(
     commands: &mut Commands<'_, '_>,
-    resource: resources_management::ResourceRef,
+    resource: resources::Resource,
     max: u8,
 ) -> impl Bundle {
     let entity = commands.spawn(RobberResourceSpinner { resource, max }).id();
-    common_ui::spinner_bundle::<RobberResourceSpinner>(
-        entity,
-        Text::new(format!("{:?}", resource.1)),
-    )
+    common_ui::spinner_bundle::<RobberResourceSpinner>(entity, Text::new(format!("{resource:?}")))
 }

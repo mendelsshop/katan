@@ -1,15 +1,9 @@
 use bevy::{ecs::system::SystemParam, prelude::*};
 
-use crate::game::Input;
 use crate::utils::NORMAL_BUTTON;
 
-use super::BoardSize;
-use super::Left;
-
-use super::Building;
-use super::GameState;
-use super::UI;
 use super::{
+    BoardSize, Building, GameState, Input, Left, UI,
     colors::{CatanColor, CurrentColor, CurrentSetupColor},
     common_ui::ButtonInteraction,
     positions::{BuildingPosition, RoadPosition},

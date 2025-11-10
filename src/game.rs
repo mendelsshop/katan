@@ -1,21 +1,5 @@
-use crate::{
-    common_ui,
-    game::{
-        cities::City,
-        colors::{set_color, set_setup_color},
-        development_cards::{DevelopmentCards, DevelopmentCardsPile},
-        longest_road::PlayerLongestRoad,
-        positions::{BuildingPosition, Position, RoadPosition},
-        resources::DEVELOPMENT_CARD_RESOURCES,
-        resources_management::TradingResources,
-        roads::{Road, RoadUI},
-        setup_game::Ports,
-        towns::{Town, TownUI},
-        turn_ui::{DieButton, PlayerBanner},
-    },
-};
-pub use std::marker::PhantomData;
 use std::{
+    marker::PhantomData,
     mem,
     ops::{AddAssign, SubAssign},
 };
@@ -46,25 +30,34 @@ use serde::{Deserialize, Serialize};
 
 use self::{
     cities::BuildingRef,
+    cities::City,
     colors::{
         CatanColor, CatanColorRef, ColorIterator, CurrentColor, CurrentSetupColor,
         SetupColorIterator,
     },
+    colors::{set_color, set_setup_color},
     development_card_actions::{
         MonopolyButton, RoadBuildingState, YearOfPlentyButton, YearOfPlentyState,
     },
     development_cards::DevelopmentCard,
+    development_cards::{DevelopmentCards, DevelopmentCardsPile},
     larget_army::LargestArmyPlugin,
     longest_road::LongestRoadPlugin,
+    longest_road::PlayerLongestRoad,
+    positions::{BuildingPosition, Position, RoadPosition},
+    resources::DEVELOPMENT_CARD_RESOURCES,
     resources::Resources,
     resources_management::ResourceManagmentPlugin,
+    resources_management::TradingResources,
     roads::{PlaceRoadButtonState, RoadPlaceButton},
-    robber::{
-        PreRobberDiscardLeft, Robber, RobberButton, RobberChooseColorButton, RobberResourceSpinner,
-    },
+    roads::{Road, RoadUI},
+    robber::{Robber, RobberButton, RobberChooseColorButton, RobberDiscard, RobberResourceSpinner},
+    setup_game::Ports,
     towns::{PlaceTownButtonState, TownPlaceButton},
+    towns::{Town, TownUI},
+    turn_ui::{DieButton, PlayerBanner},
 };
-use crate::AppState;
+use crate::{AppState, common_ui};
 
 #[derive(PartialEq, Eq, Clone, Copy, Debug, Resource)]
 pub struct LocalPlayer(pub CatanColorRef);
@@ -298,10 +291,8 @@ fn update_from_inputs(
                 }
             }
             Input::RobberDiscard(resources) => {
-                // TODO: way discarding works now is that we trash for player with keeping track of
-                // what we did, we should change to keep track of what we discarded
-                *player_resources = resources;
-                // bank.add_assign(resources);
+                bank.add_assign(resources);
+                player_resources.sub_assign(resources);
             }
             Input::Trade => todo!(),
             Input::TradeResponce => todo!(),
@@ -427,10 +418,10 @@ impl Plugin for GamePlugin {
             )
             .insert_resource(BoardSize(3))
             .init_resource::<Robber>()
+            .init_resource::<RobberDiscard>()
             .insert_resource(Resources::new_game())
             // TODO: is there way to init resource
             // without giving a value
-            .insert_resource(PreRobberDiscardLeft(0))
             .insert_resource(CurrentColor(CatanColorRef {
                 color: CatanColor::White,
                 entity: Entity::PLACEHOLDER,
@@ -677,7 +668,7 @@ impl Plugin for GamePlugin {
                 (
                     common_ui::spinner_buttons_interactions::<
                         RobberResourceSpinner,
-                        Query<'static, 'static, &'_ mut Resources>,
+                        ResMut<'_, RobberDiscard>,
                     >(),
                     robber::counter_sumbit_interaction,
                     robber::counter_text_update,

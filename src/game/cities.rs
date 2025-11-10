@@ -1,12 +1,9 @@
 use bevy::prelude::*;
 
-use crate::{
-    game::Input,
-    utils::{HOVERED_BUTTON, NORMAL_BUTTON, PRESSED_BUTTON},
-};
+use crate::utils::{HOVERED_BUTTON, NORMAL_BUTTON, PRESSED_BUTTON};
 
 use super::{
-    Building, GameState, Left,
+    Building, GameState, Input, Left,
     colors::{CatanColor, CurrentColor},
     positions::BuildingPosition,
     resources::{CITY_RESOURCES, Resources},

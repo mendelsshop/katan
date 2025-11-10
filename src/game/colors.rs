@@ -10,9 +10,7 @@ use bevy::{
     prelude::*,
 };
 
-use crate::game::{LocalPlayer, PlayerHandle};
-
-use super::{GameState, turn_ui::PlayerBanner};
+use super::{GameState, LocalPlayer, PlayerHandle, turn_ui::PlayerBanner};
 
 #[derive(Debug, Resource, Clone, Copy)]
 
