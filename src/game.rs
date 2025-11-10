@@ -18,7 +18,7 @@ mod robber;
 mod setup_game;
 mod towns;
 mod turn_ui;
-use bevy::prelude::*;
+use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_ggrs::{
     GgrsSchedule, LocalInputs, LocalPlayers, PlayerInputs, ReadInputs, RollbackApp,
     RollbackFrameRate, Session,
@@ -82,9 +82,9 @@ pub enum Input {
     // discard
     RobberDiscard(Resources),
     RobberDiscardInit,
-    Trade,         // interactive(TradeResponce)
-    TradeResponce, // interactive(TradeAccept)
-    TradeAccept,
+    Trade(TradingResources),         // interactive(TradeResponce)
+    TradeResponce(TradingResources), // interactive(TradeAccept)
+    TradeAccept(TradingResources, Entity),
     BankTrade(TradingResources),
 }
 pub type GgrsSessionConfig = bevy_ggrs::GgrsConfig<Input, PeerId>;
@@ -108,40 +108,72 @@ fn read_local_inputs(
 
 #[derive(Resource, Default, Clone, Copy, Debug, Deref, DerefMut)]
 pub struct SessionSeed(pub u64);
-fn update_from_inputs(
-    inputs: Res<'_, PlayerInputs<GgrsSessionConfig>>,
+
+#[derive(SystemParam)]
+pub struct UpdateState<'w, 's> {
+    inputs: Res<'w, PlayerInputs<GgrsSessionConfig>>,
     players: Query<
-        '_,
-        '_,
+        'w,
+        's,
         (
             Entity,
-            &PlayerHandle,
-            &mut Resources,
-            &CatanColor,
-            &mut VictoryPoints,
-            &mut Ports,
-            &mut Left<Road>,
-            &mut Left<Town>,
-            &mut Left<City>,
-            &mut DevelopmentCards,
+            &'static PlayerHandle,
+            &'static mut Resources,
+            &'static CatanColor,
+            &'static mut VictoryPoints,
+            &'static mut Ports,
+            &'static mut Left<Road>,
+            &'static mut Left<Town>,
+            &'static mut Left<City>,
+            &'static mut DevelopmentCards,
         ),
     >,
 
-    ports: Query<'_, '_, (&'_ BuildingPosition, &'_ Port)>,
-    mut player_banners: Query<'_, '_, (&mut BackgroundColor, &mut Outline, &PlayerBanner)>,
-    mut bank: ResMut<'_, Resources>,
-    mut commands: Commands<'_, '_>,
-    mut meshes: ResMut<'_, Assets<Mesh>>,
-    mut materials: ResMut<'_, Assets<ColorMaterial>>,
-    mut mut_game_state: ResMut<'_, NextState<GameState>>,
-    game_state: ResMut<'_, State<GameState>>,
-    mut setup_color_r: ResMut<'_, CurrentSetupColor>,
-    mut color_r: ResMut<'_, CurrentColor>,
-    mut setup_color_rotation: ResMut<'_, SetupColorIterator>,
-    mut color_rotation: ResMut<'_, ColorIterator>,
+    ports: Query<'w, 's, (&'static BuildingPosition, &'static Port)>,
+    player_banners: Query<
+        'w,
+        's,
+        (
+            &'static mut BackgroundColor,
+            &'static mut Outline,
+            &'static PlayerBanner,
+        ),
+    >,
+    bank: ResMut<'w, Resources>,
+    layout: Res<'w, Layout>,
+    commands: Commands<'w, 's>,
+    meshes: ResMut<'w, Assets<Mesh>>,
+    materials: ResMut<'w, Assets<ColorMaterial>>,
+    mut_game_state: ResMut<'w, NextState<GameState>>,
+    game_state: ResMut<'w, State<GameState>>,
+    setup_color_r: ResMut<'w, CurrentSetupColor>,
+    color_r: ResMut<'w, CurrentColor>,
+    setup_color_rotation: ResMut<'w, SetupColorIterator>,
+    color_rotation: ResMut<'w, ColorIterator>,
 
-    mut free_dev_cards: ResMut<'_, DevelopmentCardsPile>,
-    local_player: Res<'_, LocalPlayer>,
+    free_dev_cards: ResMut<'w, DevelopmentCardsPile>,
+    local_player: Res<'w, LocalPlayer>,
+}
+fn update_from_inputs(
+    UpdateState {
+        inputs,
+        players,
+        ports,
+        mut player_banners,
+        mut bank,
+        layout,
+        mut commands,
+        mut meshes,
+        mut materials,
+        mut mut_game_state,
+        game_state,
+        mut setup_color_r,
+        mut color_r,
+        mut setup_color_rotation,
+        mut color_rotation,
+        mut free_dev_cards,
+        local_player,
+    }: UpdateState<'_, '_>,
 ) {
     let count = inputs.iter().filter(|(i, _)| *i != Input::None).count();
     if count != 0 {
@@ -294,12 +326,29 @@ fn update_from_inputs(
                 bank.add_assign(resources);
                 player_resources.sub_assign(resources);
             }
-            Input::Trade => todo!(),
-            Input::TradeResponce => todo!(),
-            Input::TradeAccept => todo!(),
+            Input::Trade(_) => if entity != local_player.0.entity {},
+            Input::TradeResponce(_) => if *game_state.get() == GameState::Turn {},
+            // handeld by update_from_trade_accept
+            Input::TradeAccept(_r, _e) => (),
             Input::BankTrade(trading_resources) => {
                 bank.sub_assign(trading_resources);
                 player_resources.add_assign(trading_resources);
+            }
+        }
+    }
+}
+fn update_from_trade_accept(
+    inputs: Res<'_, PlayerInputs<GgrsSessionConfig>>,
+    players: Query<'_, '_, (Entity, &PlayerHandle)>,
+    mut player_resources_q: Query<'_, '_, &mut Resources, With<CatanColor>>,
+) {
+    for player in players {
+        if let (Input::TradeAccept(r, trader), InputStatus::Confirmed) = inputs[player.1.0] {
+            if let Ok(mut robbed_resources) = player_resources_q.get_mut(trader) {
+                robbed_resources.sub_assign(r);
+            }
+            if let Ok(mut resources) = player_resources_q.get_mut(player.0) {
+                resources.add_assign(r);
             }
         }
     }
@@ -634,6 +683,7 @@ impl Plugin for GamePlugin {
                     update_from_inputs_roll,
                     update_from_monopoly,
                     update_from_knight,
+                    update_from_trade_accept,
                 )
                     .ambiguous_with_all(),
             )

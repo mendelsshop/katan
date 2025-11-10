@@ -19,12 +19,10 @@ pub struct TradeButton;
 #[derive(Component, Clone, Copy, Debug)]
 pub struct BankTradeButton;
 #[derive(SystemParam)]
-struct TradeState<'w, 's> {
+struct TradeState<'w> {
     trade: Res<'w, TradingResources>,
-    commands: Commands<'w, 's>,
     // maybe a with<..> just in case there more entities that also have color
-    colors: Query<'w, 's, &'static CatanColorRef>,
-    current_color: Res<'w, CurrentColor>,
+    input: ResMut<'w, Input>,
 }
 
 // TODO: clicking this despawns its parent too
@@ -45,49 +43,50 @@ pub struct RejectTrade {
 // maybe also spawn button on main player to cancel trade
 #[derive(Component)]
 pub struct Trade(TradingResources);
-impl ButtonInteraction<TradeButton> for TradeState<'_, '_> {
+impl ButtonInteraction<TradeButton> for TradeState<'_> {
     fn interact(&mut self, _: &TradeButton) {
-        self.commands
-            .spawn(Trade(*self.trade))
-            .with_related_entities::<TradeChildOf>(|b| {
-                self.colors
-                    .iter()
-                    .filter(|c| **c != self.current_color.0)
-                    .for_each(|color| {
-                        // TODO: spawn in specific players window
-                        b.spawn((
-                            Node {
-                                display: Display::Grid,
-                                grid_template_columns: vec![
-                                    GridTrack::auto(),
-                                    GridTrack::auto(),
-                                    GridTrack::auto(),
-                                ],
-                                ..Default::default()
-                            },
-                            Visibility::Hidden,
-                            children![
-                                Text::new(self.trade.to_string()),
-                                (
-                                    Button,
-                                    Text::new("ok"),
-                                    RejectTrade {
-                                        color: *color,
-                                        trade: *self.trade
-                                    },
-                                ),
-                                (
-                                    Button,
-                                    Text::new("x"),
-                                    AcceptTrade {
-                                        color: *color,
-                                        trade: *self.trade
-                                    }
-                                )
-                            ],
-                        ));
-                    });
-            });
+        *self.input = Input::Trade(*self.trade);
+        // self.commands
+        //     .spawn(Trade(*self.trade))
+        //     .with_related_entities::<TradeChildOf>(|b| {
+        //         self.colors
+        //             .iter()
+        //             .filter(|c| **c != self.current_color.0)
+        //             .for_each(|color| {
+        //                 // TODO: spawn in specific players window
+        //                 b.spawn((
+        //                     Node {
+        //                         display: Display::Grid,
+        //                         grid_template_columns: vec![
+        //                             GridTrack::auto(),
+        //                             GridTrack::auto(),
+        //                             GridTrack::auto(),
+        //                         ],
+        //                         ..Default::default()
+        //                     },
+        //                     Visibility::Hidden,
+        //                     children![
+        //                         Text::new(self.trade.to_string()),
+        //                         (
+        //                             Button,
+        //                             Text::new("ok"),
+        //                             RejectTrade {
+        //                                 color: *color,
+        //                                 trade: *self.trade
+        //                             },
+        //                         ),
+        //                         (
+        //                             Button,
+        //                             Text::new("x"),
+        //                             AcceptTrade {
+        //                                 color: *color,
+        //                                 trade: *self.trade
+        //                             }
+        //                         )
+        //                     ],
+        //                 ));
+        //             });
+        //     });
     }
     fn verify(&mut self, _: &TradeButton) -> bool {
         let (giving, taking) = self.trade.given_and_taken();
@@ -425,7 +424,7 @@ impl Plugin for ResourceManagmentPlugin {
             )
             .add_systems(
                 Update,
-                (common_ui::button_system_with_generic::<TradeButton, TradeState<'_, '_>>,)
+                (common_ui::button_system_with_generic::<TradeButton, TradeState<'_>>,)
                     .run_if(in_state(GameState::Turn)),
             )
             .add_systems(
