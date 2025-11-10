@@ -350,13 +350,37 @@ fn update_from_inputs(
                         },
                         children![
                             Text::new(trade.to_string()),
-                            (Button, Text::new("x"), RejectTrade { trade }),
+                            (Button, Text::new("x"), RejectTrade),
                             (Button, Text::new("Ok"), AcceptTrade { trade })
                         ],
                     ));
                 }
             }
-            Input::TradeResponce(_) => if *game_state.get() == GameState::Turn {},
+            Input::TradeResponce(trade) => {
+                let player_ref = CatanColorRef {
+                    color: *color,
+                    entity,
+                    handle: *player_handle,
+                };
+                if *game_state.get() == GameState::Turn {
+                    commands.entity(layout.trades).with_child((
+                        Node {
+                            display: Display::Grid,
+                            grid_template_columns: vec![
+                                GridTrack::auto(),
+                                GridTrack::auto(),
+                                GridTrack::auto(),
+                            ],
+                            ..Default::default()
+                        },
+                        children![
+                            Text::new(trade.to_string()),
+                            (Button, Text::new("x"), RejectTrade, player_ref),
+                            (Button, Text::new("Ok"), AcceptTrade { trade }, player_ref)
+                        ],
+                    ));
+                }
+            }
             // handeld by update_from_trade_accept
             Input::TradeAccept(_r, _e) => (),
             Input::BankTrade(trading_resources) => {
@@ -370,6 +394,8 @@ fn update_from_trade_accept(
     inputs: Res<'_, PlayerInputs<GgrsSessionConfig>>,
     players: Query<'_, '_, (Entity, &PlayerHandle)>,
     mut player_resources_q: Query<'_, '_, &mut Resources, With<CatanColor>>,
+    layout: Res<'_, Layout>,
+    mut commands: Commands<'_, '_>,
 ) {
     for player in players {
         if let (Input::TradeAccept(r, trader), InputStatus::Confirmed) = inputs[player.1.0] {
@@ -379,6 +405,7 @@ fn update_from_trade_accept(
             if let Ok(mut resources) = player_resources_q.get_mut(player.0) {
                 resources.add_assign(r);
             }
+            commands.entity(layout.trades).clear_children();
         }
     }
 }

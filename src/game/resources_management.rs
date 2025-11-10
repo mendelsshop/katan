@@ -7,7 +7,10 @@ use bevy::{ecs::system::SystemParam, prelude::*};
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 
-use crate::utils::{HOVERED_BUTTON, NORMAL_BUTTON, PRESSED_BUTTON};
+use crate::{
+    game::colors::CatanColorRef,
+    utils::{HOVERED_BUTTON, NORMAL_BUTTON, PRESSED_BUTTON},
+};
 
 use super::{
     GameState, Input, Layout,
@@ -36,8 +39,45 @@ pub struct AcceptTrade {
 }
 // TODO: clicking this despawns its parent too
 #[derive(Component)]
-pub struct RejectTrade {
-    pub trade: TradingResources,
+pub struct RejectTrade;
+
+// interaction for current player (whose turn it is)
+fn accept_trade_interaction_current(
+    mut commands: Commands<'_, '_>,
+    mut input: ResMut<'_, Input>,
+    interaction_query: Query<
+        '_,
+        '_,
+        (
+            &mut Button,
+            &mut BackgroundColor,
+            &Interaction,
+            &AcceptTrade,
+            &ChildOf,
+            &CatanColorRef,
+        ),
+        Changed<Interaction>,
+    >,
+) {
+    for (mut button, mut color, interaction, accept_trade, parent, player) in interaction_query {
+        match interaction {
+            Interaction::Pressed => {
+                *color = PRESSED_BUTTON.into();
+                // TODO: verify can still be done
+                button.set_changed();
+                *input = Input::TradeAccept(accept_trade.trade, player.entity);
+                commands.entity(parent.parent()).clear();
+                break;
+            }
+            Interaction::Hovered => {
+                *color = HOVERED_BUTTON.into();
+                button.set_changed();
+            }
+            Interaction::None => {
+                *color = NORMAL_BUTTON.into();
+            }
+        }
+    }
 }
 
 fn accept_trade_interaction(
@@ -59,9 +99,11 @@ fn accept_trade_interaction(
     for (mut button, mut color, interaction, accept_trade, parent) in interaction_query {
         match interaction {
             Interaction::Pressed => {
+                // TODO: verify can still be done
                 *color = PRESSED_BUTTON.into();
                 button.set_changed();
                 *input = Input::TradeResponce(accept_trade.trade);
+
                 commands.entity(parent.parent()).clear();
                 break;
             }
@@ -104,8 +146,6 @@ fn reject_trade_interaction(
 }
 // TODO: if no more children then despawn
 // maybe also spawn button on main player to cancel trade
-#[derive(Component)]
-pub struct Trade(TradingResources);
 impl ButtonInteraction<TradeButton> for TradeState<'_> {
     fn interact(&mut self, _: &TradeButton) {
         *self.input = Input::Trade(*self.trade);
@@ -446,6 +486,11 @@ impl Plugin for ResourceManagmentPlugin {
             .add_systems(
                 Update,
                 (common_ui::button_system_with_generic::<BankTradeButton, BankTradeState<'_, '_>>,)
+                    .run_if(in_state(GameState::Turn)),
+            )
+            .add_systems(
+                Update,
+                (accept_trade_interaction_current, reject_trade_interaction)
                     .run_if(in_state(GameState::Turn)),
             )
             .add_systems(
