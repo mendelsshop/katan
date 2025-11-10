@@ -57,7 +57,10 @@ use self::{
     towns::{Town, TownUI},
     turn_ui::{DieButton, PlayerBanner},
 };
-use crate::{AppState, common_ui};
+use crate::{
+    AppState, common_ui,
+    game::resources_management::{AcceptTrade, RejectTrade},
+};
 
 #[derive(PartialEq, Eq, Clone, Copy, Debug, Resource)]
 pub struct LocalPlayer(pub CatanColorRef);
@@ -82,6 +85,7 @@ pub enum Input {
     // discard
     RobberDiscard(Resources),
     RobberDiscardInit,
+    // need way to cancel trade
     Trade(TradingResources),         // interactive(TradeResponce)
     TradeResponce(TradingResources), // interactive(TradeAccept)
     TradeAccept(TradingResources, Entity),
@@ -224,6 +228,10 @@ fn update_from_inputs(
                         &mut mut_game_state,
                         &mut player_banners,
                     );
+                    commands
+                        .entity(layout.trades)
+                        .clear_children()
+                        .with_child(Text("trades".to_string()));
                 }
             }
             Input::AddRoad(road_position, cost) => {
@@ -326,7 +334,28 @@ fn update_from_inputs(
                 bank.add_assign(resources);
                 player_resources.sub_assign(resources);
             }
-            Input::Trade(_) => if entity != local_player.0.entity {},
+
+            Input::Trade(trade) => {
+                // we show even if its not possible as after another trade it could be
+                if entity != local_player.0.entity {
+                    commands.entity(layout.trades).with_child((
+                        Node {
+                            display: Display::Grid,
+                            grid_template_columns: vec![
+                                GridTrack::auto(),
+                                GridTrack::auto(),
+                                GridTrack::auto(),
+                            ],
+                            ..Default::default()
+                        },
+                        children![
+                            Text::new(trade.to_string()),
+                            (Button, Text::new("x"), RejectTrade { trade }),
+                            (Button, Text::new("Ok"), AcceptTrade { trade })
+                        ],
+                    ));
+                }
+            }
             Input::TradeResponce(_) => if *game_state.get() == GameState::Turn {},
             // handeld by update_from_trade_accept
             Input::TradeAccept(_r, _e) => (),
@@ -935,7 +964,7 @@ pub struct Layout {
     pub resources: Entity,
     pub board: Entity,
     pub ui: Entity,
-    pub chat: Entity,
+    pub trades: Entity,
 }
 fn layout(commands: &mut Commands<'_, '_>) -> Layout {
     let player_banner_layout = commands
@@ -1040,14 +1069,16 @@ fn layout(commands: &mut Commands<'_, '_>) -> Layout {
     ));
     main_ui_layout.add_children(&[board_layout, ui_layout]);
     let main_ui_layout = main_ui_layout.id();
-    let chat_layout = commands
+    let trades_layout = commands
         .spawn((
             Node {
                 display: Display::Grid,
+                grid_auto_flow: GridAutoFlow::Row,
+                align_content: AlignContent::Start,
                 border: UiRect::all(Val::Px(1.)),
                 ..default()
             },
-            children![Text("chat".to_string()),],
+            children![Text("trades".to_string()),],
             BorderColor::all(Color::BLACK),
         ))
         .id();
@@ -1061,7 +1092,7 @@ fn layout(commands: &mut Commands<'_, '_>) -> Layout {
         ..default()
     },));
 
-    main_layout.add_children(&[card_layout, main_ui_layout, chat_layout]);
+    main_layout.add_children(&[card_layout, main_ui_layout, trades_layout]);
     let main_layout = main_layout.id();
     let mut layout = commands.spawn((Node {
         display: Display::Grid,
@@ -1078,7 +1109,7 @@ fn layout(commands: &mut Commands<'_, '_>) -> Layout {
         resources: resources_layout,
         board: board_layout,
         ui: ui_layout,
-        chat: chat_layout,
+        trades: trades_layout,
         setting_pull_out: settings_pull_out_layout,
     }
 }
