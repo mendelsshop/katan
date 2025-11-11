@@ -92,6 +92,7 @@ pub enum Input {
     TradeResponce(TradingResources), // interactive(TradeAccept)
     TradeAccept(TradingResources, Entity),
     BankTrade(TradingResources),
+    Win,
 }
 pub type GgrsSessionConfig = bevy_ggrs::GgrsConfig<Input, PeerId>;
 pub struct GamePlugin;
@@ -208,6 +209,7 @@ fn update_from_inputs(
         }
         match input {
             Input::None => {}
+            Input::Win => {}
             Input::NextColor => {
                 if matches!(
                     *game_state.get(),
@@ -724,6 +726,7 @@ impl Plugin for GamePlugin {
                     }
                 }),
             )
+            .add_systems(Update, check_for_winner.run_if(in_state(GameState::Turn)))
             .add_systems(
                 Update,
                 development_cards::buy_development_card_interaction
@@ -1162,5 +1165,17 @@ fn handle_ggrs_events(mut session: ResMut<'_, Session<GgrsSessionConfig>>) {
                 _ => info!("GGRS event: {event:?}"),
             }
         }
+    }
+}
+
+fn check_for_winner(
+    current_color: Res<'_, LocalPlayer>,
+    mut current_inputs: ResMut<'_, Input>,
+    players: Query<'_, '_, &VictoryPoints, Changed<VictoryPoints>>,
+) {
+    if let Ok(vps) = players.get(current_color.0.entity)
+        && vps.actual + vps.from_development_cards >= 10
+    {
+        *current_inputs = Input::Win;
     }
 }
