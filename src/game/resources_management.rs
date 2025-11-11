@@ -66,7 +66,8 @@ fn accept_trade_interaction_current(
                 // TODO: verify can still be done
                 button.set_changed();
                 *input = Input::TradeAccept(accept_trade.trade, player.entity);
-                commands.entity(parent.parent()).clear();
+
+                commands.entity(parent.parent()).despawn();
                 break;
             }
             Interaction::Hovered => {
@@ -104,7 +105,7 @@ fn accept_trade_interaction(
                 button.set_changed();
                 *input = Input::TradeResponce(accept_trade.trade);
 
-                commands.entity(parent.parent()).clear();
+                commands.entity(parent.parent()).despawn();
                 break;
             }
             Interaction::Hovered => {
@@ -131,7 +132,7 @@ fn reject_trade_interaction(
             Interaction::Pressed => {
                 *color = PRESSED_BUTTON.into();
                 button.set_changed();
-                commands.entity(parent.parent()).clear();
+                commands.entity(parent.parent()).despawn();
                 break;
             }
             Interaction::Hovered => {

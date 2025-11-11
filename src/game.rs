@@ -1114,7 +1114,7 @@ fn layout(commands: &mut Commands<'_, '_>) -> Layout {
         grid_template_columns: vec![
             GridTrack::percent(25.),
             GridTrack::percent(50.),
-            GridTrack::percent(50.),
+            GridTrack::percent(25.),
         ],
         ..default()
     },));
