@@ -63,6 +63,8 @@ use crate::{
 };
 
 #[derive(PartialEq, Eq, Clone, Copy, Debug, Resource)]
+pub struct LocalPlayerHandle(pub usize);
+#[derive(PartialEq, Eq, Clone, Copy, Debug, Resource)]
 pub struct LocalPlayer(pub CatanColorRef);
 #[derive(PartialEq, Eq, Clone, Copy, Default, Deserialize, Serialize, Debug, Resource)]
 pub enum Input {
@@ -946,7 +948,7 @@ fn game_setup(
     player_count: Res<'_, PlayerCount>,
     seed: Res<'_, SessionSeed>,
 
-    local_players: Res<'_, LocalPlayers>,
+    local_player: Res<'_, LocalPlayerHandle>,
 ) {
     let layout = layout(&mut commands);
     commands.insert_resource(layout);
@@ -957,7 +959,7 @@ fn game_setup(
         layout,
         player_count,
         seed.0,
-        local_players,
+        local_player,
     );
 
     commands.insert_resource(ColorIterator(catan_colors.clone().cycle()));

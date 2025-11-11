@@ -1,4 +1,4 @@
-use crate::game::{GgrsSessionConfig, PlayerCount, SessionSeed};
+use crate::game::{GgrsSessionConfig, LocalPlayerHandle, PlayerCount, SessionSeed};
 use crate::{
     AppState,
     common_ui::{self, ButtonInteraction},
@@ -240,6 +240,9 @@ fn wait_for_players(
         .with_desync_detection_mode(DesyncDetection::Off);
 
     for (i, player) in players.into_iter().enumerate() {
+        if player == PlayerType::Local {
+            commands.insert_resource(LocalPlayerHandle(i));
+        }
         println!("adding player {i} {player:?}");
         session_builder = session_builder
             .add_player(player, i)
