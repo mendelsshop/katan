@@ -8,7 +8,8 @@ use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    game::colors::CatanColorRef,
+    AppState,
+    game::{LocalPlayer, colors::CatanColorRef},
     utils::{HOVERED_BUTTON, NORMAL_BUTTON, PRESSED_BUTTON},
 };
 
@@ -208,7 +209,7 @@ pub fn show_player_resources(
     player_resources: Query<'_, '_, (Entity, (&CatanColor, &Resources)), Changed<Resources>>,
     player_resources_nodes: Query<'_, '_, (&mut Text, &Value<TradingResourceSpinner>)>,
     sliders: Query<'_, '_, &TradingResourceSpinner>,
-    res: Res<'_, CurrentColor>,
+    res: Res<'_, LocalPlayer>,
 ) {
     for resource in player_resources {
         println!("{resource:?}");
@@ -466,7 +467,10 @@ impl Plugin for ResourceManagmentPlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(TradingResources::default())
             .add_systems(OnEnter(GameState::Start), setup_players_resources)
-            .add_systems(Update, show_player_resources)
+            .add_systems(
+                Update,
+                show_player_resources.run_if(in_state(AppState::InGame)),
+            )
             .add_systems(Update, show_player_trade)
             // TODO: maybe remove the Changed<Resources> for this one, so new players cards always show
             .add_systems(OnEnter(GameState::Roll), show_player_resources)

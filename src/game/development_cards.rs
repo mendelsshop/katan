@@ -3,7 +3,10 @@ use std::ops::{Add, AddAssign};
 use bevy::prelude::*;
 use itertools::Itertools;
 
-use crate::utils::{HOVERED_BUTTON, NORMAL_BUTTON, PRESSED_BUTTON};
+use crate::{
+    game::LocalPlayer,
+    utils::{HOVERED_BUTTON, NORMAL_BUTTON, PRESSED_BUTTON},
+};
 
 use super::{
     Input, Layout,
@@ -173,7 +176,7 @@ pub fn buy_development_card_interaction(
 }
 pub fn setup_show_dev_cards(
     player_dev_cards: Query<'_, '_, &DevelopmentCards, With<CatanColor>>,
-    res: Res<'_, CurrentColor>,
+    res: Res<'_, LocalPlayer>,
     mut commands: Commands<'_, '_>,
     layout: Res<'_, Layout>,
 ) {
@@ -242,7 +245,7 @@ pub fn show_dev_cards(
         (With<CatanColor>, Changed<DevelopmentCards>),
     >,
     mut shown_cards: Query<'_, '_, (&DevelopmentCard, &mut DevelopmentCardShow), With<Node>>,
-    res: Res<'_, CurrentColor>,
+    res: Res<'_, LocalPlayer>,
     mut commands: Commands<'_, '_>,
     layout: Res<'_, Layout>,
 ) {
