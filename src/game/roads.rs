@@ -277,6 +277,7 @@ impl ButtonInteraction<RoadPlaceButton> for PlaceRoadButtonState<'_> {
             | GameState::PlaceCity
             | GameState::NotActive
             | GameState::NotActiveSetup
+            | GameState::Win
             | GameState::RobberPickColor => {}
 
             GameState::PlaceRoad => {

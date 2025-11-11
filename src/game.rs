@@ -116,6 +116,20 @@ fn read_local_inputs(
 #[derive(Resource, Default, Clone, Copy, Debug, Deref, DerefMut)]
 pub struct SessionSeed(pub u64);
 
+#[derive(Component, Default, Clone, Copy, Debug)]
+pub struct NewGame;
+fn new_game_interaction(
+    nodes: Query<'_, '_, Entity, With<Node>>,
+    mut commands: Commands<'_, '_>,
+    mut state: ResMut<'_, NextState<AppState>>,
+) {
+    for node in nodes {
+        commands.entity(node).despawn();
+        // TODO: clear game componets
+        state.set(AppState::Menu);
+    }
+}
+
 #[derive(SystemParam)]
 pub struct UpdateState<'w, 's> {
     inputs: Res<'w, PlayerInputs<GgrsSessionConfig>>,
@@ -209,7 +223,11 @@ fn update_from_inputs(
         }
         match input {
             Input::None => {}
-            Input::Win => {}
+            Input::Win => {
+                mut_game_state.set(GameState::Win);
+                commands.spawn(Text::new(format!("{color:?} Won")));
+                commands.spawn((Text::new("New game"), Button, NewGame));
+            }
             Input::NextColor => {
                 if matches!(
                     *game_state.get(),
@@ -726,7 +744,13 @@ impl Plugin for GamePlugin {
                     }
                 }),
             )
-            .add_systems(Update, check_for_winner.run_if(in_state(GameState::Turn)))
+            .add_systems(
+                Update,
+                (
+                    check_for_winner.run_if(in_state(GameState::Turn)),
+                    new_game_interaction.run_if(in_state(GameState::Win)),
+                ),
+            )
             .add_systems(
                 Update,
                 development_cards::buy_development_card_interaction
@@ -823,6 +847,7 @@ pub enum GameState {
     RobberPickColor,
     // picking which place to put robber on
     PlaceRobber,
+    Win,
 }
 
 // for players input with ggrs

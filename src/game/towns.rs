@@ -214,28 +214,8 @@ impl ButtonInteraction<TownPlaceButton> for PlaceTownButtonState<'_> {
         } = self;
 
         **input = Input::AddTown(*position, *cost, *game_state.get() == GameState::SetupTown);
-        match *game_state.get() {
-            GameState::Nothing
-            | GameState::NotActive
-            | GameState::NotActiveSetup
-            | GameState::Monopoly
-            | GameState::YearOfPlenty
-            | GameState::Start
-            | GameState::Roll
-            | GameState::Turn
-            | GameState::PlaceRobber
-            | GameState::RobberDiscardResources
-            | GameState::RobberDiscardResourcesInActive
-            | GameState::RoadBuilding
-            | GameState::PlaceRoad
-            | GameState::PlaceCity
-            | GameState::SetupRoad
-            | GameState::RobberPickColor => {}
-            GameState::PlaceTown => {
-                game_state_mut.set(GameState::Turn);
-            }
-
-            GameState::SetupTown => (),
+        if *game_state.get() == GameState::PlaceTown {
+            game_state_mut.set(GameState::Turn);
         }
     }
 }
