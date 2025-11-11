@@ -8,11 +8,9 @@ use std::{
     ops::{Add, AddAssign},
 };
 
-use crate::game::LocalPlayerHandle;
-
 use super::{
-    Hexagon, Knights, Layout, Left, LocalPlayer, Number, PlayerCount, PlayerHandle, Port, Robber,
-    VictoryPoints,
+    Hexagon, KatanComponent, Knights, Layout, Left, LocalPlayer, LocalPlayerHandle, Number,
+    PlayerCount, PlayerHandle, Port, Robber, VictoryPoints,
     cities::City,
     colors::{CatanColor, CatanColorRef},
     development_cards::DevelopmentCardsPile,
@@ -227,6 +225,7 @@ fn fix_numbers(
     used
 }
 #[derive(Debug, Component, Clone, Copy, Default)]
+#[require(KatanComponent)]
 pub struct Ports {
     three_for_one: bool,
     two_for_one_wood: bool,

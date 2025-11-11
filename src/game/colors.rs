@@ -10,7 +10,7 @@ use bevy::{
     prelude::*,
 };
 
-use super::{GameState, LocalPlayer, PlayerHandle, turn_ui::PlayerBanner};
+use super::{GameState, KatanComponent, LocalPlayer, PlayerHandle, turn_ui::PlayerBanner};
 
 #[derive(Debug, Resource, Clone, Copy)]
 
@@ -40,6 +40,7 @@ impl From<CurrentSetupColor> for CatanColor {
     }
 }
 #[derive(Debug, Component, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[require(KatanComponent)]
 pub enum CatanColor {
     Red,
     Green,
@@ -47,6 +48,7 @@ pub enum CatanColor {
     White,
 }
 #[derive(Debug, Component, Clone, Copy, PartialEq, Eq, Hash)]
+#[require(KatanComponent)]
 pub struct CatanColorRef {
     pub color: CatanColor,
     pub entity: Entity,

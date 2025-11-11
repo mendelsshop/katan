@@ -1,9 +1,10 @@
 use bevy::prelude::*;
 
-use super::{Knights, VictoryPoints};
+use super::{KatanComponent, Knights, VictoryPoints};
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Resource)]
 struct LargetArmy(pub u8, pub Entity);
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Component)]
+#[require(KatanComponent)]
 pub struct LargetArmyRef;
 
 fn update_larget_army(

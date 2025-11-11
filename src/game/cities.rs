@@ -3,13 +3,14 @@ use bevy::prelude::*;
 use crate::utils::{HOVERED_BUTTON, NORMAL_BUTTON, PRESSED_BUTTON};
 
 use super::{
-    Building, GameState, Input, Left,
+    Building, GameState, Input, KatanComponent, Left,
     colors::{CatanColor, CurrentColor},
     positions::BuildingPosition,
     resources::{CITY_RESOURCES, Resources},
     towns::Town,
 };
 #[derive(Debug, Component, Clone, Copy)]
+#[require(KatanComponent)]
 #[require(Building)]
 pub struct City;
 pub fn place_normal_city_interaction(
@@ -50,6 +51,7 @@ pub fn place_normal_city_interaction(
     }
 }
 #[derive(Debug, Component, Clone, Copy)]
+#[require(KatanComponent)]
 pub struct BuildingRef(Entity, BuildingPosition);
 pub fn place_normal_city(
     mut commands: Commands<'_, '_>,

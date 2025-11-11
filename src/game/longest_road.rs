@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use super::{
-    BoardSize, Building, VictoryPoints,
+    BoardSize, Building, KatanComponent, VictoryPoints,
     colors::{CatanColor, CurrentColor},
     positions::{BuildingPosition, RoadPosition},
     roads::{self, RoadQuery},
@@ -12,10 +12,12 @@ use itertools::Itertools;
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Resource)]
 struct LongestRoad(Entity, u8);
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Component)]
+#[require(KatanComponent)]
 pub struct LongestRoadRef;
 pub struct LongestRoadPlugin;
 /// the players longest path (not if the player has longest road)
 #[derive(Clone, PartialEq, Eq, Debug, Component)]
+#[require(KatanComponent)]
 // TODO: maybe precompute len
 pub struct PlayerLongestRoad(pub HashSet<RoadPosition>);
 impl Plugin for LongestRoadPlugin {

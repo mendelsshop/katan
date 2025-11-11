@@ -3,7 +3,7 @@ use bevy::{ecs::system::SystemParam, prelude::*};
 use crate::utils::NORMAL_BUTTON;
 
 use super::{
-    BoardSize, Building, GameState, Input, Left, UI,
+    BoardSize, Building, GameState, Input, KatanComponent, Left, UI,
     colors::{CatanColor, CurrentColor, CurrentSetupColor},
     common_ui::ButtonInteraction,
     positions::{BuildingPosition, RoadPosition},
@@ -12,8 +12,10 @@ use super::{
 };
 
 #[derive(Component, Clone, Copy, Debug)]
+#[require(KatanComponent)]
 pub struct TownPlaceButton(Resources, BuildingPosition);
 #[derive(Debug, Component, Clone, Copy, Default)]
+#[require(KatanComponent)]
 #[require(Building)]
 pub struct Town;
 pub fn place_normal_town(

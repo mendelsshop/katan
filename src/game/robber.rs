@@ -8,7 +8,7 @@ use itertools::Itertools;
 use crate::utils::{HOVERED_BUTTON, NORMAL_BUTTON, PRESSED_BUTTON};
 
 use super::{
-    Building, GameState, Input, LocalPlayer, PlayerHandle,
+    Building, GameState, Input, KatanComponent, LocalPlayer, PlayerHandle,
     colors::{CatanColor, CatanColorRef, CurrentColor},
     common_ui::{self, SpinnerButtonInteraction, Value},
     positions::{BuildingPosition, FPosition, Position, generate_postions},
@@ -35,6 +35,7 @@ pub fn counter_text_update(
     }
 }
 #[derive(Component, PartialEq, Eq, Clone, Copy, Debug)]
+#[require(KatanComponent)]
 pub struct RobberButton;
 pub fn place_robber(mut commands: Commands<'_, '_>, robber: Res<'_, Robber>) {
     generate_postions(3)
@@ -123,6 +124,7 @@ pub fn place_robber_interaction(
     }
 }
 #[derive(Component)]
+#[require(KatanComponent)]
 pub struct RobberChooseColorButton;
 fn choose_player_to_take_from<'a>(
     position: &Position,
@@ -251,6 +253,7 @@ pub fn choose_player_to_take_from_interaction(
 }
 
 #[derive(Component)]
+#[require(KatanComponent)]
 pub struct WindowRef(Entity);
 
 pub fn take_extra_resources(
@@ -386,10 +389,12 @@ fn setup_take_extra_resources(
     ));
 }
 #[derive(Component)]
+#[require(KatanComponent)]
 pub struct SumbitButton {
     new_max_resources: u8,
 }
 #[derive(Debug, Component, Clone, Copy)]
+#[require(KatanComponent)]
 pub struct RobberResourceSpinner {
     resource: resources::Resource,
     max: u8,

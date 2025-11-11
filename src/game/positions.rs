@@ -5,6 +5,7 @@ use std::{
     ops::{Add, Div},
 };
 
+use super::KatanComponent;
 use bevy::prelude::*;
 #[derive(
     Component, Debug, PartialEq, Eq, Clone, Copy, PartialOrd, Ord, Hash, Deserialize, Serialize,
@@ -213,6 +214,7 @@ impl Add for FPosition {
     }
 }
 #[derive(Component, Clone, Copy, Debug, Hash, Eq, Deserialize, Serialize)]
+#[require(KatanComponent)]
 
 pub enum RoadPosition {
     /// Dont use this constructor use `Self::new`
@@ -319,6 +321,7 @@ impl PartialEq for RoadPosition {
 }
 
 #[derive(Component, PartialEq, Eq, Clone, Copy, Deserialize, Serialize, Debug, Resource)]
+#[require(KatanComponent)]
 pub enum BuildingPosition {
     /// Do not use this
     /// so we can garuntee p1 > p2 > p3

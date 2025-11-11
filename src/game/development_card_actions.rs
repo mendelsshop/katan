@@ -3,13 +3,14 @@ use bevy::prelude::*;
 use crate::utils::{HOVERED_BUTTON, NORMAL_BUTTON, PRESSED_BUTTON};
 
 use super::{
-    GameState, Input, Knights, Layout,
+    GameState, Input, KatanComponent, Knights, Layout,
     colors::{CatanColor, CurrentColor},
     development_cards::{DevelopmentCard, DevelopmentCards},
     resources::{self},
 };
 
 #[derive(Component, PartialEq, Eq, Clone, Copy, Debug)]
+#[require(KatanComponent)]
 pub struct DevelopmentCardShow(pub u8);
 pub fn development_card_action_interaction(
     mut interaction_query: Query<
@@ -100,6 +101,7 @@ pub fn monopoly(mut state: ResMut<'_, NextState<GameState>>) {
     state.set(GameState::Monopoly);
 }
 #[derive(Component, Debug, Clone, Copy)]
+#[require(KatanComponent)]
 pub struct MonopolyButton(resources::Resource);
 pub fn monopoly_setup(mut commands: Commands<'_, '_>) {
     [
@@ -173,6 +175,7 @@ pub fn monopoly_interaction(
     }
 }
 #[derive(Component, Debug, Clone, Copy)]
+#[require(KatanComponent)]
 pub struct YearOfPlentyButton(resources::Resource);
 #[derive(SubStates, Clone, Copy, PartialEq, Eq, Hash, Debug, Default)]
 #[source(GameState = GameState::YearOfPlenty)]

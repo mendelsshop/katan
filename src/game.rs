@@ -62,6 +62,8 @@ use crate::{
     game::resources_management::{AcceptTrade, RejectTrade},
 };
 
+#[derive(Component, Default)]
+pub struct KatanComponent;
 #[derive(PartialEq, Eq, Clone, Copy, Debug, Resource)]
 pub struct LocalPlayerHandle(pub usize);
 #[derive(PartialEq, Eq, Clone, Copy, Debug, Resource)]
@@ -117,17 +119,23 @@ fn read_local_inputs(
 pub struct SessionSeed(pub u64);
 
 #[derive(Component, Default, Clone, Copy, Debug)]
+#[require(KatanComponent)]
 pub struct NewGame;
 fn new_game_interaction(
     nodes: Query<'_, '_, Entity, With<Node>>,
+    game_stuff: Query<'_, '_, Entity, With<KatanComponent>>,
     mut commands: Commands<'_, '_>,
     mut state: ResMut<'_, NextState<AppState>>,
 ) {
     for node in nodes {
         commands.entity(node).despawn();
         // TODO: clear game componets
-        state.set(AppState::Menu);
     }
+    for thing in game_stuff {
+        commands.entity(thing).despawn();
+        // TODO: clear game componets
+    }
+    state.set(AppState::Menu);
 }
 
 #[derive(SystemParam)]
@@ -852,14 +860,17 @@ pub enum GameState {
 
 // for players input with ggrs
 #[derive(Component, PartialEq, Eq, Debug, Clone, Copy, Hash)]
+#[require(KatanComponent)]
 pub struct PlayerHandle(pub usize);
 #[derive(Component, PartialEq, Debug, Clone, Copy)]
+#[require(KatanComponent)]
 enum Number {
     Number(u8),
     None,
 }
 
 #[derive(Debug, Component, Clone, Copy)]
+#[require(KatanComponent)]
 // our hexagons are pointy
 enum Hexagon {
     Wood = 0,
@@ -904,6 +915,7 @@ impl Hexagon {
     }
 }
 #[derive(Debug, Component, Clone, Copy)]
+#[require(KatanComponent)]
 enum Port {
     TwoForOne(resources::Resource),
     ThreeForOne,
@@ -952,19 +964,23 @@ pub trait UI {
 // easeier (i.e. first postion is smallest ....)
 
 #[derive(Component, PartialEq, Eq, Debug, Copy, Clone)]
+#[require(KatanComponent)]
 struct Left<T>(pub u8, PhantomData<T>);
 
 // town city "enherit" from building make some quries easier
 // i think right way to do it with is with `[require(..)]`
 #[derive(Component, PartialEq, Default, Clone, Copy)]
+#[require(KatanComponent)]
 struct Building;
 
 #[derive(Component, PartialEq, Eq, Default, Clone, Copy, Debug)]
+#[require(KatanComponent)]
 pub struct VictoryPoints {
     pub actual: u8,
     pub from_development_cards: u8,
 }
 #[derive(Component, PartialEq, Eq, Default, Clone, Copy, Debug)]
+#[require(KatanComponent)]
 pub struct Knights(pub u8);
 #[derive(Resource, PartialEq, Eq, Default, Clone, Copy, Debug)]
 pub struct PlayerCount(pub u8);

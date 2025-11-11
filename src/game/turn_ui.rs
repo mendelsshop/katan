@@ -2,8 +2,8 @@ use bevy::prelude::*;
 use itertools::Itertools;
 
 use super::{
-    CatanColor, CurrentColor, GameState, Input, Knights, Layout, Left, PlayerHandle, Resources,
-    VictoryPoints,
+    CatanColor, CurrentColor, GameState, Input, KatanComponent, Knights, Layout, Left,
+    PlayerHandle, Resources, VictoryPoints,
     cities::City,
     colors::CatanColorRef,
     development_cards::DevelopmentCards,
@@ -15,22 +15,28 @@ use super::{
     towns::Town,
 };
 #[derive(Component, PartialEq, Eq, Debug, Clone, Copy)]
+#[require(KatanComponent)]
 // button in game to start road placement ui
 pub struct RoadButton;
 
 #[derive(Component, PartialEq, Eq, Debug, Clone, Copy)]
+#[require(KatanComponent)]
 // button in game to obtain a developmennt card
 pub struct DevelopmentCardButton;
 #[derive(Component, PartialEq, Eq, Debug, Clone, Copy)]
+#[require(KatanComponent)]
 // button in game to start town placement ui
 pub struct TownButton;
 #[derive(Component, PartialEq, Eq, Debug, Clone, Copy)]
+#[require(KatanComponent)]
 // button in game to start city placement ui
 pub struct CityButton;
 #[derive(Component, PartialEq, Eq, Default, Clone, Copy)]
+#[require(KatanComponent)]
 pub struct DieButton;
 
 #[derive(Component, PartialEq, Eq, Default, Clone, Copy)]
+#[require(KatanComponent)]
 pub struct NextButton;
 // for roll there are two dice so it cannot be a single (its probably possible to have on dice
 // thing which looks like two dice)
@@ -333,9 +339,11 @@ pub fn show_turn_ui(
     ));
 }
 #[derive(Component, PartialEq, Eq, Debug, Clone, Copy)]
+#[require(KatanComponent)]
 pub struct BannerRef(Entity);
 
 #[derive(Component, PartialEq, Eq, Debug, Clone, Copy)]
+#[require(KatanComponent)]
 pub struct PlayerBanner(pub CatanColorRef);
 pub fn setup_top(
     mut commands: Commands<'_, '_>,

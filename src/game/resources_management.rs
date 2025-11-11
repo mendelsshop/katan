@@ -9,20 +9,22 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     AppState,
-    game::{LocalPlayer, colors::CatanColorRef},
     utils::{HOVERED_BUTTON, NORMAL_BUTTON, PRESSED_BUTTON},
 };
 
 use super::{
-    GameState, Input, Layout,
+    GameState, Input, KatanComponent, Layout, LocalPlayer,
+    colors::CatanColorRef,
     colors::{CatanColor, CurrentColor},
     common_ui::{self, ButtonInteraction, SpinnerButtonInteraction, Value},
     resources::{self, Resources},
     setup_game::Ports,
 };
 #[derive(Component, Clone, Copy, Debug)]
+#[require(KatanComponent)]
 pub struct TradeButton;
 #[derive(Component, Clone, Copy, Debug)]
+#[require(KatanComponent)]
 pub struct BankTradeButton;
 #[derive(SystemParam)]
 struct TradeState<'w> {
@@ -35,11 +37,13 @@ struct TradeState<'w> {
 // only active if both players have the resources
 // if clicked then do trade
 #[derive(Component)]
+#[require(KatanComponent)]
 pub struct AcceptTrade {
     pub trade: TradingResources,
 }
 // TODO: clicking this despawns its parent too
 #[derive(Component)]
+#[require(KatanComponent)]
 pub struct RejectTrade;
 
 // interaction for current player (whose turn it is)
@@ -223,6 +227,7 @@ pub fn show_player_resources(
     }
 }
 #[derive(Component, Clone, Copy, Debug)]
+#[require(KatanComponent)]
 pub struct TradingText;
 pub fn setup_players_resources(mut commands: Commands<'_, '_>, layout: Res<'_, Layout>) {
     let children = children![
@@ -425,6 +430,7 @@ impl TradingResources {
     }
 }
 #[derive(Debug, Component, Clone, Copy)]
+#[require(KatanComponent)]
 pub struct TradingResourceSpinner(resources::Resource);
 #[derive(SystemParam)]
 struct TradingSpinnerState<'w, 's> {
@@ -451,6 +457,7 @@ impl SpinnerButtonInteraction<TradingResourceSpinner> for TradingSpinnerState<'_
 }
 
 #[derive(Debug, Component, Clone, Copy)]
+#[require(KatanComponent)]
 pub struct TradingResourceResetButton;
 impl ButtonInteraction<TradingResourceResetButton> for ResMut<'_, TradingResources> {
     fn interact(&mut self, _: &TradingResourceResetButton) {

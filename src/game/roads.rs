@@ -7,7 +7,7 @@ use itertools::Itertools;
 use crate::utils::NORMAL_BUTTON;
 
 use super::{
-    BoardSize, Building, GameState, Input, Left, UI,
+    BoardSize, Building, GameState, Input, KatanComponent, Left, UI,
     colors::{CatanColor, CurrentColor},
     common_ui::ButtonInteraction,
     development_card_actions::RoadBuildingState,
@@ -24,8 +24,10 @@ pub struct RoadQuery(
 );
 
 #[derive(Component, Clone, Copy, Debug)]
+#[require(KatanComponent)]
 pub struct RoadPlaceButton(Resources, RoadPosition);
 #[derive(Debug, Component, Clone, Copy, Default)]
+#[require(KatanComponent)]
 pub struct Road;
 /// if `RESOURCE_MULTIPLIER` is zero then its free (default is 1, normal price)
 pub fn place_normal_road<const RESOURCE_MULTIPLIER: u8>(

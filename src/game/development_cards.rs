@@ -3,13 +3,10 @@ use std::ops::{Add, AddAssign};
 use bevy::prelude::*;
 use itertools::Itertools;
 
-use crate::{
-    game::LocalPlayer,
-    utils::{HOVERED_BUTTON, NORMAL_BUTTON, PRESSED_BUTTON},
-};
+use crate::utils::{HOVERED_BUTTON, NORMAL_BUTTON, PRESSED_BUTTON};
 
 use super::{
-    Input, Layout,
+    Input, KatanComponent, Layout, LocalPlayer,
     colors::{CatanColor, CurrentColor},
     development_card_actions::DevelopmentCardShow,
     resources::{DEVELOPMENT_CARD_RESOURCES, Resources},
@@ -17,6 +14,7 @@ use super::{
 };
 
 #[derive(Debug, Component, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[require(KatanComponent)]
 pub enum DevelopmentCard {
     Knight,
     Monopoly,
@@ -88,6 +86,7 @@ impl DevelopmentCards {
 #[derive(Debug, Resource, Clone, Default)]
 pub struct DevelopmentCardsPile(pub Vec<DevelopmentCard>);
 #[derive(Debug, Component, Clone, Copy, Default)]
+#[require(KatanComponent)]
 pub struct DevelopmentCards {
     knight: u8,
     monopoly: u8,

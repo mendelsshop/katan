@@ -1,5 +1,6 @@
 use std::ops::{Add, AddAssign, Mul, Sub, SubAssign};
 
+use super::KatanComponent;
 use bevy::prelude::*;
 use rand::seq::IteratorRandom;
 use serde::{Deserialize, Serialize};
@@ -43,6 +44,7 @@ pub struct Resources {
     pub ore: u8,
 }
 #[derive(PartialEq, Eq, Clone, Copy, Deserialize, Serialize, Debug, Resource, Component)]
+#[require(KatanComponent)]
 pub enum Resource {
     Wood,
     Brick,
