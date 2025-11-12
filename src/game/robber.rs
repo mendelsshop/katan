@@ -39,7 +39,7 @@ pub fn counter_text_update(
 pub struct RobberButton;
 pub fn place_robber(mut commands: Commands<'_, '_>, robber: Res<'_, Robber>) {
     generate_postions(3)
-        // TODO: skip current robber pos
+        // skip current robber pos
         .filter(|p| *p != robber.0)
         .map(|p| {
             let pos: FPosition = p.into();

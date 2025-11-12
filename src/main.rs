@@ -25,7 +25,7 @@ fn main() {
 }
 
 fn setup(mut commands: Commands<'_, '_>) {
-    commands.spawn(Camera2d);
+    commands.spawn((Camera2d, IsDefaultUiCamera));
 }
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default, States)]
 pub enum AppState {

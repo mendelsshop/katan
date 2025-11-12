@@ -6,6 +6,7 @@ use crate::{
         BACKGROUND_COLOR, BORDER_COLOR_ACTIVE, BORDER_COLOR_INACTIVE, NORMAL_BUTTON, TEXT_COLOR,
     },
 };
+use bevy::camera::visibility::RenderLayers;
 use bevy::{
     ecs::system::SystemParam,
     input_focus::{InputDispatchPlugin, InputFocus},
@@ -78,126 +79,155 @@ impl Plugin for LobbyPlugin {
     }
 }
 pub fn setup_lobby(mut commands: Commands<'_, '_>) {
+    let camera = commands
+        .spawn((
+            DespawnOnExit(AppState::Menu),
+            Camera2d,
+            RenderLayers::layer(1),
+            Camera {
+                order: 1,
+                clear_color: ClearColorConfig::None,
+                ..Default::default()
+            },
+        ))
+        .id();
     commands.spawn((
         DespawnOnExit(AppState::Menu),
+        UiTargetCamera(camera),
         Node {
-            display: Display::Grid,
-            grid_template_rows: vec![
-                GridTrack::max_content(),
-                GridTrack::max_content(),
-                GridTrack::max_content(),
-            ],
-            row_gap: Val::Percent(1.),
             width: Val::Percent(100.0),
             height: Val::Percent(100.0),
-            justify_content: JustifyContent::SpaceAround,
+            justify_content: JustifyContent::Center,
             align_content: AlignContent::Center,
             ..Default::default()
         },
-        children![
-            (
-                Node {
-                    display: Display::Grid,
-                    grid_template_columns: vec![
-                        GridTrack::max_content(),
-                        GridTrack::minmax(
-                            MinTrackSizingFunction::Px(200.),
-                            MaxTrackSizingFunction::MaxContent
+        children![(
+            Node {
+                display: Display::Grid,
+                margin: UiRect::all(Val::Auto),
+                border: UiRect::all(Val::Px(5.0)),
+                row_gap: Val::Percent(1.),
+                justify_content: JustifyContent::SpaceAround,
+                padding: UiRect::all(Val::Percent(1.0)),
+                align_content: AlignContent::Center,
+                grid_template_rows: vec![
+                    GridTrack::max_content(),
+                    GridTrack::max_content(),
+                    GridTrack::max_content(),
+                ],
+                ..Default::default()
+            },
+            BorderColor::all(BORDER_COLOR_ACTIVE),
+            BackgroundColor(NORMAL_BUTTON.with_alpha(0.9)),
+            children![
+                (
+                    Node {
+                        display: Display::Grid,
+                        grid_template_columns: vec![
+                            GridTrack::max_content(),
+                            GridTrack::minmax(
+                                MinTrackSizingFunction::Px(200.),
+                                MaxTrackSizingFunction::MaxContent
+                            ),
+                        ],
+                        ..Default::default()
+                    },
+                    children![
+                        (
+                            TextFont {
+                                font_size: 34.,
+                                ..default()
+                            },
+                            Text::new("server: ")
                         ),
-                    ],
-                    ..Default::default()
-                },
-                children![
-                    (
+                        (
+                            Server,
+                            Node {
+                                border: UiRect::all(Val::Px(5.0)),
+                                padding: UiRect::all(Val::Px(5.0)),
+                                ..default()
+                            },
+                            TextInputInactive(true),
+                            BorderColor::all(BORDER_COLOR_ACTIVE),
+                            BackgroundColor(BACKGROUND_COLOR),
+                            TextInput,
+                            TextInputValue("ws://127.0.0.1:3536".to_owned()),
+                            TextInputTextFont(TextFont {
+                                font_size: 34.,
+                                ..default()
+                            }),
+                            bevy_ui_widgets::observe(text_input_in),
+                            bevy_ui_widgets::observe(text_input_out),
+                            TextInputTextColor(TextColor(TEXT_COLOR)),
+                        ),
+                    ]
+                ),
+                (
+                    Node {
+                        display: Display::Grid,
+                        grid_template_columns: vec![
+                            GridTrack::max_content(),
+                            GridTrack::minmax(
+                                MinTrackSizingFunction::Px(200.),
+                                MaxTrackSizingFunction::MaxContent
+                            ),
+                        ],
+                        ..Default::default()
+                    },
+                    children![
+                        (
+                            TextFont {
+                                font_size: 34.,
+                                ..default()
+                            },
+                            Text::new("players:")
+                        ),
+                        (
+                            Room,
+                            Node {
+                                border: UiRect::all(Val::Px(5.0)),
+                                padding: UiRect::all(Val::Px(5.0)),
+                                ..default()
+                            },
+                            TextInputInactive(true),
+                            BorderColor::all(BORDER_COLOR_INACTIVE),
+                            BackgroundColor(BACKGROUND_COLOR),
+                            TextInput,
+                            TextInputValue("2".to_owned()),
+                            TextInputTextFont(TextFont {
+                                font_size: 34.,
+                                ..default()
+                            }),
+                            bevy_ui_widgets::observe(text_input_in),
+                            bevy_ui_widgets::observe(text_input_out),
+                            TextInputTextColor(TextColor(TEXT_COLOR)),
+                        ),
+                    ]
+                ),
+                (
+                    JoinButton,
+                    children![
                         TextFont {
                             font_size: 34.,
                             ..default()
                         },
-                        Text::new("server: ")
-                    ),
-                    (
-                        Server,
-                        Node {
-                            border: UiRect::all(Val::Px(5.0)),
-                            padding: UiRect::all(Val::Px(5.0)),
-                            ..default()
-                        },
-                        TextInputInactive(true),
-                        BorderColor::all(BORDER_COLOR_ACTIVE),
-                        BackgroundColor(BACKGROUND_COLOR),
-                        TextInput,
-                        TextInputValue("ws://127.0.0.1:3536".to_owned()),
-                        TextInputTextFont(TextFont {
-                            font_size: 34.,
-                            ..default()
-                        }),
-                        bevy_ui_widgets::observe(text_input_in),
-                        bevy_ui_widgets::observe(text_input_out),
-                        TextInputTextColor(TextColor(TEXT_COLOR)),
-                    ),
-                ]
-            ),
-            (
-                Node {
-                    display: Display::Grid,
-                    grid_template_columns: vec![
-                        GridTrack::max_content(),
-                        GridTrack::minmax(
-                            MinTrackSizingFunction::Px(200.),
-                            MaxTrackSizingFunction::MaxContent
-                        ),
+                        Text::new("join"),
+                        TextColor(TEXT_COLOR),
                     ],
-                    ..Default::default()
-                },
-                children![
-                    (
-                        TextFont {
-                            font_size: 34.,
-                            ..default()
-                        },
-                        Text::new("players:")
-                    ),
-                    (
-                        Room,
-                        Node {
-                            border: UiRect::all(Val::Px(5.0)),
-                            padding: UiRect::all(Val::Px(5.0)),
-                            ..default()
-                        },
-                        TextInputInactive(true),
-                        BorderColor::all(BORDER_COLOR_INACTIVE),
-                        BackgroundColor(BACKGROUND_COLOR),
-                        TextInput,
-                        TextInputValue("2".to_owned()),
-                        TextInputTextFont(TextFont {
-                            font_size: 34.,
-                            ..default()
-                        }),
-                        bevy_ui_widgets::observe(text_input_in),
-                        bevy_ui_widgets::observe(text_input_out),
-                        TextInputTextColor(TextColor(TEXT_COLOR)),
-                    ),
-                ]
-            ),
-            (
-                JoinButton,
-                TextFont {
-                    font_size: 34.,
-                    ..default()
-                },
-                Text::new("join"),
-                Node {
-                    border: UiRect::all(Val::Px(5.0)),
-                    padding: UiRect::all(Val::Px(5.0)),
-                    justify_self: JustifySelf::Center,
-                    justify_content: JustifyContent::End,
-                    ..Default::default()
-                },
-                BackgroundColor(NORMAL_BUTTON),
-                BorderColor::all(BORDER_COLOR_INACTIVE),
-                Button
-            )
-        ],
+                    Node {
+                        display: Display::Grid,
+                        padding: UiRect::all(Val::Px(15.0)),
+                        border: UiRect::all(Val::Px(5.0)),
+                        justify_self: JustifySelf::Center,
+                        justify_content: JustifyContent::End,
+                        ..Default::default()
+                    },
+                    BackgroundColor(NORMAL_BUTTON),
+                    BorderColor::all(BORDER_COLOR_INACTIVE),
+                    Button
+                )
+            ]
+        )],
     ));
 }
 fn wait_for_players(

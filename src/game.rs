@@ -60,7 +60,10 @@ use self::{
 use crate::{
     AppState, common_ui,
     game::resources_management::{AcceptTrade, RejectTrade},
-    utils::{BORDER_COLOR_ACTIVE, HOVERED_BUTTON, NORMAL_BUTTON, PRESSED_BUTTON, TEXT_COLOR},
+    utils::{
+        BORDER_COLOR_ACTIVE, BORDER_COLOR_INACTIVE, NORMAL_BUTTON, PRESSED_BUTTON,
+        TEXT_COLOR,
+    },
 };
 
 #[derive(Component, Default)]
@@ -118,39 +121,41 @@ fn read_local_inputs(
 
 #[derive(Resource, Default, Clone, Copy, Debug, Deref, DerefMut)]
 pub struct SessionSeed(pub u64);
-
-#[derive(Component, Default, Clone, Copy, Debug)]
-#[require(KatanComponent)]
-pub struct NewGame;
-fn new_game_interaction(
+pub fn cleanup(
     nodes: Query<'_, '_, Entity, With<Node>>,
     game_stuff: Query<'_, '_, Entity, With<KatanComponent>>,
     mut commands: Commands<'_, '_>,
+) {
+    for node in nodes {
+        commands.entity(node).despawn();
+    }
+    for thing in game_stuff {
+        commands.entity(thing).despawn();
+    }
+}
+#[derive(Component, Default, Clone, Copy, Debug)]
+#[require(KatanComponent)]
+pub struct NewGameButton;
+
+fn new_game_interaction(
     mut state: ResMut<'_, NextState<AppState>>,
     interaction_query: Single<
         '_,
         '_,
         (&mut Button, &Interaction, &mut BackgroundColor),
-        (Changed<Interaction>, With<NewGame>),
+        (Changed<Interaction>, With<NewGameButton>),
     >,
 ) {
     let (mut button, interaction, mut color) = interaction_query.into_inner();
     match *interaction {
         Interaction::Pressed => {
-            for node in nodes {
-                commands.entity(node).despawn();
-            }
-            for thing in game_stuff {
-                commands.entity(thing).despawn();
-            }
-
             state.set(AppState::Menu);
 
             *color = PRESSED_BUTTON.into();
             button.set_changed();
         }
         Interaction::Hovered => {
-            *color = HOVERED_BUTTON.into();
+            *color = BORDER_COLOR_ACTIVE.into();
             button.set_changed();
         }
         Interaction::None => {
@@ -258,67 +263,90 @@ fn update_from_inputs(
                 app_state.set(AppState::GameOver);
                 commands.spawn((
                     Node {
-                        display: Display::Grid,
                         width: Val::Percent(100.0),
                         height: Val::Percent(100.0),
-                        justify_content: JustifyContent::SpaceAround,
+                        justify_content: JustifyContent::Center,
                         align_content: AlignContent::Center,
-                        row_gap: Val::Px(5.),
-                        grid_template_rows: vec![
-                            GridTrack::max_content(),
-                            GridTrack::max_content(),
-                        ],
                         ..Default::default()
                     },
-                    children![
-                        (
-                            Node::default(),
-                            children![
-                                (
-                                    TextShadow {
-                                        offset: Vec2::new(2., -2.),
-                                        color: Color::BLACK
-                                    },
-                                    Text::new(format!("{color:?}")),
-                                    TextColor(color.to_bevy_color()),
-                                    TextFont {
-                                        font_size: 34.,
-                                        ..default()
-                                    }
-                                ),
-                                (
-                                    Text::new("Won".to_string()),
-                                    TextColor(BORDER_COLOR_ACTIVE),
-                                    TextFont {
-                                        font_size: 34.,
-                                        ..default()
-                                    }
-                                )
+                    DespawnOnExit(AppState::GameOver),
+                    children![(
+                        Node {
+                            display: Display::Grid,
+                            margin: UiRect::all(Val::Auto),
+                            border: UiRect::all(Val::Px(5.0)),
+                            row_gap: Val::Percent(2.),
+                            column_gap: Val::Percent(2.),
+                            justify_content: JustifyContent::Center,
+                            padding: UiRect::all(Val::Percent(5.0)),
+                            align_content: AlignContent::Center,
+                            grid_template_rows: vec![
+                                GridTrack::max_content(),
+                                GridTrack::max_content(),
                             ],
-                        ),
-                        (
-                            Node {
-                                display: Display::Grid,
-                                padding: UiRect::all(Val::Px(15.0)),
-                                border: UiRect::all(Val::Px(5.0)),
-                                justify_content: JustifyContent::Center,
-                                align_items: AlignItems::Center,
-                                ..Default::default()
-                            },
-                            children![
-                                TextColor(TEXT_COLOR),
-                                Text::new("New game"),
-                                TextFont {
-                                    font_size: 34.,
-                                    ..default()
+                            ..Default::default()
+                        },
+                        BorderColor::all(BORDER_COLOR_ACTIVE),
+                        BackgroundColor(NORMAL_BUTTON.with_alpha(0.9)),
+                        children![
+                            (
+                                Node {
+                                    display: Display::Grid,
+                                    column_gap: Val::Percent(2.),
+                                    grid_auto_flow: GridAutoFlow::Column,
+                                    grid_auto_columns: vec![
+                                        GridTrack::max_content(),
+                                        GridTrack::max_content(),
+                                    ],
+                                    ..Default::default()
                                 },
-                            ],
-                            Button,
-                            NewGame,
-                            BackgroundColor(NORMAL_BUTTON),
-                            BorderColor::all(BORDER_COLOR_ACTIVE),
-                        ),
-                    ],
+                                children![
+                                    (
+                                        TextShadow {
+                                            offset: Vec2::splat(3.),
+                                            color: Color::BLACK
+                                        },
+                                        Text::new(format!("{color:?}")),
+                                        TextColor(color.to_bevy_color()),
+                                        TextFont {
+                                            font_size: 34.,
+                                            ..default()
+                                        }
+                                    ),
+                                    (
+                                        Text::new("Won".to_string()),
+                                        TextColor(BORDER_COLOR_ACTIVE),
+                                        TextFont {
+                                            font_size: 34.,
+                                            ..default()
+                                        }
+                                    )
+                                ],
+                            ),
+                            (
+                                Node {
+                                    padding: UiRect::all(Val::Percent(1.0)),
+                                    display: Display::Grid,
+                                    border: UiRect::all(Val::Px(1.0)),
+                                    justify_content: JustifyContent::End,
+                                    justify_self: JustifySelf::Center,
+                                    ..Default::default()
+                                },
+                                children![
+                                    TextColor(TEXT_COLOR),
+                                    Text::new("New game"),
+                                    TextFont {
+                                        font_size: 34.,
+                                        ..default()
+                                    },
+                                ],
+                                Button,
+                                NewGameButton,
+                                BackgroundColor(NORMAL_BUTTON),
+                                BorderColor::all(BORDER_COLOR_INACTIVE),
+                            ),
+                        ]
+                    )],
                 ));
                 // end ggrs session. but keep board until the player joins a new game
                 commands.remove_resource::<LocalPlayers>();
@@ -852,6 +880,7 @@ impl Plugin for GamePlugin {
                     new_game_interaction.run_if(in_state(AppState::GameOver)),
                 ),
             )
+            .add_systems(OnExit(AppState::Menu), cleanup)
             .add_systems(
                 Update,
                 development_cards::buy_development_card_interaction

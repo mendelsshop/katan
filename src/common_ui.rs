@@ -8,7 +8,7 @@ use bevy::{
     prelude::*,
 };
 
-use crate::utils::{HOVERED_BUTTON, NORMAL_BUTTON, PRESSED_BUTTON};
+use crate::utils::{BORDER_COLOR_ACTIVE, NORMAL_BUTTON, PRESSED_BUTTON};
 
 // https://www.reddit.com/r/bevy/comments/18xgcm8/comment/kg5jmwp/
 // The extra generic here lets me implement for each component
@@ -97,11 +97,10 @@ pub fn button_system_with_generic<C: Component, T: SystemParam>(
 
                     *background_color = PRESSED_BUTTON.into();
                 }
-                Interaction::Hovered => *background_color = HOVERED_BUTTON.into(),
+                Interaction::Hovered => *background_color = BORDER_COLOR_ACTIVE.into(),
                 Interaction::None => *background_color = NORMAL_BUTTON.into(),
             }
         } else {
-            // TODO: have disable button color
             *background_color = NORMAL_BUTTON.into();
         }
     }
