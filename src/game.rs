@@ -61,8 +61,7 @@ use crate::{
     AppState, common_ui,
     game::resources_management::{AcceptTrade, RejectTrade},
     utils::{
-        BORDER_COLOR_ACTIVE, BORDER_COLOR_INACTIVE, NORMAL_BUTTON, PRESSED_BUTTON,
-        TEXT_COLOR,
+        BORDER_COLOR_ACTIVE, BORDER_COLOR_INACTIVE, NORMAL_BUTTON, PRESSED_BUTTON, TEXT_COLOR,
     },
 };
 
@@ -854,22 +853,27 @@ impl Plugin for GamePlugin {
                 Update,
                 // TODO: if in turn or place state
                 turn_ui::turn_ui_next_interaction.run_if({
-                    move |current_state: Option<Res<'_, State<GameState>>>| match current_state {
-                        Some(current_state) => ![
-                            GameState::PlaceRobber,
-                            GameState::Monopoly,
-                            GameState::YearOfPlenty,
-                            GameState::RobberPickColor,
-                            GameState::Roll,
-                            GameState::RobberDiscardResources,
-                            GameState::RoadBuilding,
-                            GameState::NotActive,
-                            GameState::NotActiveSetup,
-                            GameState::Start,
-                            GameState::Nothing,
-                        ]
-                        .contains(&current_state),
-                        None => true,
+                    move |current_state: Option<Res<'_, State<GameState>>>| {
+                        current_state.map(|s| *s.get()).is_some_and(|s| match s {
+                            GameState::PlaceRobber
+                            | GameState::Monopoly
+                            | GameState::YearOfPlenty
+                            | GameState::RobberPickColor
+                            | GameState::Roll
+                            | GameState::RobberDiscardResourcesInActive
+                            | GameState::RobberDiscardResources
+                            | GameState::RoadBuilding
+                            | GameState::NotActive
+                            | GameState::NotActiveSetup
+                            | GameState::Start
+                            | GameState::Nothing => false,
+                            GameState::PlaceRoad
+                            | GameState::Turn
+                            | GameState::PlaceTown
+                            | GameState::PlaceCity
+                            | GameState::SetupRoad
+                            | GameState::SetupTown => true,
+                        })
                     }
                 }),
             )
