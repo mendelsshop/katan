@@ -191,6 +191,7 @@ impl UI for TownUI {
         let (x, y) = pos.positon_to_pixel_coordinates();
         let mesh1 = meshes.add(RegularPolygon::new(7.0, 3));
         (
+            KatanComponent,
             Mesh2d(mesh1),
             MeshMaterial2d(materials.add(color.to_bevy_color())),
             Transform::from_xyz(x * 77.0, y * 77., 0.0),

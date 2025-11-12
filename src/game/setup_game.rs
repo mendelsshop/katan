@@ -39,21 +39,11 @@ fn draw_board(
         let mesh = meshes.add(Circle::new(30.0));
         let (x, y) = q.0.positon_to_pixel_coordinates();
         commands.spawn((
+            KatanComponent,
             Mesh2d(mesh),
             MeshMaterial2d(materials.add(q.1.color())),
             Transform::from_xyz(x * 77.0, y * 77., 0.0),
         ));
-
-        // let mesh2 = Text2d::new(q.0.0.to_string());
-        // commands.spawn((
-        //     mesh2,
-        //     TextLayout::new_with_justify(text_justification),
-        //     TextFont {
-        //         font_size: 45.0,
-        //         ..Default::default()
-        //     },
-        //     Transform::from_xyz(x * 77.0, y * 77., 0.0),
-        // ));
     }
     // let mut commands = commands.entity(layout.board);
     for q in q {
@@ -61,6 +51,7 @@ fn draw_board(
         let mesh1 = meshes.add(Circle::new(30.0));
         let (x, y) = FPosition::hex_to_pixel(q.0.into());
         commands.spawn((
+            KatanComponent,
             Mesh2d(mesh),
             MeshMaterial2d(materials.add(q.1.color())),
             Transform::from_xyz(x * 77.0, y * 77., 0.0),
@@ -69,12 +60,14 @@ fn draw_board(
         if let Number::Number(n) = q.2 {
             let mesh2 = Text2d::new(n.to_string());
             commands.spawn((
+                KatanComponent,
                 Mesh2d(mesh1),
                 MeshMaterial2d(materials.add(Color::BLACK)),
                 Transform::from_xyz(x * 77.0, y * 77., 0.0),
             ));
             commands.spawn((
                 mesh2,
+                KatanComponent,
                 TextLayout::new_with_justify(text_justification),
                 TextFont {
                     font_size: 45.0,

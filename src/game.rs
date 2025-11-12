@@ -20,7 +20,7 @@ mod towns;
 mod turn_ui;
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_ggrs::{
-    GgrsSchedule, LocalInputs, LocalPlayers, PlayerInputs, ReadInputs, RollbackApp,
+    GgrsSchedule, GgrsTime, LocalInputs, LocalPlayers, PlayerInputs, ReadInputs, RollbackApp,
     RollbackFrameRate, Session,
     ggrs::{GgrsEvent, InputStatus},
 };
@@ -60,6 +60,10 @@ use self::{
 use crate::{
     AppState, common_ui,
     game::resources_management::{AcceptTrade, RejectTrade},
+    utils::{
+        BORDER_COLOR_ACTIVE, HOVERED_BUTTON, NORMAL_BUTTON, PRESSED_BUTTON,
+        TEXT_COLOR,
+    },
 };
 
 #[derive(Component, Default)]
@@ -126,16 +130,37 @@ fn new_game_interaction(
     game_stuff: Query<'_, '_, Entity, With<KatanComponent>>,
     mut commands: Commands<'_, '_>,
     mut state: ResMut<'_, NextState<AppState>>,
+    interaction_query: Single<
+        '_,
+        '_,
+        (&mut Button, &Interaction, &mut BackgroundColor),
+        (Changed<Interaction>, With<NewGame>),
+    >,
 ) {
-    for node in nodes {
-        commands.entity(node).despawn();
-        // TODO: clear game componets
+    let (mut button, interaction, mut color) = interaction_query.into_inner();
+    match *interaction {
+        Interaction::Pressed => {
+            for node in nodes {
+                commands.entity(node).despawn();
+                // TODO: clear game componets
+            }
+            for thing in game_stuff {
+                commands.entity(thing).despawn();
+            }
+
+            state.set(AppState::Menu);
+
+            *color = PRESSED_BUTTON.into();
+            button.set_changed();
+        }
+        Interaction::Hovered => {
+            *color = HOVERED_BUTTON.into();
+            button.set_changed();
+        }
+        Interaction::None => {
+            *color = NORMAL_BUTTON.into();
+        }
     }
-    for thing in game_stuff {
-        commands.entity(thing).despawn();
-        // TODO: clear game componets
-    }
-    state.set(AppState::Menu);
 }
 
 #[derive(SystemParam)]
@@ -182,6 +207,7 @@ pub struct UpdateState<'w, 's> {
 
     free_dev_cards: ResMut<'w, DevelopmentCardsPile>,
     local_player: Res<'w, LocalPlayer>,
+    app_state: ResMut<'w, NextState<AppState>>,
 }
 fn update_from_inputs(
     UpdateState {
@@ -202,6 +228,7 @@ fn update_from_inputs(
         mut color_rotation,
         mut free_dev_cards,
         local_player,
+        mut app_state,
     }: UpdateState<'_, '_>,
 ) {
     let count = inputs.iter().filter(|(i, _)| *i != Input::None).count();
@@ -232,9 +259,78 @@ fn update_from_inputs(
         match input {
             Input::None => {}
             Input::Win => {
-                mut_game_state.set(GameState::Win);
-                commands.spawn(Text::new(format!("{color:?} Won")));
-                commands.spawn((Text::new("New game"), Button, NewGame));
+                app_state.set(AppState::GameOver);
+                commands.spawn((
+                    Node {
+                        display: Display::Grid,
+                        width: Val::Percent(100.0),
+                        height: Val::Percent(100.0),
+                        justify_content: JustifyContent::SpaceAround,
+                        align_content: AlignContent::Center,
+                        row_gap: Val::Px(5.),
+                        grid_template_rows: vec![
+                            GridTrack::max_content(),
+                            GridTrack::max_content(),
+                        ],
+                        ..Default::default()
+                    },
+                    children![
+                        (
+                            Node::default(),
+                            children![
+                                (
+                                    TextShadow {
+                                        offset: Vec2::new(2., -2.),
+                                        color: Color::BLACK
+                                    },
+                                    Text::new(format!("{color:?}")),
+                                    TextColor(color.to_bevy_color()),
+                                    TextFont {
+                                        font_size: 34.,
+                                        ..default()
+                                    }
+                                ),
+                                (
+                                    Text::new("Won".to_string()),
+                                    TextColor(BORDER_COLOR_ACTIVE),
+                                    TextFont {
+                                        font_size: 34.,
+                                        ..default()
+                                    }
+                                )
+                            ],
+                        ),
+                        (
+                            Node {
+                                display: Display::Grid,
+                                padding: UiRect::all(Val::Px(15.0)),
+                                border: UiRect::all(Val::Px(5.0)),
+                                justify_content: JustifyContent::Center,
+                                align_items: AlignItems::Center,
+                                ..Default::default()
+                            },
+                            children![
+                                TextColor(TEXT_COLOR),
+                                Text::new("New game"),
+                                TextFont {
+                                    font_size: 34.,
+                                    ..default()
+                                },
+                            ],
+                            Button,
+                            NewGame,
+                            BackgroundColor(NORMAL_BUTTON),
+                            BorderColor::all(BORDER_COLOR_ACTIVE),
+                        ),
+                    ],
+                ));
+                // end ggrs session. but keep board until the player joins a new game
+                commands.remove_resource::<LocalPlayers>();
+                commands.remove_resource::<Session<GgrsSessionConfig>>();
+
+                // https://github.com/gschup/bevy_ggrs/issues/93
+                commands.insert_resource(Time::new_with(GgrsTime));
+                return;
             }
             Input::NextColor => {
                 if matches!(
@@ -293,6 +389,7 @@ fn update_from_inputs(
 
                 let mesh1 = meshes.add(Rectangle::new(13.0, 13.));
                 commands.spawn((
+                    KatanComponent,
                     Mesh2d(mesh1),
                     MeshMaterial2d(materials.add(color_r.0.to_bevy_color())),
                     Transform::from_xyz(x * 77.0, y * 77., 0.0),
@@ -756,7 +853,7 @@ impl Plugin for GamePlugin {
                 Update,
                 (
                     check_for_winner.run_if(in_state(GameState::Turn)),
-                    new_game_interaction.run_if(in_state(GameState::Win)),
+                    new_game_interaction.run_if(in_state(AppState::GameOver)),
                 ),
             )
             .add_systems(
@@ -855,7 +952,6 @@ pub enum GameState {
     RobberPickColor,
     // picking which place to put robber on
     PlaceRobber,
-    Win,
 }
 
 // for players input with ggrs

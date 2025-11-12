@@ -227,6 +227,7 @@ impl UI for RoadUI {
         let (x, y) = pos.positon_to_pixel_coordinates();
         let mesh1 = meshes.add(Rectangle::new(10.0, 70.));
         (
+            KatanComponent,
             Mesh2d(mesh1),
             MeshMaterial2d(materials.add(color.to_bevy_color())),
             Transform::from_xyz(x * 77.0, y * 77., 0.0).with_rotation(Quat::from_rotation_z(
@@ -279,7 +280,6 @@ impl ButtonInteraction<RoadPlaceButton> for PlaceRoadButtonState<'_> {
             | GameState::PlaceCity
             | GameState::NotActive
             | GameState::NotActiveSetup
-            | GameState::Win
             | GameState::RobberPickColor => {}
 
             GameState::PlaceRoad => {

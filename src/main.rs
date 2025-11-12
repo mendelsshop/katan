@@ -32,4 +32,5 @@ pub enum AppState {
     #[default]
     Menu,
     InGame,
+    GameOver,
 }
