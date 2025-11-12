@@ -1,5 +1,7 @@
 use std::ops::{Add, AddAssign, Mul, Sub, SubAssign};
 
+use crate::utils::CheckedSub;
+
 use super::KatanComponent;
 use bevy::prelude::*;
 use rand::seq::IteratorRandom;
@@ -121,6 +123,27 @@ impl Add for Resources {
     }
 }
 
+impl CheckedSub for Resources {
+    type Output = Self;
+    fn checked_sub(self, rhs: Self) -> Option<Self> {
+        // applicative would be really nice for this no need for deep nesting
+        self.wood.checked_sub(rhs.wood).and_then(|wood| {
+            self.brick.checked_sub(rhs.brick).and_then(|brick| {
+                self.sheep.checked_sub(rhs.sheep).and_then(|sheep| {
+                    self.ore.checked_sub(rhs.ore).and_then(|ore| {
+                        self.wheat.checked_sub(rhs.wheat).map(|wheat| Self {
+                            wood,
+                            brick,
+                            sheep,
+                            wheat,
+                            ore,
+                        })
+                    })
+                })
+            })
+        })
+    }
+}
 impl Resources {
     pub const fn get(&self, selector: Resource) -> u8 {
         match selector {
@@ -140,24 +163,7 @@ impl Resources {
             Resource::Ore => &mut self.ore,
         }
     }
-    pub fn checked_sub(self, rhs: Self) -> Option<Self> {
-        // applicative would be really nice for this no need for deep nesting
-        self.wood.checked_sub(rhs.wood).and_then(|wood| {
-            self.brick.checked_sub(rhs.brick).and_then(|brick| {
-                self.sheep.checked_sub(rhs.sheep).and_then(|sheep| {
-                    self.ore.checked_sub(rhs.ore).and_then(|ore| {
-                        self.wheat.checked_sub(rhs.wheat).map(|wheat| Self {
-                            wood,
-                            brick,
-                            sheep,
-                            wheat,
-                            ore,
-                        })
-                    })
-                })
-            })
-        })
-    }
+
     pub const fn count(self) -> u8 {
         self.wood + self.brick + self.sheep + self.wheat + self.ore
     }

@@ -60,10 +60,7 @@ use self::{
 use crate::{
     AppState, common_ui,
     game::resources_management::{AcceptTrade, RejectTrade},
-    utils::{
-        BORDER_COLOR_ACTIVE, HOVERED_BUTTON, NORMAL_BUTTON, PRESSED_BUTTON,
-        TEXT_COLOR,
-    },
+    utils::{BORDER_COLOR_ACTIVE, HOVERED_BUTTON, NORMAL_BUTTON, PRESSED_BUTTON, TEXT_COLOR},
 };
 
 #[derive(Component, Default)]
@@ -142,7 +139,6 @@ fn new_game_interaction(
         Interaction::Pressed => {
             for node in nodes {
                 commands.entity(node).despawn();
-                // TODO: clear game componets
             }
             for thing in game_stuff {
                 commands.entity(thing).despawn();
@@ -526,8 +522,8 @@ fn update_from_trade_accept(
 ) {
     for player in players {
         if let (Input::TradeAccept(r, trader), InputStatus::Confirmed) = inputs[player.1.0] {
-            if let Ok(mut robbed_resources) = player_resources_q.get_mut(trader) {
-                robbed_resources.sub_assign(r);
+            if let Ok(mut other_player_resources) = player_resources_q.get_mut(trader) {
+                other_player_resources.sub_assign(r);
             }
             if let Ok(mut resources) = player_resources_q.get_mut(player.0) {
                 resources.add_assign(r);
@@ -1311,7 +1307,7 @@ fn check_for_winner(
     players: Query<'_, '_, &VictoryPoints, Changed<VictoryPoints>>,
 ) {
     if let Ok(vps) = players.get(current_color.0.entity)
-        && vps.actual + vps.from_development_cards >= 10
+        && vps.actual + vps.from_development_cards >= 2
     {
         *current_inputs = Input::Win;
     }

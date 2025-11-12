@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     AppState,
-    utils::{HOVERED_BUTTON, NORMAL_BUTTON, PRESSED_BUTTON},
+    utils::{CheckedAdd, CheckedSub, HOVERED_BUTTON, NORMAL_BUTTON, PRESSED_BUTTON},
 };
 
 use super::{
@@ -63,24 +63,29 @@ fn accept_trade_interaction_current(
         ),
         Changed<Interaction>,
     >,
+    player_resources: Query<'_, '_, &Resources>,
+    current_player: Res<'_, LocalPlayer>,
 ) {
-    for (mut button, mut color, interaction, accept_trade, parent, player) in interaction_query {
-        match interaction {
-            Interaction::Pressed => {
-                *color = PRESSED_BUTTON.into();
-                // TODO: verify can still be done
-                button.set_changed();
-                *input = Input::TradeAccept(accept_trade.trade, player.entity);
+    for (mut button, mut color, interaction, accept_trade, parent, trader) in interaction_query {
+        if let Ok(player_resources) = player_resources.get(current_player.0.entity)
+            && player_resources.checked_add(accept_trade.trade).is_some()
+        {
+            match interaction {
+                Interaction::Pressed => {
+                    *color = PRESSED_BUTTON.into();
+                    button.set_changed();
+                    *input = Input::TradeAccept(accept_trade.trade, trader.entity);
 
-                commands.entity(parent.parent()).despawn();
-                break;
-            }
-            Interaction::Hovered => {
-                *color = HOVERED_BUTTON.into();
-                button.set_changed();
-            }
-            Interaction::None => {
-                *color = NORMAL_BUTTON.into();
+                    commands.entity(parent.parent()).despawn();
+                    break;
+                }
+                Interaction::Hovered => {
+                    *color = HOVERED_BUTTON.into();
+                    button.set_changed();
+                }
+                Interaction::None => {
+                    *color = NORMAL_BUTTON.into();
+                }
             }
         }
     }
@@ -101,24 +106,29 @@ fn accept_trade_interaction(
         ),
         Changed<Interaction>,
     >,
+    player_resources: Query<'_, '_, &Resources>,
+    player: Res<'_, LocalPlayer>,
 ) {
     for (mut button, mut color, interaction, accept_trade, parent) in interaction_query {
-        match interaction {
-            Interaction::Pressed => {
-                // TODO: verify can still be done
-                *color = PRESSED_BUTTON.into();
-                button.set_changed();
-                *input = Input::TradeResponce(accept_trade.trade);
+        if let Ok(player_resources) = player_resources.get(player.0.entity)
+            && player_resources.checked_sub(accept_trade.trade).is_some()
+        {
+            match interaction {
+                Interaction::Pressed => {
+                    *color = PRESSED_BUTTON.into();
+                    button.set_changed();
+                    *input = Input::TradeResponce(accept_trade.trade);
 
-                commands.entity(parent.parent()).despawn();
-                break;
-            }
-            Interaction::Hovered => {
-                *color = HOVERED_BUTTON.into();
-                button.set_changed();
-            }
-            Interaction::None => {
-                *color = NORMAL_BUTTON.into();
+                    commands.entity(parent.parent()).despawn();
+                    break;
+                }
+                Interaction::Hovered => {
+                    *color = HOVERED_BUTTON.into();
+                    button.set_changed();
+                }
+                Interaction::None => {
+                    *color = NORMAL_BUTTON.into();
+                }
             }
         }
     }
@@ -158,6 +168,8 @@ impl ButtonInteraction<TradeButton> for TradeState<'_> {
     }
     fn verify(&mut self, _: &TradeButton) -> bool {
         let (giving, taking) = self.trade.given_and_taken();
+        // we don't have to verify when we sumbit if we have enough resources, because the resource
+        // sliders check that for us
         !giving.is_empty() && !taking.is_empty()
     }
 }
@@ -189,7 +201,6 @@ impl ButtonInteraction<BankTradeButton> for BankTradeState<'_, '_> {
                 })
                 .sum();
             // TODO: verify there is enough resources in bank
-            // TODO: port
             println!("{giving} -> {taking}");
 
             (giving == -(taking)) && giving != 0 && taking != 0
@@ -334,6 +345,48 @@ pub struct TradingResources {
     pub sheep: i8,
     pub wheat: i8,
     pub ore: i8,
+}
+impl CheckedSub<TradingResources> for Resources {
+    type Output = Self;
+    fn checked_sub(self, rhs: TradingResources) -> Option<Self> {
+        // applicative would be really nice for this no need for deep nesting
+        self.wood.checked_sub_signed(rhs.wood).and_then(|wood| {
+            self.brick.checked_sub_signed(rhs.brick).and_then(|brick| {
+                self.sheep.checked_sub_signed(rhs.sheep).and_then(|sheep| {
+                    self.ore.checked_sub_signed(rhs.ore).and_then(|ore| {
+                        self.wheat.checked_sub_signed(rhs.wheat).map(|wheat| Self {
+                            wood,
+                            brick,
+                            sheep,
+                            wheat,
+                            ore,
+                        })
+                    })
+                })
+            })
+        })
+    }
+}
+impl CheckedAdd<TradingResources> for Resources {
+    type Output = Self;
+    fn checked_add(self, rhs: TradingResources) -> Option<Self> {
+        // applicative would be really nice for this no need for deep nesting
+        self.wood.checked_add_signed(rhs.wood).and_then(|wood| {
+            self.brick.checked_add_signed(rhs.brick).and_then(|brick| {
+                self.sheep.checked_add_signed(rhs.sheep).and_then(|sheep| {
+                    self.ore.checked_add_signed(rhs.ore).and_then(|ore| {
+                        self.wheat.checked_add_signed(rhs.wheat).map(|wheat| Self {
+                            wood,
+                            brick,
+                            sheep,
+                            wheat,
+                            ore,
+                        })
+                    })
+                })
+            })
+        })
+    }
 }
 impl Add<TradingResources> for Resources {
     type Output = Self;

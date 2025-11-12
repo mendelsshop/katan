@@ -7,3 +7,12 @@ pub const BORDER_COLOR_ACTIVE: Color = Color::srgb(0.75, 0.52, 0.99);
 pub const BORDER_COLOR_INACTIVE: Color = Color::srgb(0.25, 0.25, 0.25);
 pub const TEXT_COLOR: Color = Color::srgb(0.9, 0.9, 0.9);
 pub const BACKGROUND_COLOR: Color = Color::srgb(0.15, 0.15, 0.15);
+
+pub trait CheckedSub<Rhs = Self> {
+    type Output;
+    fn checked_sub(self, rhs: Rhs) -> Option<Self::Output>;
+}
+pub trait CheckedAdd<Rhs = Self> {
+    type Output;
+    fn checked_add(self, rhs: Rhs) -> Option<Self::Output>;
+}
