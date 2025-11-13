@@ -252,8 +252,8 @@ fn update_from_inputs(
         mut player_dev_cards,
     ) in players
     {
-        let (input, _state) = inputs[player_handle.0];
-        if _state == InputStatus::Predicted {
+        let (input, state) = inputs[player_handle.0];
+        if state == InputStatus::Predicted {
             continue;
         }
         match input {

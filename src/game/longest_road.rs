@@ -42,7 +42,7 @@ fn longest_road_road_added(
 ) {
     // we could shortcut here if its current player who has longest road, but then total count
     // wouldn't be accurate
-    if road_q_changed.iter().count() <= 0 {
+    if road_q_changed.iter().count() == 0 {
         return;
     }
     println!(
@@ -81,7 +81,7 @@ fn longest_road_road_added(
     }
 }
 
-fn longest_road<'a, 'b, 'c>(
+fn longest_road(
     roads: Vec<roads::RoadQueryItem<'_, '_>>,
     buildings: Vec<BuildingPosition>,
     size_r: u8,
@@ -159,7 +159,7 @@ fn longest_road_town_added(
     mut commmands: Commands<'_, '_>,
     size_r: Res<'_, BoardSize>,
 ) {
-    if current.0 == Entity::PLACEHOLDER || building_q_changed.iter().count() <= 0 {
+    if current.0 == Entity::PLACEHOLDER || building_q_changed.iter().count() == 0 {
         return;
     }
     println!("longest road checking town added");

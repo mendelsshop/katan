@@ -88,7 +88,6 @@ pub fn robber(mut state: ResMut<'_, NextState<GameState>>, mut knights: Mut<'_, 
 
 #[derive(SubStates, Clone, Copy, PartialEq, Eq, Hash, Debug, Default)]
 #[source(GameState = GameState::RoadBuilding)]
-
 pub enum RoadBuildingState {
     #[default]
     Road1,
@@ -179,7 +178,6 @@ pub fn monopoly_interaction(
 pub struct YearOfPlentyButton(resources::Resource);
 #[derive(SubStates, Clone, Copy, PartialEq, Eq, Hash, Debug, Default)]
 #[source(GameState = GameState::YearOfPlenty)]
-
 pub enum YearOfPlentyState {
     #[default]
     Resource1,

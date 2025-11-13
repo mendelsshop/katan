@@ -215,7 +215,6 @@ impl Add for FPosition {
 }
 #[derive(Component, Clone, Copy, Debug, Hash, Eq, Deserialize, Serialize)]
 #[require(KatanComponent)]
-
 pub enum RoadPosition {
     /// Dont use this constructor use `Self::new`
     Both(Position, Position, Coordinate),

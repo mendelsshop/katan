@@ -22,7 +22,6 @@ use bevy_simple_text_input::{
 pub struct LobbyPlugin;
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default, SubStates)]
 #[source(AppState = AppState::Menu)]
-
 pub enum MenuState {
     #[default]
     Lobby,

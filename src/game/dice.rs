@@ -62,13 +62,6 @@ pub fn distribute_resources<'a>(
     mut resources: ResMut<'_, Resources>,
     robber: Res<'_, Robber>,
 ) {
-    // TODO: maybe each placed town/city should have entity pointing to all surrounding hexes
-    let board = board
-        .into_iter()
-        .filter(|(_, number, p)| {
-            p != &&robber.0 && matches!(number, Number::Number(n) if *n == roll)
-        })
-        .map(|(h, n, p)| (*h, *n, *p));
     fn on_board_with_hex<Building: Component + Copy>(
         board: impl Iterator<Item = (Hexagon, Number, Position)> + Clone,
         buildings: Query<'_, '_, (&ChildOf, &Building, &BuildingPosition), With<CatanColor>>,
@@ -127,6 +120,13 @@ pub fn distribute_resources<'a>(
             Hexagon::Empty => todo!(),
         }
     }
+    // TODO: maybe each placed town/city should have entity pointing to all surrounding hexes
+    let board = board
+        .into_iter()
+        .filter(|(_, number, p)| {
+            p != &&robber.0 && matches!(number, Number::Number(n) if *n == roll)
+        })
+        .map(|(h, n, p)| (*h, *n, *p));
     for (_, color, hex) in on_board_with_hex(board.clone(), towns) {
         let player_resources = player_resources.get_mut(color).ok();
         if let Some(mut player_resources) = player_resources {

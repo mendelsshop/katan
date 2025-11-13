@@ -186,7 +186,7 @@ impl ButtonInteraction<BankTradeButton> for BankTradeState<'_, '_> {
             .get(self.current_color.0.entity)
             .map(|(_, ports)| ports);
 
-        if let Ok(ports) = ports {
+        ports.is_ok_and(|ports| {
             let giving: i8 = giving
                 .iter()
                 .filter_map(|(k, count)| {
@@ -198,9 +198,7 @@ impl ButtonInteraction<BankTradeButton> for BankTradeState<'_, '_> {
             println!("{giving} -> {taking}");
 
             (giving == -(taking)) && giving != 0 && taking != 0
-        } else {
-            false
-        }
+        })
     }
     fn interact(&mut self, _: &BankTradeButton) {
         *self.input = Input::BankTrade(*self.trading_resources);
