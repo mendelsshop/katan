@@ -851,7 +851,6 @@ impl Plugin for GamePlugin {
             )
             .add_systems(
                 Update,
-                // TODO: if in turn or place state
                 turn_ui::turn_ui_next_interaction.run_if({
                     move |current_state: Option<Res<'_, State<GameState>>>| {
                         current_state.map(|s| *s.get()).is_some_and(|s| match s {
@@ -1340,7 +1339,7 @@ fn check_for_winner(
     players: Query<'_, '_, &VictoryPoints, Changed<VictoryPoints>>,
 ) {
     if let Ok(vps) = players.get(current_color.0.entity)
-        && vps.actual + vps.from_development_cards >= 2
+        && vps.actual + vps.from_development_cards >= 10
     {
         *current_inputs = Input::Win;
     }

@@ -20,7 +20,6 @@ pub fn full_roll_dice(
     let (roll, d1, d2) = roll_dice();
     // assumes two dice
 
-    // TODO: what happens when 7 rolled
     if roll == 7 {
         if player_resources.iter().any(|r| r.count() > 7) {
             *input = Input::RobberDiscardInit;

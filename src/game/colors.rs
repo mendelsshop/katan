@@ -14,7 +14,6 @@ use super::{GameState, KatanComponent, LocalPlayer, PlayerHandle, turn_ui::Playe
 
 #[derive(Debug, Resource, Clone, Copy)]
 
-// TODO: what about before turn order decided
 pub struct CurrentColor(pub CatanColorRef);
 
 impl From<CurrentColor> for CatanColor {

@@ -33,15 +33,11 @@ struct TradeState<'w> {
     input: ResMut<'w, Input>,
 }
 
-// TODO: clicking this despawns its parent too
-// only active if both players have the resources
-// if clicked then do trade
 #[derive(Component)]
 #[require(KatanComponent)]
 pub struct AcceptTrade {
     pub trade: TradingResources,
 }
-// TODO: clicking this despawns its parent too
 #[derive(Component)]
 #[require(KatanComponent)]
 pub struct RejectTrade;
@@ -532,7 +528,6 @@ impl Plugin for ResourceManagmentPlugin {
                 show_player_resources.run_if(in_state(AppState::InGame)),
             )
             .add_systems(Update, show_player_trade)
-            // TODO: maybe remove the Changed<Resources> for this one, so new players cards always show
             .add_systems(OnEnter(GameState::Roll), show_player_resources)
             .add_systems(OnEnter(GameState::Roll), reset_trading_resources)
             .add_systems(
