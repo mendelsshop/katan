@@ -156,8 +156,6 @@ fn reject_trade_interaction(
         }
     }
 }
-// TODO: if no more children then despawn
-// maybe also spawn button on main player to cancel trade
 impl ButtonInteraction<TradeButton> for TradeState<'_> {
     fn interact(&mut self, _: &TradeButton) {
         *self.input = Input::Trade(*self.trade);

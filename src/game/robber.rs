@@ -1,11 +1,7 @@
-use bevy::{
-    camera::{RenderTarget, visibility::RenderLayers},
-    prelude::*,
-    window,
-};
+use bevy::prelude::*;
 use itertools::Itertools;
 
-use crate::utils::{HOVERED_BUTTON, NORMAL_BUTTON, PRESSED_BUTTON};
+use crate::utils::{BORDER_COLOR_ACTIVE, HOVERED_BUTTON, NORMAL_BUTTON, PRESSED_BUTTON};
 
 use super::{
     Building, GameState, Input, KatanComponent, LocalPlayer, PlayerHandle,
@@ -251,11 +247,6 @@ pub fn choose_player_to_take_from_interaction(
         }
     }
 }
-
-#[derive(Component)]
-#[require(KatanComponent)]
-pub struct WindowRef(Entity);
-
 pub fn take_extra_resources(
     mut commands: Commands<'_, '_>,
     player_resources: Query<'_, '_, (Entity, &CatanColor, &mut Resources)>,
@@ -266,24 +257,7 @@ pub fn take_extra_resources(
         .ok()
         .filter(|resources| resources.2.count() > 7)
     {
-        let window = commands
-            .spawn(Window {
-                title: format!("{:?}", r.0),
-                ..default()
-            })
-            .id();
-        let camera = commands
-            .spawn((
-                Camera2d,
-                Camera {
-                    target: RenderTarget::Window(window::WindowRef::Entity(window)),
-                    ..default()
-                },
-                RenderLayers::layer(1),
-            ))
-            .id();
-
-        setup_take_extra_resources(&mut commands, camera, window, *r.2, r.2.count() / 2);
+        setup_take_extra_resources(&mut commands, *r.2, r.2.count() / 2);
     }
 }
 
@@ -295,7 +269,7 @@ pub fn counter_sumbit_interaction(
             &Interaction,
             &mut Button,
             &mut BackgroundColor,
-            &WindowRef,
+            &ChildOf,
             &SumbitButton,
         ),
         Changed<Interaction>,
@@ -306,7 +280,7 @@ pub fn counter_sumbit_interaction(
     mut input: ResMut<'_, Input>,
     mut discard: ResMut<'_, RobberDiscard>,
 ) {
-    let (interaction, mut button, mut color, window, max) = interaction_query.into_inner();
+    let (interaction, mut button, mut color, discard_node, max) = interaction_query.into_inner();
 
     if discard.0.count() == max.new_max_resources {
         match *interaction {
@@ -314,7 +288,7 @@ pub fn counter_sumbit_interaction(
                 *input = Input::RobberDiscard(discard.0);
                 *discard = RobberDiscard::default();
                 *color = PRESSED_BUTTON.into();
-                commands.entity(window.0).despawn();
+                commands.entity(discard_node.0).despawn();
                 if state.get() == &GameState::RobberDiscardResourcesInActive {
                     mut_state.set(GameState::NotActive);
                 }
@@ -342,8 +316,6 @@ pub fn done_discarding(
 }
 fn setup_take_extra_resources(
     commands: &mut Commands<'_, '_>,
-    camera: Entity,
-    window: Entity,
     resources: Resources,
     resources_needed: u8,
 ) {
@@ -366,14 +338,15 @@ fn setup_take_extra_resources(
             },
             BackgroundColor(NORMAL_BUTTON),
             BorderColor::all(Color::BLACK),
-            WindowRef(window),
             Text::new("confirm".to_string()),
         ),
     ];
     commands.spawn((
-        UiTargetCamera(camera),
         Node {
             display: Display::Grid,
+            border: UiRect::all(Val::Px(5.0)),
+            margin: UiRect::all(Val::Auto),
+            padding: UiRect::all(Val::Percent(2.)),
             grid_template_columns: vec![
                 GridTrack::min_content(),
                 GridTrack::min_content(),
@@ -385,6 +358,8 @@ fn setup_take_extra_resources(
 
             ..default()
         },
+        BorderColor::all(BORDER_COLOR_ACTIVE),
+        BackgroundColor(NORMAL_BUTTON.with_alpha(0.9)),
         spawn_related_bundle,
     ));
 }
