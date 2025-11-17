@@ -98,13 +98,13 @@ impl DevelopmentCards {
     pub const fn count(self) -> u8 {
         self.knight + self.monopoly + self.year_of_plenty + self.road_building + self.victory_point
     }
-    pub fn new_player() -> Self {
+    pub const fn new_player() -> Self {
         Self {
-            knight: 4,
-            monopoly: core::default::Default::default(),
-            year_of_plenty: 1,
-            road_building: 1,
-            victory_point: core::default::Default::default(),
+            knight: 0,
+            monopoly: 0,
+            year_of_plenty: 0,
+            road_building: 0,
+            victory_point: 0,
         }
     }
 }

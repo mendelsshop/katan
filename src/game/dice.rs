@@ -77,49 +77,6 @@ pub fn distribute_resources<'a>(
         )
     }
 
-    fn hexagon_to_resources(hex: Hexagon) -> Resources {
-        match hex {
-            Hexagon::Wood => Resources {
-                wood: 1,
-                brick: 0,
-                sheep: 0,
-                wheat: 0,
-                ore: 0,
-            },
-            Hexagon::Brick => Resources {
-                wood: 0,
-                brick: 1,
-                sheep: 0,
-                wheat: 0,
-                ore: 0,
-            },
-            Hexagon::Sheep => Resources {
-                wood: 0,
-                brick: 0,
-                sheep: 1,
-                wheat: 0,
-                ore: 0,
-            },
-            Hexagon::Wheat => Resources {
-                wood: 0,
-                brick: 0,
-                sheep: 0,
-                wheat: 1,
-                ore: 0,
-            },
-            Hexagon::Ore => Resources {
-                wood: 0,
-                brick: 0,
-                sheep: 0,
-                wheat: 0,
-                ore: 1,
-            },
-            Hexagon::Desert => todo!(),
-            Hexagon::Water => todo!(),
-            Hexagon::Port => todo!(),
-            Hexagon::Empty => todo!(),
-        }
-    }
     // TODO: maybe each placed town/city should have entity pointing to all surrounding hexes
     let board = board
         .into_iter()
@@ -129,18 +86,18 @@ pub fn distribute_resources<'a>(
         .map(|(h, n, p)| (*h, *n, *p));
     for (_, color, hex) in on_board_with_hex(board.clone(), towns) {
         let player_resources = player_resources.get_mut(color).ok();
-        if let Some(mut player_resources) = player_resources {
-            let gained = hexagon_to_resources(hex);
-            *player_resources += gained;
-            *resources -= gained;
-        }
+        if let Some(mut player_resources) = player_resources
+            && let Some(gained) = hex.to_resources() {
+                *player_resources += gained;
+                *resources -= gained;
+            }
     }
     for (_, color, hex) in on_board_with_hex(board, cities) {
         let player_resources = player_resources.get_mut(color).ok();
-        if let Some(mut player_resources) = player_resources {
-            let gained = hexagon_to_resources(hex) * 2;
-            *player_resources += gained;
-            *resources -= gained;
-        }
+        if let Some(mut player_resources) = player_resources
+            && let Some(gained) = hex.to_resources().map(|r| r * 2) {
+                *player_resources += gained;
+                *resources -= gained;
+            }
     }
 }

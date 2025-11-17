@@ -1,7 +1,7 @@
 use std::{
     marker::PhantomData,
     mem,
-    ops::{AddAssign, SubAssign},
+    ops::{Add, AddAssign, SubAssign},
 };
 mod cities;
 mod colors;
@@ -208,6 +208,8 @@ pub struct UpdateState<'w, 's> {
     free_dev_cards: ResMut<'w, DevelopmentCardsPile>,
     local_player: Res<'w, LocalPlayer>,
     app_state: ResMut<'w, NextState<AppState>>,
+
+    board: Query<'w, 's, (&'static Hexagon, &'static Number, &'static Position)>,
 }
 fn update_from_inputs(
     UpdateState {
@@ -229,6 +231,7 @@ fn update_from_inputs(
         mut free_dev_cards,
         local_player,
         mut app_state,
+        board,
     }: UpdateState<'_, '_>,
 ) {
     let count = inputs.iter().filter(|(i, _)| *i != Input::None).count();
@@ -439,6 +442,17 @@ fn update_from_inputs(
 
                 vps.actual += 1;
                 towns_left.0 -= 1;
+                // if this player is done all their towns then add the resources from their last
+                // pick
+                if towns_left.0 == 3 {
+                    let initial_resources = board
+                        .iter()
+                        .filter(|hex| town_position.contains(hex.2))
+                        .filter_map(|hex| hex.0.to_resources())
+                        .fold(Resources::empty(), Add::add);
+                    bank.sub_assign(initial_resources);
+                    player_resources.add_assign(initial_resources);
+                }
                 if next {
                     set_setup_color(
                         &mut mut_game_state,
@@ -1035,6 +1049,49 @@ impl Hexagon {
             Self::Water => Color::srgb_u8(0, 0, 255),
             Self::Port => Color::srgb_u8(0, 0, 255),
             Self::Empty => Color::BLACK.with_alpha(-1.),
+        }
+    }
+    pub const fn to_resources(self) -> Option<Resources> {
+        match self {
+            Self::Wood => Some(Resources {
+                wood: 1,
+                brick: 0,
+                sheep: 0,
+                wheat: 0,
+                ore: 0,
+            }),
+            Self::Brick => Some(Resources {
+                wood: 0,
+                brick: 1,
+                sheep: 0,
+                wheat: 0,
+                ore: 0,
+            }),
+            Self::Sheep => Some(Resources {
+                wood: 0,
+                brick: 0,
+                sheep: 1,
+                wheat: 0,
+                ore: 0,
+            }),
+            Self::Wheat => Some(Resources {
+                wood: 0,
+                brick: 0,
+                sheep: 0,
+                wheat: 1,
+                ore: 0,
+            }),
+            Self::Ore => Some(Resources {
+                wood: 0,
+                brick: 0,
+                sheep: 0,
+                wheat: 0,
+                ore: 1,
+            }),
+            Self::Desert => None,
+            Self::Water => None,
+            Self::Port => None,
+            Self::Empty => None,
         }
     }
 }

@@ -177,14 +177,13 @@ impl Resources {
     }
     #[must_use]
     pub const fn new_player() -> Self {
-        Self::new(9, 9, 2, 2, 4)
-        // Resources {
-        //     wood: 0,
-        //     brick: 0,
-        //     sheep: 0,
-        //     wheat: 0,
-        //     ore: 0,
-        // }
+        Self {
+            wood: 0,
+            brick: 0,
+            sheep: 0,
+            wheat: 0,
+            ore: 0,
+        }
     }
     #[must_use]
     pub const fn new_game() -> Self {
@@ -198,6 +197,16 @@ impl Resources {
             sheep,
             wheat,
             ore,
+        }
+    }
+
+    pub(crate) const fn empty() -> Self {
+        Self {
+            wood: 0,
+            brick: 0,
+            sheep: 0,
+            wheat: 0,
+            ore: 0,
         }
     }
 }
