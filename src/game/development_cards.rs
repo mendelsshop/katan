@@ -133,8 +133,8 @@ impl Add for DevelopmentCards {
 }
 
 pub fn buy_development_card_interaction(
+    free_dev_cards: Res<'_, DevelopmentCardsPile>,
     color_r: Res<'_, CurrentColor>,
-    free_dev_cards: Query<'_, '_, (Entity, &DevelopmentCard), Without<CatanColor>>,
     mut player_resources_and_dev_cards: Query<'_, '_, &mut Resources, With<CatanColor>>,
     interaction_query: Single<
         '_,
@@ -157,7 +157,8 @@ pub fn buy_development_card_interaction(
         let (_, interaction, mut color, mut button) = interaction_query.into_inner();
         match *interaction {
             Interaction::Pressed => {
-                if free_dev_cards.count() > 0 {
+                if !free_dev_cards.0.is_empty() {
+                    println!("picked dev card");
                     *input = Input::TakeDevelopmentCard;
                 }
                 *color = PRESSED_BUTTON.into();
