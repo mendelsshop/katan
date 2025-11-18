@@ -87,17 +87,19 @@ pub fn distribute_resources<'a>(
     for (_, color, hex) in on_board_with_hex(board.clone(), towns) {
         let player_resources = player_resources.get_mut(color).ok();
         if let Some(mut player_resources) = player_resources
-            && let Some(gained) = hex.to_resources() {
-                *player_resources += gained;
-                *resources -= gained;
-            }
+            && let Some(gained) = hex.to_resources()
+        {
+            *player_resources += gained;
+            *resources -= gained;
+        }
     }
     for (_, color, hex) in on_board_with_hex(board, cities) {
         let player_resources = player_resources.get_mut(color).ok();
         if let Some(mut player_resources) = player_resources
-            && let Some(gained) = hex.to_resources().map(|r| r * 2) {
-                *player_resources += gained;
-                *resources -= gained;
-            }
+            && let Some(gained) = hex.to_resources().map(|r| r * 2)
+        {
+            *player_resources += gained;
+            *resources -= gained;
+        }
     }
 }

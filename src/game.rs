@@ -88,7 +88,7 @@ pub enum Input {
     YearOfPlenty(resources::Resource),
     Monopoly(resources::Resource),
     // person picked from, and card picked, if there is a discard(cards discarded if needed)
-    Knight(Entity, resources::Resource),
+    Knight(Entity, resources::Resource, Position),
     // discard
     RobberDiscard(Resources),
     RobberDiscardInit,
@@ -98,6 +98,8 @@ pub enum Input {
     TradeAccept(TradingResources, Entity),
     BankTrade(TradingResources),
     Win,
+    // move knight but don't take resources (nothing to take)
+    MoveKnight(Position),
 }
 pub type GgrsSessionConfig = bevy_ggrs::GgrsConfig<Input, PeerId>;
 pub struct GamePlugin;
@@ -210,6 +212,7 @@ pub struct UpdateState<'w, 's> {
     app_state: ResMut<'w, NextState<AppState>>,
 
     board: Query<'w, 's, (&'static Hexagon, &'static Number, &'static Position)>,
+    robber: ResMut<'w, Robber>,
 }
 fn update_from_inputs(
     UpdateState {
@@ -231,6 +234,7 @@ fn update_from_inputs(
         mut free_dev_cards,
         local_player,
         mut app_state,
+        mut robber,
         board,
     }: UpdateState<'_, '_>,
 ) {
@@ -238,7 +242,7 @@ fn update_from_inputs(
     if count != 0 {
         println!(
             "new {:?} {:?}",
-            inputs.iter().collect_vec(),
+            players.iter().map(|p| (p.3, inputs[p.1.0])).collect_vec(),
             game_state.get()
         );
     }
@@ -261,6 +265,9 @@ fn update_from_inputs(
         }
         match input {
             Input::None => {}
+            Input::MoveKnight(block) => {
+                robber.0 = block;
+            }
             Input::Win => {
                 app_state.set(AppState::GameOver);
                 commands.spawn((
@@ -485,7 +492,7 @@ fn update_from_inputs(
             // handeld by update_from_monopoly
             Input::Monopoly(_resource) => (),
             // handeld by update_from_knight
-            Input::Knight(_player, _resource) => (),
+            Input::Knight(_player, _resource, _new_pos) => (),
 
             Input::RobberDiscardInit => {
                 if local_player.0.entity == entity {
@@ -577,9 +584,11 @@ fn update_from_knight(
     inputs: Res<'_, PlayerInputs<GgrsSessionConfig>>,
     players: Query<'_, '_, (Entity, &PlayerHandle)>,
     mut player_resources_q: Query<'_, '_, &mut Resources, With<CatanColor>>,
+    mut robber: ResMut<'_, Robber>,
 ) {
     for player in players {
-        if let (Input::Knight(robbed_player, resource), InputStatus::Confirmed) = inputs[player.1.0]
+        if let (Input::Knight(robbed_player, resource, new_place), InputStatus::Confirmed) =
+            inputs[player.1.0]
         {
             if let Ok(mut robbed_resources) = player_resources_q.get_mut(robbed_player) {
                 *robbed_resources.get_mut(resource) -= 1;
@@ -587,6 +596,7 @@ fn update_from_knight(
             if let Ok(mut resources) = player_resources_q.get_mut(player.0) {
                 *resources.get_mut(resource) += 1;
             }
+            robber.0 = new_place;
         }
     }
 }

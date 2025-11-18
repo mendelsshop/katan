@@ -86,7 +86,7 @@ pub fn place_robber_interaction(
     >,
     building_q: Query<'_, '_, (&ChildOf, &CatanColor, &'_ BuildingPosition), With<Building>>,
     current_color: Res<'_, CurrentColor>,
-    mut robber: ResMut<'_, Robber>,
+    robber: ResMut<'_, Robber>,
     player_resources: Query<'_, '_, (&CatanColor, &Resources, &PlayerHandle)>,
     commands: Commands<'_, '_>,
     state: ResMut<'_, NextState<GameState>>,
@@ -97,7 +97,7 @@ pub fn place_robber_interaction(
             Interaction::Pressed => {
                 *color = PRESSED_BUTTON.into();
                 button.set_changed();
-                *robber = Robber(*position);
+                // *robber = Robber(*position);
                 choose_player_to_take_from(
                     position,
                     *current_color,
@@ -122,7 +122,7 @@ pub fn place_robber_interaction(
 #[derive(Component)]
 #[require(KatanComponent)]
 pub struct RobberChooseColorButton;
-fn choose_player_to_take_from<'a>(
+fn choose_player_to_take_from(
     position: &Position,
     color: CurrentColor,
     building_q: Query<'_, '_, (&ChildOf, &CatanColor, &'_ BuildingPosition), With<Building>>,
@@ -155,16 +155,14 @@ fn choose_player_to_take_from<'a>(
         let other_color = colors.remove(0);
         let (_, other_color_resources, _) = player_resources.get(other_color.entity).unwrap();
         if let Some(resource) = take_resource(other_color_resources) {
-            *input = Input::Knight(other_color.entity, resource);
+            *input = Input::Knight(other_color.entity, resource, *position);
         }
-        // either we are coming from roll(7) or in middle of turn(dev card) but we always go back to
-        // turn
-        state.set(GameState::Turn);
 
         // either we are coming from roll(7) or in middle of turn(dev card) but we always go back to
         // turn
         state.set(GameState::Turn);
     } else if colors.is_empty() {
+        *input = Input::MoveKnight(*position);
         // if no one to steal from go to turn
 
         // either we are coming from roll(7) or in middle of turn(dev card) but we always go back to
@@ -192,6 +190,7 @@ fn choose_player_to_take_from<'a>(
                     },
                     RobberChooseColorButton,
                     *color,
+                    *position,
                     BorderRadius::MAX,
                     BackgroundColor(color.to_bevy_color()),
                 )],
@@ -211,20 +210,23 @@ pub fn choose_player_to_take_from_interaction(
             &CatanColorRef,
             &mut Button,
             &mut BackgroundColor,
+            &Position,
         ),
         (Changed<Interaction>, With<RobberChooseColorButton>),
     >,
     mut state: ResMut<'_, NextState<GameState>>,
     mut input: ResMut<'_, Input>,
 ) {
-    for (interaction, color, mut button, mut button_color) in &mut robber_taking_query {
+    for (interaction, color, mut button, mut button_color, new_robber_positon) in
+        &mut robber_taking_query
+    {
         match *interaction {
             Interaction::Pressed => {
                 button.set_changed();
 
                 let (_, other_color_resources) = player_resources.get(color.entity).unwrap();
                 if let Some(resource) = take_resource(other_color_resources) {
-                    *input = Input::Knight(color.entity, resource);
+                    *input = Input::Knight(color.entity, resource, *new_robber_positon);
                 }
                 // either we are coming from roll(7) or in middle of turn(dev card) but we always go back to
                 // turn
