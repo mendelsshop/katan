@@ -738,10 +738,10 @@ impl Plugin for GamePlugin {
             .add_systems(
                 PostUpdate,
                 (
-                    development_cards::show_dev_cards,
-                    development_card_actions::development_card_action_interaction,
-                )
-                    .run_if(in_state(GameState::Turn)),
+                    development_cards::show_dev_cards.run_if(in_state(GameState::Roll)),
+                    development_card_actions::development_card_action_interaction
+                        .run_if(in_state(GameState::Turn).or(in_state(GameState::Roll))),
+                ),
             )
             .add_systems(OnEnter(GameState::SetupRoad), roads::place_setup_road)
             .add_systems(OnEnter(GameState::SetupTown), towns::place_setup_town)

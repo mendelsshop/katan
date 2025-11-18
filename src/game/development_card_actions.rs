@@ -34,13 +34,17 @@ pub fn development_card_action_interaction(
     >,
     res: Res<'_, CurrentColor>,
     layout: Res<'_, Layout>,
-    state: ResMut<'_, NextState<GameState>>,
+    state_mut: ResMut<'_, NextState<GameState>>,
+    state: Res<'_, State<GameState>>,
     mut commands: Commands<'_, '_>,
 ) {
     let development_cards = player_dev_cards_and_knights.get_mut(res.0.entity);
     if let Ok((mut development_cards, knights)) = development_cards {
         for (entity, interaction, mut color, mut button, development_card) in &mut interaction_query
         {
+            if *state.get() == GameState::Roll && *development_card != DevelopmentCard::Knight {
+                continue;
+            }
             match interaction {
                 Interaction::Pressed => {
                     *development_cards.get_mut(*development_card) -= 1;
@@ -61,10 +65,10 @@ pub fn development_card_action_interaction(
                         commands.entity(entity).despawn();
                     }
                     match development_card {
-                        DevelopmentCard::Knight => robber(state, knights),
-                        DevelopmentCard::Monopoly => monopoly(state),
-                        DevelopmentCard::YearOfPlenty => year_of_plenty(state),
-                        DevelopmentCard::RoadBuilding => road_building(state),
+                        DevelopmentCard::Knight => robber(state_mut, knights),
+                        DevelopmentCard::Monopoly => monopoly(state_mut),
+                        DevelopmentCard::YearOfPlenty => year_of_plenty(state_mut),
+                        DevelopmentCard::RoadBuilding => road_building(state_mut),
                         DevelopmentCard::VictoryPoint => unimplemented!("you cannot play a vp"),
                     }
                     break;
