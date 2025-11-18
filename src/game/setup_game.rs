@@ -8,6 +8,8 @@ use std::{
     ops::{Add, AddAssign},
 };
 
+use crate::{game::robber::RobberHighlighter, utils::NORMAL_BUTTON};
+
 use super::{
     Hexagon, KatanComponent, Knights, Layout, Left, LocalPlayer, LocalPlayerHandle, Number,
     PlayerCount, PlayerHandle, Port, Robber, VictoryPoints,
@@ -113,6 +115,8 @@ fn generate_development_cards(commands: &mut Commands<'_, '_>, rng: &mut Xoshiro
 fn generate_board(
     commands: &mut Commands<'_, '_>,
     rng: &mut Xoshiro256PlusPlus,
+    materials: &mut ResMut<'_, Assets<ColorMaterial>>,
+    meshes: &mut ResMut<'_, Assets<Mesh>>,
 ) -> Vec<(Position, Hexagon, Number)> {
     let mut numbers = [
         (Number::Number(2)),
@@ -174,6 +178,14 @@ fn generate_board(
     let mut inhabited = fix_numbers(reds, normal_number, rng);
     if let Some(desert) = desert.first() {
         commands.insert_resource(Robber(desert.0));
+        let mesh = meshes.add(Circle::new(30.0));
+        let (x, y) = Into::<FPosition>::into(desert.0).hex_to_pixel();
+        commands.spawn((
+            RobberHighlighter,
+            Mesh2d(mesh),
+            MeshMaterial2d(materials.add(NORMAL_BUTTON.with_alpha(0.9))),
+            Transform::from_xyz(x * 77.0, y * 77., 0.0),
+        ));
     }
     inhabited.append(&mut desert);
     inhabited
@@ -415,8 +427,8 @@ fn generate_ports(
 }
 pub fn setup(
     commands: &mut Commands<'_, '_>,
-    meshes: ResMut<'_, Assets<Mesh>>,
-    materials: ResMut<'_, Assets<ColorMaterial>>,
+    mut meshes: ResMut<'_, Assets<Mesh>>,
+    mut materials: ResMut<'_, Assets<ColorMaterial>>,
     layout: Layout,
     player_count: Res<'_, PlayerCount>,
     seed: u64,
@@ -424,7 +436,7 @@ pub fn setup(
 ) -> vec::IntoIter<CatanColorRef> {
     let mut rng = Xoshiro256PlusPlus::seed_from_u64(seed);
     draw_board(
-        generate_board(commands, &mut rng).into_iter(),
+        generate_board(commands, &mut rng, &mut materials, &mut meshes).into_iter(),
         generate_ports(commands, &mut rng).into_iter(),
         materials,
         meshes,

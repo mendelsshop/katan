@@ -59,7 +59,11 @@ use self::{
 };
 use crate::{
     AppState, common_ui,
-    game::resources_management::{AcceptTrade, RejectTrade},
+    game::{
+        positions::FPosition,
+        resources_management::{AcceptTrade, RejectTrade},
+        robber::RobberHighlighter,
+    },
     utils::{
         BORDER_COLOR_ACTIVE, BORDER_COLOR_INACTIVE, NORMAL_BUTTON, PRESSED_BUTTON, TEXT_COLOR,
     },
@@ -213,6 +217,8 @@ pub struct UpdateState<'w, 's> {
 
     board: Query<'w, 's, (&'static Hexagon, &'static Number, &'static Position)>,
     robber: ResMut<'w, Robber>,
+
+    robber_transform: Single<'w, 's, &'static mut Transform, With<RobberHighlighter>>,
 }
 fn update_from_inputs(
     UpdateState {
@@ -236,6 +242,7 @@ fn update_from_inputs(
         mut app_state,
         mut robber,
         board,
+        mut robber_transform,
     }: UpdateState<'_, '_>,
 ) {
     let count = inputs.iter().filter(|(i, _)| *i != Input::None).count();
@@ -267,6 +274,9 @@ fn update_from_inputs(
             Input::None => {}
             Input::MoveKnight(block) => {
                 robber.0 = block;
+
+                let (x, y) = FPosition::from(block).hex_to_pixel();
+                **robber_transform = Transform::from_xyz(x * 77.0, y * 77., 0.0);
             }
             Input::Win => {
                 app_state.set(AppState::GameOver);
@@ -585,6 +595,7 @@ fn update_from_knight(
     players: Query<'_, '_, (Entity, &PlayerHandle)>,
     mut player_resources_q: Query<'_, '_, &mut Resources, With<CatanColor>>,
     mut robber: ResMut<'_, Robber>,
+    mut robber_transform: Single<'_, '_, &mut Transform, With<RobberHighlighter>>,
 ) {
     for player in players {
         if let (Input::Knight(robbed_player, resource, new_place), InputStatus::Confirmed) =
@@ -597,6 +608,10 @@ fn update_from_knight(
                 *resources.get_mut(resource) += 1;
             }
             robber.0 = new_place;
+
+            let (x, y) = FPosition::from(new_place).hex_to_pixel();
+            **robber_transform = Transform::from_xyz(x * 77.0, y * 77., 0.0);
+            break;
         }
     }
 }

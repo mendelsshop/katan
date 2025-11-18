@@ -11,6 +11,10 @@ use super::{
     resources::{self, Resources, take_resource},
 };
 
+#[derive(Component, PartialEq, Eq, Clone, Copy, Debug)]
+#[require(KatanComponent)]
+// marker component to mark the 2d mesh that represent the robber
+pub struct RobberHighlighter;
 #[derive(Resource, PartialEq, Eq, Clone, Copy, Debug)]
 pub struct Robber(pub Position);
 impl Default for Robber {
