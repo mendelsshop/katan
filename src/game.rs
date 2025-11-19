@@ -85,7 +85,7 @@ pub enum Input {
     // player, place, cost multiplier
     // also used for road building
     AddRoad(RoadPosition, Resources),
-    AddCity(Entity, BuildingPosition, Resources),
+    AddCity(BuildingPosition, Resources),
     AddTown(BuildingPosition, Resources, bool),
     TakeDevelopmentCard,
     Roll(u8, u8, u8),
@@ -201,6 +201,8 @@ pub struct UpdateState<'w, 's> {
             &'static PlayerBanner,
         ),
     >,
+
+    towns: Query<'w, 's, (Entity, &'static BuildingPosition), With<Town>>,
     bank: ResMut<'w, Resources>,
     layout: Res<'w, Layout>,
     commands: Commands<'w, 's>,
@@ -245,6 +247,7 @@ fn update_from_inputs(
         mut robber,
         board,
         mut robber_transform,
+        towns,
     }: UpdateState<'_, '_>,
 ) {
     let count = inputs.iter().filter(|(i, _)| *i != Input::None).count();
@@ -424,23 +427,28 @@ fn update_from_inputs(
                 roads_left.0 -= 1;
             }
             // make sure entity(of child town) is synced between client
-            Input::AddCity(entity, city_position, cost) => {
-                commands.entity(entity).remove::<Town>().insert(City);
-                towns_left.0 += 1;
-                cities_left.0 -= 1;
-                *player_resources -= cost;
-                vps.actual += 1;
+            Input::AddCity(city_position, cost) => {
+                if let Some((entity, _)) = towns
+                    .iter()
+                    .find(|(_, town_position)| **town_position == city_position)
+                {
+                    commands.entity(entity).remove::<Town>().insert(City);
+                    towns_left.0 += 1;
+                    cities_left.0 -= 1;
+                    *player_resources -= cost;
+                    vps.actual += 1;
 
-                bank.add_assign(cost);
-                let (x, y) = city_position.positon_to_pixel_coordinates();
+                    bank.add_assign(cost);
+                    let (x, y) = city_position.positon_to_pixel_coordinates();
 
-                let mesh1 = meshes.add(Rectangle::new(13.0, 13.));
-                commands.spawn((
-                    KatanComponent,
-                    Mesh2d(mesh1),
-                    MeshMaterial2d(materials.add(color_r.0.to_bevy_color())),
-                    Transform::from_xyz(x * 77.0, y * 77., 0.0),
-                ));
+                    let mesh1 = meshes.add(Rectangle::new(13.0, 13.));
+                    commands.spawn((
+                        KatanComponent,
+                        Mesh2d(mesh1),
+                        MeshMaterial2d(materials.add(color_r.0.to_bevy_color())),
+                        Transform::from_xyz(x * 77.0, y * 77., 0.0),
+                    ));
+                }
             }
             Input::AddTown(town_position, cost, next) => {
                 bank.add_assign(cost);

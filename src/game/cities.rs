@@ -35,7 +35,7 @@ pub fn place_normal_city_interaction(
                 *color = PRESSED_BUTTON.into();
 
                 button.set_changed();
-                *input = Input::AddCity(entity.0, entity.1, *required_resources);
+                *input = Input::AddCity(entity.1, *required_resources);
 
                 game_state.set(GameState::Turn);
                 break;
