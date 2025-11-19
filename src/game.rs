@@ -20,8 +20,8 @@ mod towns;
 mod turn_ui;
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_ggrs::{
-    GgrsSchedule, GgrsTime, LocalInputs, LocalPlayers, PlayerInputs, ReadInputs, RollbackApp,
-    RollbackFrameRate, Session,
+    AddRollbackCommandExtension, GgrsSchedule, GgrsTime, LocalInputs, LocalPlayers, PlayerInputs,
+    ReadInputs, RollbackApp, RollbackFrameRate, Session,
     ggrs::{GgrsEvent, InputStatus},
 };
 use bevy_matchbox::prelude::PeerId;
@@ -69,6 +69,8 @@ use crate::{
     },
 };
 
+#[derive(PartialEq, Eq, Clone, Copy, Debug, Resource, Default)]
+pub struct NeedToRoll;
 #[derive(Component, Default)]
 pub struct KatanComponent;
 #[derive(PartialEq, Eq, Clone, Copy, Debug, Resource)]
@@ -407,9 +409,11 @@ fn update_from_inputs(
                 println!("new road");
                 bank.add_assign(cost);
                 player_resources.sub_assign(cost);
-                commands
-                    .entity(entity)
-                    .with_child((Road, road_position, *color));
+                let road = commands
+                    .spawn((Road, road_position, *color))
+                    .add_rollback()
+                    .id();
+                commands.entity(entity).add_child(road);
                 commands.spawn(RoadUI::bundle(
                     road_position,
                     &mut meshes,
@@ -441,9 +445,11 @@ fn update_from_inputs(
             Input::AddTown(town_position, cost, next) => {
                 bank.add_assign(cost);
                 player_resources.sub_assign(cost);
-                commands
-                    .entity(entity)
-                    .with_child((Town, town_position, *color));
+                let town = commands
+                    .spawn((Town, town_position, *color))
+                    .add_rollback()
+                    .id();
+                commands.entity(entity).add_child(town);
                 commands.spawn(TownUI::bundle(
                     town_position,
                     &mut meshes,
@@ -1357,9 +1363,9 @@ fn layout(commands: &mut Commands<'_, '_>) -> Layout {
                 border: UiRect::all(Val::Px(1.)),
                 ..default()
             },
-            children![Text("trades".to_string()),],
             BorderColor::all(Color::BLACK),
         ))
+        .with_child(Text("trades".to_string()))
         .id();
     let mut main_layout = commands.spawn((Node {
         display: Display::Grid,

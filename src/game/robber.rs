@@ -1,7 +1,10 @@
 use bevy::prelude::*;
 use itertools::Itertools;
 
-use crate::utils::{BORDER_COLOR_ACTIVE, HOVERED_BUTTON, NORMAL_BUTTON, PRESSED_BUTTON};
+use crate::{
+    game::NeedToRoll,
+    utils::{BORDER_COLOR_ACTIVE, HOVERED_BUTTON, NORMAL_BUTTON, PRESSED_BUTTON},
+};
 
 use super::{
     Building, GameState, Input, KatanComponent, LocalPlayer, PlayerHandle,
@@ -90,18 +93,17 @@ pub fn place_robber_interaction(
     >,
     building_q: Query<'_, '_, (&ChildOf, &CatanColor, &'_ BuildingPosition), With<Building>>,
     current_color: Res<'_, CurrentColor>,
-    robber: ResMut<'_, Robber>,
     player_resources: Query<'_, '_, (&CatanColor, &Resources, &PlayerHandle)>,
     commands: Commands<'_, '_>,
     state: ResMut<'_, NextState<GameState>>,
     input: ResMut<'_, Input>,
+    still_needs_to_roll: Option<Res<'_, NeedToRoll>>,
 ) {
     for (interaction, position, mut button, mut color) in &mut robber_places_query {
         match *interaction {
             Interaction::Pressed => {
                 *color = PRESSED_BUTTON.into();
                 button.set_changed();
-                // *robber = Robber(*position);
                 choose_player_to_take_from(
                     position,
                     *current_color,
@@ -110,6 +112,7 @@ pub fn place_robber_interaction(
                     commands,
                     state,
                     input,
+                    still_needs_to_roll,
                 );
                 break;
             }
@@ -134,6 +137,7 @@ fn choose_player_to_take_from(
     mut commands: Commands<'_, '_>,
     mut state: ResMut<'_, NextState<GameState>>,
     mut input: ResMut<'_, Input>,
+    still_needs_to_roll: Option<Res<'_, NeedToRoll>>,
 ) {
     // TODO: eventually buildings/roads will be linked to the main player entity, at which point
     // find with color won't be needed
@@ -162,16 +166,12 @@ fn choose_player_to_take_from(
             *input = Input::Knight(other_color.entity, resource, *position);
         }
 
-        // either we are coming from roll(7) or in middle of turn(dev card) but we always go back to
-        // turn
-        state.set(GameState::Turn);
+        knight_next_time(&mut commands, &mut state, &still_needs_to_roll);
     } else if colors.is_empty() {
         *input = Input::MoveKnight(*position);
         // if no one to steal from go to turn
 
-        // either we are coming from roll(7) or in middle of turn(dev card) but we always go back to
-        // turn
-        state.set(GameState::Turn);
+        knight_next_time(&mut commands, &mut state, &still_needs_to_roll);
     } else {
         // show options of how to pick from
         for (i, color) in colors.iter().enumerate() {
@@ -204,6 +204,19 @@ fn choose_player_to_take_from(
     }
 }
 
+fn knight_next_time(
+    commands: &mut Commands<'_, '_>,
+    state: &mut ResMut<'_, NextState<GameState>>,
+    still_needs_to_roll: &Option<Res<'_, NeedToRoll>>,
+) {
+    if still_needs_to_roll.is_some() {
+        commands.remove_resource::<NeedToRoll>();
+        state.set(GameState::Roll);
+    } else {
+        state.set(GameState::Turn);
+    }
+}
+
 pub fn choose_player_to_take_from_interaction(
     player_resources: Query<'_, '_, (&CatanColor, &Resources)>,
     mut robber_taking_query: Query<
@@ -220,6 +233,8 @@ pub fn choose_player_to_take_from_interaction(
     >,
     mut state: ResMut<'_, NextState<GameState>>,
     mut input: ResMut<'_, Input>,
+    still_needs_to_roll: Option<Res<'_, NeedToRoll>>,
+    mut commands: Commands<'_, '_>,
 ) {
     for (interaction, color, mut button, mut button_color, new_robber_positon) in
         &mut robber_taking_query
@@ -234,7 +249,8 @@ pub fn choose_player_to_take_from_interaction(
                 }
                 // either we are coming from roll(7) or in middle of turn(dev card) but we always go back to
                 // turn
-                state.set(GameState::Turn);
+                //
+                knight_next_time(&mut commands, &mut state, &still_needs_to_roll);
                 break;
             }
             Interaction::Hovered => {

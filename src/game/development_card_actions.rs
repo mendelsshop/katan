@@ -1,6 +1,9 @@
 use bevy::prelude::*;
 
-use crate::utils::{HOVERED_BUTTON, NORMAL_BUTTON, PRESSED_BUTTON};
+use crate::{
+    game::NeedToRoll,
+    utils::{HOVERED_BUTTON, NORMAL_BUTTON, PRESSED_BUTTON},
+};
 
 use super::{
     GameState, Input, KatanComponent, Knights, Layout,
@@ -65,7 +68,7 @@ pub fn development_card_action_interaction(
                         commands.entity(entity).despawn();
                     }
                     match development_card {
-                        DevelopmentCard::Knight => robber(state_mut, knights),
+                        DevelopmentCard::Knight => robber(state_mut, knights, state, commands),
                         DevelopmentCard::Monopoly => monopoly(state_mut),
                         DevelopmentCard::YearOfPlenty => year_of_plenty(state_mut),
                         DevelopmentCard::RoadBuilding => road_building(state_mut),
@@ -85,9 +88,17 @@ pub fn development_card_action_interaction(
     }
 }
 
-pub fn robber(mut state: ResMut<'_, NextState<GameState>>, mut knights: Mut<'_, Knights>) {
+pub fn robber(
+    mut state_mut: ResMut<'_, NextState<GameState>>,
+    mut knights: Mut<'_, Knights>,
+    state: Res<'_, State<GameState>>,
+    mut commands: Commands<'_, '_>,
+) {
+    if *state.get() == GameState::Roll {
+        commands.init_resource::<NeedToRoll>();
+    }
     knights.0 += 1;
-    state.set(GameState::PlaceRobber);
+    state_mut.set(GameState::PlaceRobber);
 }
 
 #[derive(SubStates, Clone, Copy, PartialEq, Eq, Hash, Debug, Default)]
