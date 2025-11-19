@@ -22,15 +22,16 @@ pub fn full_roll_dice(
 
     if roll == 7 {
         if player_resources.iter().any(|r| r.count() > 7) {
-            *input = Input::RobberDiscardInit;
+            *input = Input::Roll(roll, d1, d2, Some(true));
         } else {
             game_state.set(GameState::PlaceRobber);
+            *input = Input::Roll(roll, d1, d2, Some(false));
         }
     } else {
         // we only do this if no robber
         // if there is robber there a bunch of other states that me must go through
         game_state.set(GameState::Turn);
-        *input = Input::Roll(roll, d1, d2);
+        *input = Input::Roll(roll, d1, d2, None);
     }
 }
 

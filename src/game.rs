@@ -88,7 +88,8 @@ pub enum Input {
     AddCity(BuildingPosition, Resources),
     AddTown(BuildingPosition, Resources, bool),
     TakeDevelopmentCard,
-    Roll(u8, u8, u8),
+
+    Roll(u8, u8, u8, Option<bool>),
     // for each year of plenty done twice
     // maybe just send one with two resources
     YearOfPlenty(resources::Resource),
@@ -97,7 +98,6 @@ pub enum Input {
     Knight(Entity, resources::Resource, Position),
     // discard
     RobberDiscard(Resources),
-    RobberDiscardInit,
     // need way to cancel trade
     Trade(TradingResources),         // interactive(TradeResponce)
     TradeResponce(TradingResources), // interactive(TradeAccept)
@@ -508,7 +508,7 @@ fn update_from_inputs(
                 }
             }
             // handeld by update_from_input_roll
-            Input::Roll(_number, _d1, _d2) => (),
+            Input::Roll(_number, _d1, _d2, _) => (),
             Input::YearOfPlenty(resource) => {
                 *bank.get_mut(resource) -= 1;
                 *player_resources.get_mut(resource) += 1;
@@ -518,13 +518,6 @@ fn update_from_inputs(
             // handeld by update_from_knight
             Input::Knight(_player, _resource, _new_pos) => (),
 
-            Input::RobberDiscardInit => {
-                if local_player.0.entity == entity {
-                    mut_game_state.set(GameState::RobberDiscardResources);
-                } else {
-                    mut_game_state.set(GameState::RobberDiscardResourcesInActive);
-                }
-            }
             Input::RobberDiscard(resources) => {
                 bank.add_assign(resources);
                 player_resources.sub_assign(resources);
@@ -657,7 +650,7 @@ fn update_from_monopoly(
 }
 fn update_from_inputs_roll(
     inputs: Res<'_, PlayerInputs<GgrsSessionConfig>>,
-    players: Query<'_, '_, &PlayerHandle>,
+    players: Query<'_, '_, (Entity, &PlayerHandle)>,
 
     player_resources_q: Query<'_, '_, &mut Resources, With<CatanColor>>,
 
@@ -669,19 +662,33 @@ fn update_from_inputs_roll(
 
     resources: ResMut<'_, Resources>,
     robber: Res<'_, Robber>,
+    local_player: Res<'_, LocalPlayer>,
+    mut state: ResMut<'_, NextState<GameState>>,
 ) {
-    for player in players {
-        if let (Input::Roll(roll, d1, d2), InputStatus::Confirmed) = inputs[player.0] {
+    for (entity, player) in players {
+        if let (Input::Roll(roll, d1, d2, is_robber), InputStatus::Confirmed) = inputs[player.0] {
             dice::update_dice(&mut die_q, d1, d2);
-            dice::distribute_resources(
-                roll,
-                board,
-                towns,
-                cities,
-                player_resources_q,
-                resources,
-                robber,
-            );
+            match is_robber {
+                Some(true) if local_player.0.entity == entity => {
+                    state.set(GameState::RobberDiscardResources);
+                }
+                Some(true) => {
+                    state.set(GameState::RobberDiscardResourcesInActive);
+                }
+                Some(false) => {}
+                None => {
+                    dice::distribute_resources(
+                        roll,
+                        board,
+                        towns,
+                        cities,
+                        player_resources_q,
+                        resources,
+                        robber,
+                    );
+                }
+            }
+
             break;
         }
     }
