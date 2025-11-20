@@ -1,6 +1,8 @@
 use bevy::prelude::*;
 use itertools::Itertools;
 
+use crate::game::LocalPlayer;
+
 use super::{
     CatanColor, CurrentColor, GameState, Input, KatanComponent, Knights, Layout, Left,
     PlayerHandle, Resources, VictoryPoints,
@@ -396,11 +398,12 @@ pub fn setup_top(
 
 pub fn top_interaction(
     mut banners: Query<'_, '_, (&PlayerBanner, &mut Text)>,
+    local_player: Res<'_, LocalPlayer>,
     players: Query<
         '_,
         '_,
         (
-            &CatanColor,
+            Entity,
             &Left<Town>,
             &Left<City>,
             &Left<Road>,
@@ -430,7 +433,7 @@ pub fn top_interaction(
     >,
 ) {
     for (
-        catan_color,
+        entity,
         towns,
         cities,
         roads,
@@ -446,8 +449,16 @@ pub fn top_interaction(
     {
         if let Ok((player_banner, mut text)) = banners.get_mut(banner_ref.0) {
             *text = Text::new(format!(
-                "vps: {}, resources: {}, dev cards: {}, knights: {}{}, roads: {}{}",
+                "vps: {}{}, resources: {}, dev cards: {}, knights: {}{}, roads: {}{}{}",
                 victory_points.actual,
+                if entity == local_player.0.entity && victory_points.from_development_cards > 0 {
+                    format!(
+                        " ({})",
+                        victory_points.actual + victory_points.from_development_cards
+                    )
+                } else {
+                    String::new()
+                },
                 resources.count(),
                 development_cards.count(),
                 knights.0,
@@ -459,6 +470,11 @@ pub fn top_interaction(
                 longest_road_count.0.len(),
                 if longest_road.is_some() {
                     "(longest road)"
+                } else {
+                    ""
+                },
+                if entity == local_player.0.entity {
+                    " (you)"
                 } else {
                     ""
                 }
