@@ -284,8 +284,8 @@ pub fn show_turn_ui(
         Node {
             align_self: AlignSelf::End,
             justify_self: JustifySelf::End,
-            right: Val::Percent(25.),
-            bottom: Val::Percent(25.),
+            right: Val::Percent(5.),
+            bottom: Val::Percent(4.),
 
             ..default()
         },
@@ -294,9 +294,10 @@ pub fn show_turn_ui(
                 Node {
                     align_self: AlignSelf::End,
                     justify_self: JustifySelf::End,
-                    width: Val::Px(20.0),
-                    height: Val::Px(20.0),
+                    width: Val::VMin(2.5),
+                    height: Val::VMin(2.5),
                     border: UiRect::all(Val::Px(1.)),
+
                     ..default()
                 },
                 Transform::from_rotation(Quat::from_rotation_z(6.)),
@@ -304,7 +305,6 @@ pub fn show_turn_ui(
                 Text::new("0"),
                 BorderColor::all(Color::BLACK),
                 TextColor(Color::BLACK),
-                TextLayout::new_with_justify(Justify::Center),
                 BackgroundColor(Color::WHITE),
                 Outline {
                     width: Val::Px(4.),
@@ -312,13 +312,14 @@ pub fn show_turn_ui(
                     color: Color::BLACK,
                 },
                 DieButton,
+                TextLayout::new_with_justify(Justify::Center),
             ),
             (
                 Node {
                     align_self: AlignSelf::End,
                     justify_self: JustifySelf::End,
-                    width: Val::Px(20.),
-                    height: Val::Px(20.0),
+                    width: Val::VMin(2.5),
+                    height: Val::VMin(2.5),
 
                     border: UiRect::all(Val::Px(1.)),
                     ..default()
@@ -331,10 +332,10 @@ pub fn show_turn_ui(
                 },
                 BorderColor::all(Color::BLACK),
                 BackgroundColor(Color::WHITE),
-                TextLayout::new_with_justify(Justify::Center),
                 TextColor(Color::BLACK),
                 Button,
                 Text::new("0"),
+                TextLayout::new_with_justify(Justify::Center),
                 DieButton,
             ),
         ],

@@ -404,7 +404,7 @@ fn update_from_inputs(
                     );
                     commands
                         .entity(layout.trades)
-                        .clear_children()
+                        .despawn_children()
                         .with_child(Text("trades".to_string()));
                 }
             }
@@ -593,7 +593,12 @@ fn update_from_trade_accept(
             if let Ok(mut resources) = player_resources_q.get_mut(player.0) {
                 resources.add_assign(r);
             }
-            commands.entity(layout.trades).clear_children();
+
+            // TODO: just remove that trade
+            commands
+                .entity(layout.trades)
+                .despawn_children()
+                .with_child(Text("trades".to_string()));
         }
     }
 }
@@ -911,30 +916,7 @@ impl Plugin for GamePlugin {
             )
             .add_systems(
                 Update,
-                turn_ui::turn_ui_next_interaction.run_if({
-                    move |current_state: Option<Res<'_, State<GameState>>>| {
-                        current_state.map(|s| *s.get()).is_some_and(|s| match s {
-                            GameState::PlaceRobber
-                            | GameState::Monopoly
-                            | GameState::YearOfPlenty
-                            | GameState::RobberPickColor
-                            | GameState::Roll
-                            | GameState::RobberDiscardResourcesInActive
-                            | GameState::RobberDiscardResources
-                            | GameState::RoadBuilding
-                            | GameState::NotActive
-                            | GameState::NotActiveSetup
-                            | GameState::Start
-                            | GameState::Nothing => false,
-                            GameState::PlaceRoad
-                            | GameState::Turn
-                            | GameState::PlaceTown
-                            | GameState::PlaceCity
-                            | GameState::SetupRoad
-                            | GameState::SetupTown => true,
-                        })
-                    }
-                }),
+                turn_ui::turn_ui_next_interaction.run_if(in_state(GameState::Turn)),
             )
             .add_systems(
                 Update,
@@ -1379,8 +1361,8 @@ fn layout(commands: &mut Commands<'_, '_>) -> Layout {
                 ..default()
             },
             BorderColor::all(Color::BLACK),
+            children![Text("trades".to_string())],
         ))
-        .with_child(Text("trades".to_string()))
         .id();
     let mut main_layout = commands.spawn((Node {
         display: Display::Grid,
