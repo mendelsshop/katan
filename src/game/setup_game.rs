@@ -11,8 +11,8 @@ use std::{
 use crate::{game::robber::RobberHighlighter, utils::NORMAL_BUTTON};
 
 use super::{
-    Hexagon, KatanComponent, Knights, Layout, Left, LocalPlayer, LocalPlayerHandle, Number,
-    PlayerCount, PlayerHandle, Port, Robber, VictoryPoints,
+    Hexagon, KatanComponent, Knights, Left, LocalPlayer, LocalPlayerHandle, Number, PlayerCount,
+    PlayerHandle, Port, Robber, VictoryPoints,
     cities::City,
     colors::{CatanColor, CatanColorRef},
     development_cards::DevelopmentCardsPile,
@@ -27,36 +27,36 @@ use bevy::{platform::collections::HashSet, prelude::*};
 use bevy_ggrs::AddRollbackCommandExtension;
 use itertools::Itertools;
 use rand::{Rng, SeedableRng, seq::SliceRandom};
-fn draw_board(
+pub fn draw_board(
     q: impl Iterator<Item = (Position, Hexagon, Number)>,
     port_q: impl Iterator<Item = (BuildingPosition, Port)>,
-    mut materials: ResMut<'_, Assets<ColorMaterial>>,
-    mut meshes: ResMut<'_, Assets<Mesh>>,
+    materials: &mut ResMut<'_, Assets<ColorMaterial>>,
+    meshes: &mut ResMut<'_, Assets<Mesh>>,
     commands: &mut Commands<'_, '_>,
-    layout: Layout,
 ) {
+    let multiplier = rand::random_range((2.)..=8.);
     let text_justification = Justify::Center;
 
     for q in port_q {
-        let mesh = meshes.add(Circle::new(30.0));
+        let mesh = meshes.add(Circle::new(multiplier * 10.));
         let (x, y) = q.0.positon_to_pixel_coordinates();
         commands.spawn((
             KatanComponent,
             Mesh2d(mesh),
             MeshMaterial2d(materials.add(q.1.color())),
-            Transform::from_xyz(x * 77.0, y * 77., 0.0),
+            Transform::from_xyz(x * multiplier * 25.6, y * multiplier * 25.6, 0.0),
         ));
     }
     // let mut commands = commands.entity(layout.board);
     for q in q {
-        let mesh = meshes.add(RegularPolygon::new(70.0, 6));
-        let mesh1 = meshes.add(Circle::new(30.0));
+        let mesh = meshes.add(RegularPolygon::new(multiplier * 23.3, 6));
+        let mesh1 = meshes.add(Circle::new(multiplier * 10.));
         let (x, y) = FPosition::hex_to_pixel(q.0.into());
         commands.spawn((
             KatanComponent,
             Mesh2d(mesh),
             MeshMaterial2d(materials.add(q.1.color())),
-            Transform::from_xyz(x * 77.0, y * 77., 0.0),
+            Transform::from_xyz(x * multiplier * 25.6, y * multiplier * 25.6, 0.0),
         ));
 
         if let Number::Number(n) = q.2 {
@@ -65,7 +65,7 @@ fn draw_board(
                 KatanComponent,
                 Mesh2d(mesh1),
                 MeshMaterial2d(materials.add(Color::BLACK)),
-                Transform::from_xyz(x * 77.0, y * 77., 0.0),
+                Transform::from_xyz(x * multiplier * 25.6, y * multiplier * 25.6, 0.0),
             ));
             commands.spawn((
                 mesh2,
@@ -75,7 +75,7 @@ fn draw_board(
                     font_size: 45.0,
                     ..Default::default()
                 },
-                Transform::from_xyz(x * 77.0, y * 77., 0.0),
+                Transform::from_xyz(x * multiplier * 25.6, y * multiplier * 25.6, 0.0),
             ));
         }
     }
@@ -345,7 +345,7 @@ fn generate_pieces(
     commands: &mut Commands<'_, '_>,
     player_count: u8,
     rng: &mut Xoshiro256PlusPlus,
-    local_player: Res<'_, LocalPlayerHandle>,
+    local_player: LocalPlayerHandle,
 ) -> Vec<CatanColorRef> {
     let mut catan_colors = vec![
         CatanColor::White,
@@ -429,19 +429,17 @@ pub fn setup(
     commands: &mut Commands<'_, '_>,
     mut meshes: ResMut<'_, Assets<Mesh>>,
     mut materials: ResMut<'_, Assets<ColorMaterial>>,
-    layout: Layout,
-    player_count: Res<'_, PlayerCount>,
+    player_count: PlayerCount,
     seed: u64,
-    local_player: Res<'_, LocalPlayerHandle>,
+    local_player: LocalPlayerHandle,
 ) -> vec::IntoIter<CatanColorRef> {
     let mut rng = Xoshiro256PlusPlus::seed_from_u64(seed);
     draw_board(
         generate_board(commands, &mut rng, &mut materials, &mut meshes).into_iter(),
         generate_ports(commands, &mut rng).into_iter(),
-        materials,
-        meshes,
+        &mut materials,
+        &mut meshes,
         commands,
-        layout,
     );
     generate_development_cards(commands, &mut rng);
     generate_pieces(commands, player_count.0, &mut rng, local_player).into_iter()

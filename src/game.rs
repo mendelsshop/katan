@@ -15,10 +15,14 @@ mod resources;
 mod resources_management;
 mod roads;
 mod robber;
-mod setup_game;
+pub mod setup_game;
 mod towns;
 mod turn_ui;
-use bevy::{ecs::system::SystemParam, prelude::*};
+use bevy::{
+    ecs::system::SystemParam,
+    prelude::*,
+    window::{PrimaryWindow, WindowResized},
+};
 use bevy_ggrs::{
     AddRollbackCommandExtension, GgrsSchedule, GgrsTime, LocalInputs, LocalPlayers, PlayerInputs,
     ReadInputs, RollbackApp, RollbackFrameRate, Session,
@@ -63,6 +67,7 @@ use crate::{
         positions::FPosition,
         resources_management::{AcceptTrade, RejectTrade},
         robber::RobberHighlighter,
+        setup_game::draw_board,
     },
     utils::{
         BORDER_COLOR_ACTIVE, BORDER_COLOR_INACTIVE, NORMAL_BUTTON, PRESSED_BUTTON, TEXT_COLOR,
@@ -736,6 +741,7 @@ impl Plugin for GamePlugin {
                 Update,
                 handle_ggrs_events.run_if(in_state(AppState::InGame)),
             )
+            .add_systems(Update, resize)
             .insert_resource(BoardSize(3))
             .init_resource::<Robber>()
             .init_resource::<RobberDiscard>()
@@ -1209,10 +1215,9 @@ fn game_setup(
         &mut commands,
         meshes,
         materials,
-        layout,
-        player_count,
+        *player_count.into_inner(),
         seed.0,
-        local_player,
+        *local_player.into_inner(),
     );
 
     commands.insert_resource(ColorIterator(catan_colors.clone().cycle()));
@@ -1427,5 +1432,35 @@ fn check_for_winner(
         && vps.actual + vps.from_development_cards >= 10
     {
         *current_inputs = Input::Win;
+    }
+}
+fn resize(
+    mut events: MessageReader<'_, '_, WindowResized>,
+    board: Query<'_, '_, (&Position, &Hexagon, &Number)>,
+    ports: Query<'_, '_, (&BuildingPosition, &Port)>,
+    mut materials: ResMut<'_, Assets<ColorMaterial>>,
+    mut meshes: ResMut<'_, Assets<Mesh>>,
+    mut commands: Commands<'_, '_>,
+    primary_window: Single<'_, '_, Entity, With<PrimaryWindow>>,
+    meshes_q: Query<'_, '_, Entity, Or<(With<Mesh2d>, With<Text2d>)>>,
+) {
+    for WindowResized {
+        window,
+        width,
+        height,
+    } in events.read()
+    {
+        meshes_q.iter().for_each(|m| commands.entity(m).despawn());
+        if *window == *primary_window {
+            draw_board(
+                board
+                    .iter()
+                    .map(|(place, hex, number)| (*place, *hex, *number)),
+                ports.iter().map(|(place, kind)| (*place, *kind)),
+                &mut materials,
+                &mut meshes,
+                &mut commands,
+            );
+        }
     }
 }

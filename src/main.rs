@@ -17,10 +17,13 @@ use crate::{game::GamePlugin, lobby::LobbyPlugin};
 
 fn main() {
     App::new()
-        .add_plugins((DefaultPlugins,))
+        .add_plugins(DefaultPlugins.set(ImagePlugin::default_nearest()))
         .init_state::<AppState>()
+        // .add_systems(Startup, setup_camera)
         .add_systems(Startup, setup)
+        // .add_systems(Update, fit_canvas)
         .add_plugins((LobbyPlugin, GamePlugin))
+        // .add_plugins(ScalePlugin)
         .run();
 }
 
