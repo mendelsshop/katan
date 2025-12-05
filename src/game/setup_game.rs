@@ -33,8 +33,8 @@ pub fn draw_board(
     materials: &mut ResMut<'_, Assets<ColorMaterial>>,
     meshes: &mut ResMut<'_, Assets<Mesh>>,
     commands: &mut Commands<'_, '_>,
+    multiplier: f32,
 ) {
-    let multiplier = rand::random_range((2.)..=8.);
     let text_justification = Justify::Center;
 
     for q in port_q {
@@ -432,6 +432,7 @@ pub fn setup(
     player_count: PlayerCount,
     seed: u64,
     local_player: LocalPlayerHandle,
+    window: &Window,
 ) -> vec::IntoIter<CatanColorRef> {
     let mut rng = Xoshiro256PlusPlus::seed_from_u64(seed);
     draw_board(
@@ -440,6 +441,7 @@ pub fn setup(
         &mut materials,
         &mut meshes,
         commands,
+        window.width().min(window.height()) / 500.,
     );
     generate_development_cards(commands, &mut rng);
     generate_pieces(commands, player_count.0, &mut rng, local_player).into_iter()

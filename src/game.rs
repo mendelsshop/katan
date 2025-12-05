@@ -1208,6 +1208,7 @@ fn game_setup(
     seed: Res<'_, SessionSeed>,
 
     local_player: Res<'_, LocalPlayerHandle>,
+    window: Single<'_, '_, &Window, With<PrimaryWindow>>,
 ) {
     let layout = layout(&mut commands);
     commands.insert_resource(layout);
@@ -1218,6 +1219,7 @@ fn game_setup(
         *player_count.into_inner(),
         seed.0,
         *local_player.into_inner(),
+        &window,
     );
 
     commands.insert_resource(ColorIterator(catan_colors.clone().cycle()));
@@ -1460,6 +1462,7 @@ fn resize(
                 &mut materials,
                 &mut meshes,
                 &mut commands,
+                width.min(*height) / 500.,
             );
         }
     }
