@@ -228,6 +228,7 @@ pub struct UpdateState<'w, 's> {
     robber: ResMut<'w, Robber>,
 
     robber_transform: Single<'w, 's, &'static mut Transform, With<RobberHighlighter>>,
+    window: Single<'w, 's, &'static Window, With<PrimaryWindow>>,
 }
 fn update_from_inputs(
     UpdateState {
@@ -253,6 +254,7 @@ fn update_from_inputs(
         board,
         mut robber_transform,
         towns,
+        window,
     }: UpdateState<'_, '_>,
 ) {
     let count = inputs.iter().filter(|(i, _)| *i != Input::None).count();
@@ -263,6 +265,7 @@ fn update_from_inputs(
             game_state.get()
         );
     }
+    let scale = scale_multiplier(window.width(), window.height());
     for (
         entity,
         player_handle,
@@ -427,6 +430,7 @@ fn update_from_inputs(
                     &mut meshes,
                     &mut materials,
                     *color,
+                    scale,
                 ));
 
                 roads_left.0 -= 1;
@@ -449,6 +453,7 @@ fn update_from_inputs(
                         &mut meshes,
                         &mut materials,
                         *color,
+                        scale,
                     ));
                 }
             }
@@ -465,6 +470,7 @@ fn update_from_inputs(
                     &mut meshes,
                     &mut materials,
                     *color,
+                    scale,
                 ));
                 if let Some((_, port)) = ports
                     .iter()
@@ -964,23 +970,6 @@ impl Plugin for GamePlugin {
             )
             .add_systems(
                 Update,
-                |road: Query<'_, '_, (&RoadPosition, &CatanColor), Added<Road>>,
-                 mut meshes: ResMut<'_, Assets<Mesh>>,
-
-                 mut materials: ResMut<'_, Assets<ColorMaterial>>,
-                 mut commands: Commands<'_, '_>| {
-                    for (road_position, catan_color) in road {
-                        commands.spawn(RoadUI::bundle(
-                            *road_position,
-                            &mut meshes,
-                            &mut materials,
-                            *catan_color,
-                        ));
-                    }
-                },
-            )
-            .add_systems(
-                Update,
                 (
                     common_ui::spinner_buttons_interactions::<
                         RobberResourceSpinner,
@@ -1171,6 +1160,7 @@ pub trait UI {
         meshes: &mut ResMut<'_, Assets<Mesh>>,
         materials: &mut ResMut<'_, Assets<ColorMaterial>>,
         color: CatanColor,
+        scale: f32,
     ) -> impl Bundle;
     fn resources() -> Resources;
 }
@@ -1444,7 +1434,7 @@ fn resize(
     mut events: MessageReader<'_, '_, WindowResized>,
     board: Query<'_, '_, (&Position, &Hexagon, &Number)>,
     ports: Query<'_, '_, (&BuildingPosition, &Port)>,
-    roads: Query<'_, '_, (&RoadPosition, &CatanColor), With<Town>>,
+    roads: Query<'_, '_, (&RoadPosition, &CatanColor), With<Road>>,
     towns: Query<'_, '_, (&BuildingPosition, &CatanColor), With<Town>>,
     cities: Query<'_, '_, (&BuildingPosition, &CatanColor), With<City>>,
     mut materials: ResMut<'_, Assets<ColorMaterial>>,
@@ -1461,6 +1451,7 @@ fn resize(
     {
         if *window == *primary_window {
             meshes_q.iter().for_each(|m| commands.entity(m).despawn());
+            let multiplier = scale_multiplier(*width, *height);
             draw_board(
                 board
                     .iter()
@@ -1469,7 +1460,7 @@ fn resize(
                 &mut materials,
                 &mut meshes,
                 &mut commands,
-                width.min(*height) / 500.,
+                multiplier,
             );
             for (road_position, color) in roads {
                 commands.spawn(RoadUI::bundle(
@@ -1477,6 +1468,7 @@ fn resize(
                     &mut meshes,
                     &mut materials,
                     *color,
+                    multiplier,
                 ));
             }
             for (town_position, color) in towns {
@@ -1485,18 +1477,24 @@ fn resize(
                     &mut meshes,
                     &mut materials,
                     *color,
+                    multiplier,
                 ));
             }
-            for (town_position, color) in towns {
+            for (city_position, color) in cities {
                 commands.spawn(CityUI::bundle(
-                    *town_position,
+                    *city_position,
                     &mut meshes,
                     &mut materials,
                     *color,
+                    multiplier,
                 ));
             }
         }
     }
+}
+
+fn scale_multiplier(width: f32, height: f32) -> f32 {
+    width.min(height) / 500.
 }
 #[derive(Debug, Component, Clone, Copy)]
 #[require(KatanComponent)]

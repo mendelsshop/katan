@@ -222,22 +222,25 @@ impl UI for RoadUI {
         meshes: &mut ResMut<'_, Assets<Mesh>>,
         materials: &mut ResMut<'_, Assets<ColorMaterial>>,
         color: CatanColor,
+        scale: f32,
     ) -> impl Bundle {
         println!("new row ui bundle");
         let (x, y) = pos.positon_to_pixel_coordinates();
-        let mesh1 = meshes.add(Rectangle::new(10.0, 70.));
+        let mesh1 = meshes.add(Rectangle::new(scale * 3.3, scale * 23.3));
         (
             KatanComponent,
             Mesh2d(mesh1),
             MeshMaterial2d(materials.add(color.to_bevy_color())),
-            Transform::from_xyz(x * 77.0, y * 77., 0.0).with_rotation(Quat::from_rotation_z(
-                match pos.shared_coordinate() {
-                    Coordinate::R => 0f32,
-                    Coordinate::Q => -60f32,
-                    Coordinate::S => 60f32,
-                }
-                .to_radians(),
-            )),
+            Transform::from_xyz(x * scale * 25.6, y * scale * 25.6, 0.).with_rotation(
+                Quat::from_rotation_z(
+                    match pos.shared_coordinate() {
+                        Coordinate::R => 0f32,
+                        Coordinate::Q => -60f32,
+                        Coordinate::S => 60f32,
+                    }
+                    .to_radians(),
+                ),
+            ),
         )
     }
 

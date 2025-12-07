@@ -8,7 +8,10 @@ use std::{
     ops::{Add, AddAssign},
 };
 
-use crate::{game::robber::RobberHighlighter, utils::NORMAL_BUTTON};
+use crate::{
+    game::{robber::RobberHighlighter, scale_multiplier},
+    utils::NORMAL_BUTTON,
+};
 
 use super::{
     Hexagon, KatanComponent, Knights, Left, LocalPlayer, LocalPlayerHandle, Number, PlayerCount,
@@ -441,7 +444,7 @@ pub fn setup(
         &mut materials,
         &mut meshes,
         commands,
-        window.width().min(window.height()) / 500.,
+        scale_multiplier(window.width(), window.height()),
     );
     generate_development_cards(commands, &mut rng);
     generate_pieces(commands, player_count.0, &mut rng, local_player).into_iter()
