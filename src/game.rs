@@ -23,6 +23,8 @@ use bevy::{
     prelude::*,
     window::{PrimaryWindow, WindowResized},
 };
+pub static WINDOW_HEIGHT: f32 = 1080.;
+pub static WINDOW_WIDTH: f32 = 1920.;
 use bevy_ggrs::{
     AddRollbackCommandExtension, GgrsSchedule, GgrsTime, LocalInputs, LocalPlayers, PlayerInputs,
     ReadInputs, RollbackApp, RollbackFrameRate, Session,
@@ -67,7 +69,6 @@ use crate::{
         positions::FPosition,
         resources_management::{AcceptTrade, RejectTrade},
         robber::RobberHighlighter,
-        setup_game::draw_board,
     },
     utils::{
         BORDER_COLOR_ACTIVE, BORDER_COLOR_INACTIVE, NORMAL_BUTTON, PRESSED_BUTTON, TEXT_COLOR,
@@ -228,7 +229,6 @@ pub struct UpdateState<'w, 's> {
     robber: ResMut<'w, Robber>,
 
     robber_transform: Single<'w, 's, &'static mut Transform, With<RobberHighlighter>>,
-    window: Single<'w, 's, &'static Window, With<PrimaryWindow>>,
 }
 fn update_from_inputs(
     UpdateState {
@@ -254,7 +254,6 @@ fn update_from_inputs(
         board,
         mut robber_transform,
         towns,
-        window,
     }: UpdateState<'_, '_>,
 ) {
     let count = inputs.iter().filter(|(i, _)| *i != Input::None).count();
@@ -265,7 +264,7 @@ fn update_from_inputs(
             game_state.get()
         );
     }
-    let scale = scale_multiplier(window.width(), window.height());
+    let scale = 3.;
     for (
         entity,
         player_handle,
@@ -1202,7 +1201,6 @@ fn game_setup(
     seed: Res<'_, SessionSeed>,
 
     local_player: Res<'_, LocalPlayerHandle>,
-    window: Single<'_, '_, &Window, With<PrimaryWindow>>,
 ) {
     let layout = layout(&mut commands);
     commands.insert_resource(layout);
@@ -1213,7 +1211,6 @@ fn game_setup(
         *player_count.into_inner(),
         seed.0,
         *local_player.into_inner(),
-        &window,
     );
 
     commands.insert_resource(ColorIterator(catan_colors.clone().cycle()));
@@ -1432,16 +1429,9 @@ fn check_for_winner(
 }
 fn resize(
     mut events: MessageReader<'_, '_, WindowResized>,
-    board: Query<'_, '_, (&Position, &Hexagon, &Number)>,
-    ports: Query<'_, '_, (&BuildingPosition, &Port)>,
-    roads: Query<'_, '_, (&RoadPosition, &CatanColor), With<Road>>,
-    towns: Query<'_, '_, (&BuildingPosition, &CatanColor), With<Town>>,
-    cities: Query<'_, '_, (&BuildingPosition, &CatanColor), With<City>>,
-    mut materials: ResMut<'_, Assets<ColorMaterial>>,
-    mut meshes: ResMut<'_, Assets<Mesh>>,
-    mut commands: Commands<'_, '_>,
     primary_window: Single<'_, '_, Entity, With<PrimaryWindow>>,
-    meshes_q: Query<'_, '_, Entity, Or<(With<Mesh2d>, With<Text2d>)>>,
+    _ui_buttons: Query<'_, '_, &Node, With<PlaceButton>>,
+    mut projection: Query<'_, '_, &mut Projection>,
 ) {
     for WindowResized {
         window,
@@ -1449,46 +1439,10 @@ fn resize(
         height,
     } in events.read()
     {
-        if *window == *primary_window {
-            meshes_q.iter().for_each(|m| commands.entity(m).despawn());
-            let multiplier = scale_multiplier(*width, *height);
-            draw_board(
-                board
-                    .iter()
-                    .map(|(place, hex, number)| (*place, *hex, *number)),
-                ports.iter().map(|(place, kind)| (*place, *kind)),
-                &mut materials,
-                &mut meshes,
-                &mut commands,
-                multiplier,
-            );
-            for (road_position, color) in roads {
-                commands.spawn(RoadUI::bundle(
-                    *road_position,
-                    &mut meshes,
-                    &mut materials,
-                    *color,
-                    multiplier,
-                ));
-            }
-            for (town_position, color) in towns {
-                commands.spawn(TownUI::bundle(
-                    *town_position,
-                    &mut meshes,
-                    &mut materials,
-                    *color,
-                    multiplier,
-                ));
-            }
-            for (city_position, color) in cities {
-                commands.spawn(CityUI::bundle(
-                    *city_position,
-                    &mut meshes,
-                    &mut materials,
-                    *color,
-                    multiplier,
-                ));
-            }
+        if *window == *primary_window
+            && let Ok(Projection::Orthographic(projection)) = projection.single_mut().as_deref_mut()
+        {
+            projection.scale = (WINDOW_HEIGHT / height).max(WINDOW_WIDTH / width);
         }
     }
 }

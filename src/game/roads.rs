@@ -129,10 +129,10 @@ pub fn place_normal_road<const RESOURCE_MULTIPLIER: u8>(
                     Button,
                     Node {
                         position_type: PositionType::Relative,
-                        width: Val::Px(25.0),
-                        height: Val::Px(25.0),
                         left: Val::Px(x * 77.),
                         bottom: Val::Px(y * 77.),
+                        width: Val::Px(5.0),
+                        height: Val::Px(5.0),
                         ..default()
                     },
                     RoadPlaceButton(ROAD_RESOURCES * RESOURCE_MULTIPLIER, p,),

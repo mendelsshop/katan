@@ -8,10 +8,7 @@ use std::{
     ops::{Add, AddAssign},
 };
 
-use crate::{
-    game::{robber::RobberHighlighter, scale_multiplier},
-    utils::NORMAL_BUTTON,
-};
+use crate::{game::robber::RobberHighlighter, utils::NORMAL_BUTTON};
 
 use super::{
     Hexagon, KatanComponent, Knights, Left, LocalPlayer, LocalPlayerHandle, Number, PlayerCount,
@@ -435,7 +432,6 @@ pub fn setup(
     player_count: PlayerCount,
     seed: u64,
     local_player: LocalPlayerHandle,
-    window: &Window,
 ) -> vec::IntoIter<CatanColorRef> {
     let mut rng = Xoshiro256PlusPlus::seed_from_u64(seed);
     draw_board(
@@ -444,7 +440,7 @@ pub fn setup(
         &mut materials,
         &mut meshes,
         commands,
-        scale_multiplier(window.width(), window.height()),
+        3.,
     );
     generate_development_cards(commands, &mut rng);
     generate_pieces(commands, player_count.0, &mut rng, local_player).into_iter()

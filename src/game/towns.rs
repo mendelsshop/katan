@@ -55,10 +55,10 @@ pub fn place_normal_town(
                     Button,
                     Node {
                         position_type: PositionType::Relative,
-                        width: Val::Px(25.0),
-                        height: Val::Px(25.0),
-                        left: Val::Px(x * 77.),
-                        bottom: Val::Px(y * 77.),
+                        width: Val::VMin(5.0),
+                        height: Val::VMin(5.0),
+                        left: Val::VMin(x * 1.),
+                        bottom: Val::VMin(y * 1.),
                         ..default()
                     },
                     BorderRadius::MAX,
