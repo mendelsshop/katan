@@ -4,7 +4,7 @@ use bevy::{
 };
 use itertools::Itertools;
 
-use crate::utils::NORMAL_BUTTON;
+use crate::{game::PlaceButton, utils::NORMAL_BUTTON};
 
 use super::{
     BoardSize, Building, GameState, Input, KatanComponent, Left, UI,
@@ -24,7 +24,7 @@ pub struct RoadQuery(
 );
 
 #[derive(Component, Clone, Copy, Debug)]
-#[require(KatanComponent)]
+#[require(KatanComponent, PlaceButton)]
 pub struct RoadPlaceButton(Resources, RoadPosition);
 #[derive(Debug, Component, Clone, Copy, Default)]
 #[require(KatanComponent)]

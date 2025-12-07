@@ -1,6 +1,6 @@
 use bevy::{ecs::system::SystemParam, prelude::*};
 
-use crate::utils::NORMAL_BUTTON;
+use crate::{game::PlaceButton, utils::NORMAL_BUTTON};
 
 use super::{
     BoardSize, Building, GameState, Input, KatanComponent, Left, UI,
@@ -12,7 +12,7 @@ use super::{
 };
 
 #[derive(Component, Clone, Copy, Debug)]
-#[require(KatanComponent)]
+#[require(KatanComponent, PlaceButton)]
 pub struct TownPlaceButton(Resources, BuildingPosition);
 #[derive(Debug, Component, Clone, Copy, Default)]
 #[require(KatanComponent)]

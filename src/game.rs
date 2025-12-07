@@ -33,7 +33,6 @@ use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 
 use self::{
-    cities::BuildingRef,
     cities::City,
     colors::{
         CatanColor, CatanColorRef, ColorIterator, CurrentColor, CurrentSetupColor,
@@ -64,6 +63,7 @@ use self::{
 use crate::{
     AppState, common_ui,
     game::{
+        cities::{CityPlaceButton, CityUI, PlaceCityButtonState},
         positions::FPosition,
         resources_management::{AcceptTrade, RejectTrade},
         robber::RobberHighlighter,
@@ -444,14 +444,11 @@ fn update_from_inputs(
                     vps.actual += 1;
 
                     bank.add_assign(cost);
-                    let (x, y) = city_position.positon_to_pixel_coordinates();
-
-                    let mesh1 = meshes.add(Rectangle::new(13.0, 13.));
-                    commands.spawn((
-                        KatanComponent,
-                        Mesh2d(mesh1),
-                        MeshMaterial2d(materials.add(color_r.0.to_bevy_color())),
-                        Transform::from_xyz(x * 77.0, y * 77., 0.0),
+                    commands.spawn(CityUI::bundle(
+                        city_position,
+                        &mut meshes,
+                        &mut materials,
+                        *color,
                     ));
                 }
             }
@@ -814,7 +811,10 @@ impl Plugin for GamePlugin {
                 OnExit(GameState::PlaceTown),
                 cleanup_button::<TownPlaceButton>,
             )
-            .add_systems(OnExit(GameState::PlaceCity), cleanup_button::<BuildingRef>)
+            .add_systems(
+                OnExit(GameState::PlaceCity),
+                cleanup_button::<CityPlaceButton>,
+            )
             .add_systems(
                 OnExit(GameState::PlaceRobber),
                 cleanup_button::<RobberButton>,
@@ -1000,7 +1000,8 @@ impl Plugin for GamePlugin {
             )
             .add_systems(
                 Update,
-                cities::place_normal_city_interaction.run_if(in_state(GameState::PlaceCity)),
+                common_ui::button_system_with_generic::<CityPlaceButton, PlaceCityButtonState<'_>>
+                    .run_if(in_state(GameState::PlaceCity)),
             );
     }
 }
@@ -1173,6 +1174,9 @@ pub trait UI {
     ) -> impl Bundle;
     fn resources() -> Resources;
 }
+#[derive(Component, PartialEq, Eq, Debug, Copy, Clone, Default)]
+#[require(KatanComponent)]
+pub struct PlaceButton;
 
 // not for initial game setup where the are no roads yet
 // TODO: maybe we should impose an order on postions for stuff like roads so that comparing them is
@@ -1440,6 +1444,9 @@ fn resize(
     mut events: MessageReader<'_, '_, WindowResized>,
     board: Query<'_, '_, (&Position, &Hexagon, &Number)>,
     ports: Query<'_, '_, (&BuildingPosition, &Port)>,
+    roads: Query<'_, '_, (&RoadPosition, &CatanColor), With<Town>>,
+    towns: Query<'_, '_, (&BuildingPosition, &CatanColor), With<Town>>,
+    cities: Query<'_, '_, (&BuildingPosition, &CatanColor), With<City>>,
     mut materials: ResMut<'_, Assets<ColorMaterial>>,
     mut meshes: ResMut<'_, Assets<Mesh>>,
     mut commands: Commands<'_, '_>,
@@ -1452,8 +1459,8 @@ fn resize(
         height,
     } in events.read()
     {
-        meshes_q.iter().for_each(|m| commands.entity(m).despawn());
         if *window == *primary_window {
+            meshes_q.iter().for_each(|m| commands.entity(m).despawn());
             draw_board(
                 board
                     .iter()
@@ -1464,6 +1471,33 @@ fn resize(
                 &mut commands,
                 width.min(*height) / 500.,
             );
+            for (road_position, color) in roads {
+                commands.spawn(RoadUI::bundle(
+                    *road_position,
+                    &mut meshes,
+                    &mut materials,
+                    *color,
+                ));
+            }
+            for (town_position, color) in towns {
+                commands.spawn(TownUI::bundle(
+                    *town_position,
+                    &mut meshes,
+                    &mut materials,
+                    *color,
+                ));
+            }
+            for (town_position, color) in towns {
+                commands.spawn(CityUI::bundle(
+                    *town_position,
+                    &mut meshes,
+                    &mut materials,
+                    *color,
+                ));
+            }
         }
     }
 }
+#[derive(Debug, Component, Clone, Copy)]
+#[require(KatanComponent)]
+pub struct BuildingRef(Entity, BuildingPosition);
