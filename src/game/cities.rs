@@ -1,4 +1,5 @@
 use bevy::{ecs::system::SystemParam, prelude::*};
+use bevy_ui_anchor::{AnchorPoint, AnchorUiConfig, AnchoredUiNodes};
 
 use crate::{
     common_ui::ButtonInteraction,
@@ -88,6 +89,7 @@ pub fn place_normal_city(
 
     let possibles_cities = current_color_towns.into_iter().map(|(_, _, p)| *p);
 
+    let multiplier = 3.0;
     let count = possibles_cities
         .filter_map(|p| {
             let (x, y) = p.positon_to_pixel_coordinates();
@@ -95,27 +97,23 @@ pub fn place_normal_city(
         })
         .map(|(x, y, p)| {
             (
-                Node {
-                    width: Val::Percent(100.0),
-                    height: Val::Percent(100.0),
-                    align_items: AlignItems::Center,
-                    justify_content: JustifyContent::Center,
-                    ..default()
-                },
-                children![(
+                Transform::from_xyz(x * multiplier * 25.6, y * multiplier * 25.6, 0.0),
+                AnchoredUiNodes::spawn_one((
+                    AnchorUiConfig {
+                        anchorpoint: AnchorPoint::middle(),
+                        offset: None,
+                        ..Default::default()
+                    },
                     Button,
                     Node {
-                        position_type: PositionType::Relative,
-                        width: Val::Px(25.0),
-                        height: Val::Px(25.0),
-                        left: Val::Px(x * 77.),
-                        bottom: Val::Px(y * 77.),
+                        width: Val::VMin(2.0),
+                        height: Val::VMin(2.0),
                         ..default()
                     },
                     CityPlaceButton(CITY_RESOURCES, p),
                     BorderRadius::MAX,
                     BackgroundColor(NORMAL_BUTTON),
-                )],
+                )),
             )
         })
         .map(|b| {

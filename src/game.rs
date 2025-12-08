@@ -1430,7 +1430,6 @@ fn check_for_winner(
 fn resize(
     mut events: MessageReader<'_, '_, WindowResized>,
     primary_window: Single<'_, '_, Entity, With<PrimaryWindow>>,
-    _ui_buttons: Query<'_, '_, &Node, With<PlaceButton>>,
     mut projection: Query<'_, '_, &mut Projection>,
 ) {
     for WindowResized {

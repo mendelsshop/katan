@@ -12,6 +12,7 @@ mod lobby;
 mod utils;
 
 use bevy::prelude::*;
+use bevy_ui_anchor::AnchorUiPlugin;
 
 use crate::{game::GamePlugin, lobby::LobbyPlugin};
 
@@ -20,6 +21,7 @@ fn main() {
         .add_plugins(DefaultPlugins.set(ImagePlugin::default_nearest()))
         .init_state::<AppState>()
         .add_systems(Startup, setup)
+        .add_plugins(AnchorUiPlugin::<IsDefaultUiCamera>::new())
         .add_plugins((LobbyPlugin, GamePlugin))
         .run();
 }

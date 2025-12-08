@@ -2,6 +2,7 @@ use bevy::{
     ecs::{query::QueryData, system::SystemParam},
     prelude::*,
 };
+use bevy_ui_anchor::{AnchorPoint, AnchorUiConfig, AnchoredUiNodes};
 use itertools::Itertools;
 
 use crate::{game::PlaceButton, utils::NORMAL_BUTTON};
@@ -111,6 +112,7 @@ pub fn place_normal_road<const RESOURCE_MULTIPLIER: u8>(
         )
     });
 
+    let multiplier = 3.0;
     let count = possible_roads
         .filter_map(|p| {
             let (x, y) = p.1.positon_to_pixel_coordinates();
@@ -118,27 +120,23 @@ pub fn place_normal_road<const RESOURCE_MULTIPLIER: u8>(
         })
         .map(|(x, y, p)| {
             (
-                Node {
-                    width: Val::Percent(100.0),
-                    height: Val::Percent(100.0),
-                    align_items: AlignItems::Center,
-                    justify_content: JustifyContent::Center,
-                    ..default()
-                },
-                children![(
+                Transform::from_xyz(x * multiplier * 25.6, y * multiplier * 25.6, 0.0),
+                AnchoredUiNodes::spawn_one((
+                    AnchorUiConfig {
+                        anchorpoint: AnchorPoint::middle(),
+                        offset: None,
+                        ..Default::default()
+                    },
                     Button,
                     Node {
-                        position_type: PositionType::Relative,
-                        left: Val::Px(x * 77.),
-                        bottom: Val::Px(y * 77.),
-                        width: Val::Px(5.0),
-                        height: Val::Px(5.0),
+                        width: Val::VMin(2.0),
+                        height: Val::VMin(2.0),
                         ..default()
                     },
-                    RoadPlaceButton(ROAD_RESOURCES * RESOURCE_MULTIPLIER, p,),
+                    RoadPlaceButton(ROAD_RESOURCES * RESOURCE_MULTIPLIER, p),
                     BorderRadius::MAX,
                     BackgroundColor(NORMAL_BUTTON),
-                )],
+                )),
             )
         })
         .map(|b| {
@@ -175,6 +173,7 @@ pub fn place_setup_road(
     building_q: Query<'_, '_, (&'_ Building, &CatanColor, &'_ BuildingPosition)>,
     mut game_state: ResMut<'_, NextState<GameState>>,
 ) {
+    let multiplier = 3.0;
     let count = get_setup_road_placements(size_r, road_q, building_q)
         .filter_map(|p| {
             let (x, y) = p.positon_to_pixel_coordinates();
@@ -182,27 +181,23 @@ pub fn place_setup_road(
         })
         .map(|(x, y, p)| {
             (
-                Node {
-                    width: Val::Percent(100.0),
-                    height: Val::Percent(100.0),
-                    align_items: AlignItems::Center,
-                    justify_content: JustifyContent::Center,
-                    ..default()
-                },
-                children![(
+                Transform::from_xyz(x * multiplier * 25.6, y * multiplier * 25.6, 0.0),
+                AnchoredUiNodes::spawn_one((
+                    AnchorUiConfig {
+                        anchorpoint: AnchorPoint::middle(),
+                        offset: None,
+                        ..Default::default()
+                    },
                     Button,
                     Node {
-                        position_type: PositionType::Relative,
-                        width: Val::Px(25.0),
-                        height: Val::Px(25.0),
-                        left: Val::Px(x * 77.),
-                        bottom: Val::Px(y * 77.),
+                        width: Val::VMin(2.0),
+                        height: Val::VMin(2.0),
                         ..default()
                     },
-                    RoadPlaceButton(Resources::default(), p,),
+                    RoadPlaceButton(Resources::default(), p),
                     BorderRadius::MAX,
                     BackgroundColor(NORMAL_BUTTON),
-                )],
+                )),
             )
         })
         .map(|b| {

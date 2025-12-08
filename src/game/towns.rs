@@ -1,4 +1,5 @@
 use bevy::{ecs::system::SystemParam, prelude::*};
+use bevy_ui_anchor::{AnchorPoint, AnchorUiConfig, AnchoredUiNodes};
 
 use crate::{game::PlaceButton, utils::NORMAL_BUTTON};
 
@@ -34,6 +35,7 @@ pub fn place_normal_town(
         return;
     };
 
+    let multiplier = 3.0;
     let possible_towns =
         get_possible_town_placements(color_r.0.color, BoardSize(size_r.0), road_q, building_q);
     let count = possible_towns
@@ -43,27 +45,23 @@ pub fn place_normal_town(
         })
         .map(|(x, y, p)| {
             (
-                Node {
-                    width: Val::Percent(100.0),
-                    height: Val::Percent(100.0),
-                    align_items: AlignItems::Center,
-                    justify_content: JustifyContent::Center,
-                    ..default()
-                },
-                children![(
-                    TownPlaceButton(TOWN_RESOURCES, p),
+                Transform::from_xyz(x * multiplier * 25.6, y * multiplier * 25.6, 0.0),
+                AnchoredUiNodes::spawn_one((
+                    AnchorUiConfig {
+                        anchorpoint: AnchorPoint::middle(),
+                        offset: None,
+                        ..Default::default()
+                    },
                     Button,
                     Node {
-                        position_type: PositionType::Relative,
-                        width: Val::VMin(5.0),
-                        height: Val::VMin(5.0),
-                        left: Val::VMin(x * 1.),
-                        bottom: Val::VMin(y * 1.),
+                        width: Val::VMin(2.0),
+                        height: Val::VMin(2.0),
                         ..default()
                     },
+                    TownPlaceButton(TOWN_RESOURCES, p),
                     BorderRadius::MAX,
                     BackgroundColor(NORMAL_BUTTON),
-                )],
+                )),
             )
         })
         .map(|b| {
@@ -81,6 +79,7 @@ pub fn place_setup_town(
     road_q: Query<'_, '_, RoadQuery>,
     building_q: Query<'_, '_, (&'_ Building, &'_ CatanColor, &'_ BuildingPosition)>,
 ) {
+    let multiplier = 3.0;
     let possible_towns =
         get_possible_town_placements(color_r.0.color, BoardSize(size_r.0), road_q, building_q);
     possible_towns
@@ -90,27 +89,23 @@ pub fn place_setup_town(
         })
         .map(|(x, y, p)| {
             (
-                Node {
-                    width: Val::Percent(100.0),
-                    height: Val::Percent(100.0),
-                    align_items: AlignItems::Center,
-                    justify_content: JustifyContent::Center,
-                    ..default()
-                },
-                children![(
+                Transform::from_xyz(x * multiplier * 25.6, y * multiplier * 25.6, 0.0),
+                AnchoredUiNodes::spawn_one((
+                    AnchorUiConfig {
+                        anchorpoint: AnchorPoint::middle(),
+                        offset: None,
+                        ..Default::default()
+                    },
                     Button,
                     Node {
-                        position_type: PositionType::Relative,
-                        width: Val::Px(25.0),
-                        height: Val::Px(25.0),
-                        left: Val::Px(x * 77.),
-                        bottom: Val::Px(y * 77.),
+                        width: Val::VMin(2.0),
+                        height: Val::VMin(2.0),
                         ..default()
                     },
-                    TownPlaceButton(Resources::default(), p),
+                    TownPlaceButton(Resources::empty(), p),
                     BorderRadius::MAX,
                     BackgroundColor(NORMAL_BUTTON),
-                )],
+                )),
             )
         })
         .for_each(|b| {
