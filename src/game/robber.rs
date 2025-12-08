@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use bevy_ui_anchor::{AnchorPoint, AnchorUiConfig, AnchoredUiNodes};
 use itertools::Itertools;
 
 use crate::{
@@ -41,6 +42,7 @@ pub fn counter_text_update(
 #[require(KatanComponent)]
 pub struct RobberButton;
 pub fn place_robber(mut commands: Commands<'_, '_>, robber: Res<'_, Robber>) {
+    let multiplier = 3.0;
     generate_postions(3)
         // skip current robber pos
         .filter(|p| *p != robber.0)
@@ -52,28 +54,24 @@ pub fn place_robber(mut commands: Commands<'_, '_>, robber: Res<'_, Robber>) {
         .for_each(|(x, y, p)| {
             // add button with positonn and RobberPosition struct
             commands.spawn((
-                Node {
-                    width: Val::Percent(100.0),
-                    height: Val::Percent(100.0),
-                    align_items: AlignItems::Center,
-                    justify_content: JustifyContent::Center,
-                    ..default()
-                },
-                children![(
+                Transform::from_xyz(x * multiplier * 25.6, y * multiplier * 25.6, 0.0),
+                AnchoredUiNodes::spawn_one((
+                    AnchorUiConfig {
+                        anchorpoint: AnchorPoint::middle(),
+                        offset: None,
+                        ..Default::default()
+                    },
                     Button,
-                    RobberButton,
                     Node {
-                        position_type: PositionType::Relative,
-                        width: Val::Px(25.0),
-                        height: Val::Px(25.0),
-                        left: Val::Px(x * 77.),
-                        bottom: Val::Px(y * 77.),
+                        width: Val::VMin(2.0),
+                        height: Val::VMin(2.0),
                         ..default()
                     },
                     p,
+                    RobberButton,
                     BorderRadius::MAX,
                     BackgroundColor(NORMAL_BUTTON),
-                )],
+                )),
             ));
         });
 
