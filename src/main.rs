@@ -38,7 +38,6 @@ fn setup(
     mut commands: Commands<'_, '_>,
     primary_window: Single<'_, '_, &Window, With<PrimaryWindow>>,
 ) {
-    println!("init{}-{}", primary_window.height(), primary_window.width());
     commands.spawn((
         Projection::Orthographic(OrthographicProjection {
             scale: (WINDOW_HEIGHT / primary_window.height())
@@ -53,7 +52,7 @@ fn setup(
 fn resize(
     mut events: MessageReader<'_, '_, WindowResized>,
     primary_window: Single<'_, '_, Entity, With<PrimaryWindow>>,
-    mut projection: Query<'_, '_, &mut Projection, With<MainCamera>>,
+    mut projection: Single<'_, '_, &mut Projection, With<MainCamera>>,
 ) {
     for WindowResized {
         window,
@@ -61,17 +60,9 @@ fn resize(
         height,
     } in events.read()
     {
-        println!(
-            "p{}-{} {} {:?}",
-            height,
-            width,
-            *primary_window == *window,
-            projection
-        );
         if *window == *primary_window
-            && let Ok(Projection::Orthographic(projection)) = projection.single_mut().as_deref_mut()
+            && let Projection::Orthographic(projection) = (&mut **projection)
         {
-            println!("{height}-{width}");
             projection.scale = (WINDOW_HEIGHT / height).max(WINDOW_WIDTH / width);
         }
     }
