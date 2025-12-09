@@ -18,13 +18,7 @@ mod robber;
 pub mod setup_game;
 mod towns;
 mod turn_ui;
-use bevy::{
-    ecs::system::SystemParam,
-    prelude::*,
-    window::{PrimaryWindow, WindowResized},
-};
-pub static WINDOW_HEIGHT: f32 = 1080.;
-pub static WINDOW_WIDTH: f32 = 1920.;
+use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_ggrs::{
     AddRollbackCommandExtension, GgrsSchedule, GgrsTime, LocalInputs, LocalPlayers, PlayerInputs,
     ReadInputs, RollbackApp, RollbackFrameRate, Session,
@@ -743,7 +737,6 @@ impl Plugin for GamePlugin {
                 Update,
                 handle_ggrs_events.run_if(in_state(AppState::InGame)),
             )
-            .add_systems(Update, resize)
             .insert_resource(BoardSize(3))
             .init_resource::<Robber>()
             .init_resource::<RobberDiscard>()
@@ -1425,24 +1418,6 @@ fn check_for_winner(
         && vps.actual + vps.from_development_cards >= 10
     {
         *current_inputs = Input::Win;
-    }
-}
-fn resize(
-    mut events: MessageReader<'_, '_, WindowResized>,
-    primary_window: Single<'_, '_, Entity, With<PrimaryWindow>>,
-    mut projection: Query<'_, '_, &mut Projection>,
-) {
-    for WindowResized {
-        window,
-        width,
-        height,
-    } in events.read()
-    {
-        if *window == *primary_window
-            && let Ok(Projection::Orthographic(projection)) = projection.single_mut().as_deref_mut()
-        {
-            projection.scale = (WINDOW_HEIGHT / height).max(WINDOW_WIDTH / width);
-        }
     }
 }
 
