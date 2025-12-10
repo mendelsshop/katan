@@ -104,7 +104,7 @@ pub fn setup_lobby(mut commands: Commands<'_, '_>) {
             Node {
                 display: Display::Grid,
                 margin: UiRect::all(Val::Auto),
-                border: UiRect::all(Val::Px(5.0)),
+                border: UiRect::all(Val::Px(1.0)),
                 row_gap: Val::Percent(1.),
                 justify_content: JustifyContent::SpaceAround,
                 padding: UiRect::all(Val::Percent(1.0)),
@@ -142,8 +142,8 @@ pub fn setup_lobby(mut commands: Commands<'_, '_>) {
                         (
                             Server,
                             Node {
-                                border: UiRect::all(Val::Px(5.0)),
-                                padding: UiRect::all(Val::Px(5.0)),
+                                border: UiRect::all(Val::Px(1.0)),
+                                padding: UiRect::all(Val::Percent(1.0)),
                                 ..default()
                             },
                             TextInputInactive(true),
@@ -184,8 +184,8 @@ pub fn setup_lobby(mut commands: Commands<'_, '_>) {
                         (
                             Room,
                             Node {
-                                border: UiRect::all(Val::Px(5.0)),
-                                padding: UiRect::all(Val::Px(5.0)),
+                                border: UiRect::all(Val::Px(1.0)),
+                                padding: UiRect::all(Val::Percent(1.0)),
                                 ..default()
                             },
                             TextInputInactive(true),
@@ -215,8 +215,8 @@ pub fn setup_lobby(mut commands: Commands<'_, '_>) {
                     ],
                     Node {
                         display: Display::Grid,
-                        padding: UiRect::all(Val::Px(15.0)),
-                        border: UiRect::all(Val::Px(5.0)),
+                        padding: UiRect::all(Val::Percent(2.0)),
+                        border: UiRect::all(Val::Px(1.0)),
                         justify_self: JustifySelf::Center,
                         justify_content: JustifyContent::End,
                         ..Default::default()
@@ -224,7 +224,7 @@ pub fn setup_lobby(mut commands: Commands<'_, '_>) {
                     BackgroundColor(NORMAL_BUTTON),
                     BorderColor::all(BORDER_COLOR_INACTIVE),
                     Button
-                )
+                ),
             ]
         )],
     ));
