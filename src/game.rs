@@ -171,6 +171,9 @@ fn new_game_interaction(
     }
 }
 
+#[derive(Resource)]
+struct Moves(Vec<(PlayerHandle, Input)>);
+
 #[derive(SystemParam)]
 pub struct UpdateState<'w, 's> {
     inputs: Res<'w, PlayerInputs<GgrsSessionConfig>>,
@@ -223,6 +226,7 @@ pub struct UpdateState<'w, 's> {
     robber: ResMut<'w, Robber>,
 
     robber_transform: Single<'w, 's, &'static mut Transform, With<RobberHighlighter>>,
+    moves: ResMut<'w, Moves>,
 }
 fn update_from_inputs(
     UpdateState {
@@ -248,6 +252,7 @@ fn update_from_inputs(
         board,
         mut robber_transform,
         towns,
+        mut moves,
     }: UpdateState<'_, '_>,
 ) {
     let count = inputs.iter().filter(|(i, _)| *i != Input::None).count();
@@ -259,6 +264,17 @@ fn update_from_inputs(
         );
     }
     let scale = 3.;
+
+    moves.0.extend(
+        inputs
+            .iter()
+            .enumerate()
+            .filter(|(_, (i, state))| {
+                matches!(i, Input::None) && state != &InputStatus::Predicted
+                    || state != &InputStatus::Disconnected
+            })
+            .map(|(i, (input, _))| (PlayerHandle(i), *input)),
+    );
     for (
         entity,
         player_handle,
@@ -713,6 +729,7 @@ impl Plugin for GamePlugin {
             ))
             .insert_resource(Input::None)
             .insert_resource(RollbackFrameRate(FPS))
+            .insert_resource(Moves(vec![]))
             .rollback_component_with_copy::<towns::Town>()
             .rollback_component_with_copy::<Left<towns::Town>>()
             .rollback_component_with_copy::<Left<cities::City>>()
@@ -1013,7 +1030,7 @@ pub enum GameState {
 }
 
 // for players input with ggrs
-#[derive(Component, PartialEq, Eq, Debug, Clone, Copy, Hash)]
+#[derive(Component, PartialEq, Eq, Debug, Clone, Copy, Hash, Deserialize, Serialize)]
 #[require(KatanComponent)]
 pub struct PlayerHandle(pub usize);
 #[derive(Component, PartialEq, Debug, Clone, Copy)]
