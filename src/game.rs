@@ -427,6 +427,12 @@ fn update_from_inputs(
             }
             Input::AddRoad(road_position, cost) => {
                 println!("new road");
+                // TODO: for current player do it in the road button, so that if this function
+                // (update_inputs) runs after the place (setup) town - so when place town runs all
+                // the road postions are avilalbe untill the  update_inputs runs, might need to do
+                // by towns for ports, development cards are fine b/c you cant use until next turn
+                // anyway - might need to do in other places but this is all that I can think of
+                // right now
                 bank.add_assign(cost);
                 player_resources.sub_assign(cost);
                 let road = commands
